@@ -1,11 +1,6 @@
 
-    // const bearerToken1 = localStorage.getItem('oidc.user:https://test-id.loomesoftware.com/:5918db6c-9715-44c4-b627-d0f1e2a3fa1c');
-    // // bearer is json take the element called access_token
-    // const bearerToken = JSON.parse(bearerToken1)?.access_token;
-
-    // if (bearerToken) {
-        window.loomeApi.runApiRequest(3)
-        .then(response => response.json())
+try{
+    window.loomeApi.runApiRequest(3)
         .then(data => {
             //render this as a table
   
@@ -38,9 +33,11 @@
         .catch(error => {
             console.error('Error fetching item:', error);
         });
-    // } else {
-    //     console.error('Bearer token not found in localStorage.');
-    //     const errorDiv = document.createElement('div');
-    //     errorDiv.textContent = 'Error: Bearer token not found.';
-    //     document.body.appendChild(errorDiv);
-    // }
+    } catch (error) {
+        console.error('Bearer token not found in localStorage.');
+        const errorDiv = document.createElement('div');
+        errorDiv.textContent = 'Error: Bearer token not found.';
+        document.body.appendChild(errorDiv);
+}
+
+ 
