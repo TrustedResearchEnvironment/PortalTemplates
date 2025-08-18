@@ -1,3 +1,4 @@
+<script>
     const bearerToken1 = localStorage.getItem('oidc.user:https://test-id.loomesoftware.com/:5918db6c-9715-44c4-b627-d0f1e2a3fa1c');
     // bearer is json take the element called access_token
     const bearerToken = JSON.parse(bearerToken1)?.access_token;
@@ -47,3 +48,4 @@
         errorDiv.textContent = 'Error: Bearer token not found.';
         document.body.appendChild(errorDiv);
     }
+</script>
