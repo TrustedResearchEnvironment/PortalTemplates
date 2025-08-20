@@ -1,0 +1,5 @@
+/* Remove column borders in a Bootstrap table */
+.no-column-border td, .no-column-border th {
+    border-right: none !important; /* Remove right borders */
+    border-left: none !important;  /* Remove left borders */
+}
