@@ -1,4 +1,4 @@
-<script type="text/javascript">
+
 (function() {
   // AssetEmbed - A simple asset customization library
   class AssetEmbed {
@@ -178,4 +178,4 @@
     window.assetEmbedInstance = embedder;
   });
 })();
-</script>
+
