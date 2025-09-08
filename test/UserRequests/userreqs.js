@@ -535,6 +535,9 @@ async function renderRequestsPage() {
             {"RequestID":456,"ProjectID":85,"Name":"Marketing Analysis","StatusID":2,"DataSetID":10,"Approvers":"approver@test.com","CurrentlyApproved":"approver@test.com;","CreateDate":"2025-09-05 10:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-05 10:05:00.000","ApprovedDate":"2025-09-05 10:05:00.000","FinalisedDate":null,"ScheduledRefresh":"Weekly","RequestMessage":null,"RejectedBy":null,"RejectedDate":null},
             {"RequestID":457,"ProjectID":85,"Name":"Budget Review","StatusID":4,"DataSetID":11,"Approvers":"approver@test.com","CurrentlyApproved":null,"CreateDate":"2025-09-06 11:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-06 11:05:00.000","ApprovedDate":null,"FinalisedDate":null,"ScheduledRefresh":"No Refresh","RequestMessage":"Insufficient data","RejectedBy":"admin@test.com","RejectedDate":"2025-09-06 11:05:00.000"}
         ];
+        
+        const rawrequestdata = window.loomeApi.runApiRequest(4,{});
+        console.log(rawrequestdata)
         const statusMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
         
         const allRequests = rawRequestData.map(item => ({
@@ -569,6 +572,7 @@ async function renderRequestsPage() {
         });
 
         // Add a click event listener to the container (event delegation)
+        const searchInput = document.getElementById('searchRequests');
         chipsContainer.addEventListener('click', (event) => {
             const clickedChip = event.target.closest('.chip');
             if (!clickedChip) return; // Exit if the click was not on a chip
@@ -580,15 +584,31 @@ async function renderRequestsPage() {
             // Get the status to filter by from the chip's data attribute
             const selectedStatus = clickedChip.dataset.status;
             
+            // Set Search Term value
+            const searchTerm = searchInput.value.toLowerCase();
+            console.log(searchTerm)
             // Filter the master data array
             const dataForTable = allRequests.filter(req => req.status === selectedStatus);
 
             // Get the correct config for the selected status
             const configForTable = configMap[selectedStatus];
+            
+            const filteredData = searchTerm ? 
+                dataForTable.filter(item => {
+                    // Use String() to safely handle potential null or undefined values
+                    const project = String(item.project || '').toLowerCase();
+                    const name = String(item.name || '').toLowerCase();
+                    const dataset = String(item.dataSet || '').toLowerCase();
+                    
+                    return project.includes(searchTerm) ||
+                           name.includes(searchTerm) ||
+                           dataset.includes(searchTerm);
+                }) : 
+                dataForTable; // If no search term, just use the status-filtered data
 
 
             // Re-render the single table with the filtered data
-            renderTable("requests-table-area", dataForTable, configForTable);
+            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
         });
 
         // --- 4. Initial Render ---
@@ -596,30 +616,74 @@ async function renderRequestsPage() {
         // This is a clean way to avoid duplicating rendering logic.
         document.querySelector('.chip[data-status="Pending Approval"]').click();
         
-        // --- 5. Search Function ---
-        const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('input', () => {
+            // Get the currently active chip
+            const activeChip = document.querySelector('.chip.active');
+            if (!activeChip) return; // Safety check
+            
+            // Get the status from the active chip
+            const selectedStatus = activeChip.dataset.status;
+            
+            // Get the search term
             const searchTerm = searchInput.value.toLowerCase();
-            const activeTabId = document.querySelector('.tab-pane.active').id;
-            const config = tabConfig[activeTabId];
-            const originalDataForTab = allRequests.filter(req => req.status === config.status);
-         
-            const filteredData = originalDataForTab.filter(item => {
-                // Use String() to safely handle potential null or undefined values
-                const project = String(item.project || '').toLowerCase();
-                const name = String(item.name || '').toLowerCase();
-                const dataset = String(item.dataSet || '').toLowerCase();
-        
-                return project.includes(searchTerm) || 
-                      name.includes(searchTerm) || 
-                      dataset.includes(searchTerm);
-            });
-            renderTable(activeTabId, filteredData, config);
+            
+            // Filter the master data array
+            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
+            
+            // Get the correct config for the selected status
+            const configForTable = configMap[selectedStatus];
+            
+            const filteredData = searchTerm ?
+                dataForTable.filter(item => {
+                    // Use String() to safely handle potential null or undefined values
+                    const project = String(item.project || '').toLowerCase();
+                    const name = String(item.name || '').toLowerCase();
+                    const dataset = String(item.dataSet || '').toLowerCase();
+                    return project.includes(searchTerm) ||
+                           name.includes(searchTerm) ||
+                           dataset.includes(searchTerm);
+                }) :
+                dataForTable; // If no search term, just use the status-filtered data
+            
+            // Re-render the single table with the filtered data
+            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
         });
+        
+        // --- 5. Search Function ---
+        // const searchInput = document.getElementById('searchRequests');
+        // searchInput.addEventListener('input', () => {
+        //     const searchTerm = searchInput.value.toLowerCase();
+            
+        //     const clickedChip = event.target.closest('.chip');
+        //     if (!clickedChip) return; // Exit if the click was not on a chip
+
+        //     // Update the active state UI
+        //     chips.forEach(chip => chip.classList.remove('active'));
+        //     clickedChip.classList.add('active');
+
+        //     // Get the status to filter by from the chip's data attribute
+        //     const selectedStatus = clickedChip.dataset.status;
+        //     const config = configMap[clickedChip.dataset.status];
+            
+        //     const dataForTable = allRequests.filter(req => req.status === selectedStatus);
+         
+        //     const filteredData = dataForTable.filter(item => {
+        //         // Use String() to safely handle potential null or undefined values
+        //         const project = String(item.project || '').toLowerCase();
+        //         const name = String(item.name || '').toLowerCase();
+        //         const dataset = String(item.dataSet || '').toLowerCase();
+        
+        //         return project.includes(searchTerm) || 
+        //               name.includes(searchTerm) || 
+        //               dataset.includes(searchTerm);
+        //     });
+            
+        //     renderTable(TABLE_CONTAINER_ID, filteredData, config);
+        // });
 
     } catch (error) {
         console.error("Error setting up the page:", error);
-        document.getElementById("requests-table-area").innerHTML = `<p class="text-danger">An error occurred.</p>`;
+        document.getElementById(TABLE_CONTAINER_ID).innerHTML = `<p class="text-danger">An error occurred.</p>`;
     }
 }
 
