@@ -1,122 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Display Data</title>
-    <!-- Add some basic styles or optionally use Bootstrap -->
-    <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        th {
-            background-color: #f4f4f4;
-            text-align: left;
-        }
-    </style>
-</head>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<body>
-    <h2>Requests waiting your Approval</h2>
-    <!-- This is where the data will be displayed -->
-    <div id="table-for-approval">
-        <!-- The JavaScript will add a table here -->
-    </div>
-    
-    <h2>Requests you have Approved</h2>
-    <!-- This is where the data will be displayed -->
-    <div id="table-approved">
-        <!-- The JavaScript will add a table here -->
-    </div>
-    
-    <h2>Requests you have Rejected</h2>
-    <!-- This is where the data will be displayed -->
-    <div id="table-rejected">
-        <!-- The JavaScript will add a table here -->
-    </div>
-    
-    <h2>Your Requests</h2>
-    <!-- This is where the data will be displayed -->
-    <div id="table-user-requests">
-        <!-- The JavaScript will add a table here -->
-    </div>
-    
-    <!-- Bootstrap Modal Template -->
-    <div class="modal fade" id="viewRequestModal" tabindex="-1" aria-labelledby="viewRequestModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="viewRequestModalLabel">Request Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="viewRequestModalBody">
-                    <!-- Dynamic content will be inserted here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>My Webcrumbs Plugin</title>
+        <!-- Your head content... -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <body>
+        <div id="webcrumbs">
+            <div class="bg-gray-50 min-h-screen p-6">
+                <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-md flex flex-col h-[90vh] overflow-hidden">
+                    <!-- 1. FIXED HEADER: This part will NOT scroll -->
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                            <div>
+                                <h1 id="userRequests" class="text-2xl font-bold">Review Requests</h1>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <!-- 2. SCROLLABLE WRAPPER: Added p-6 for padding -->
+                    <div class="flex-grow overflow-y-auto p-6">
+            
+                        <!-- Search Input -->
+                        <!--<div class="mb-3">-->
+                        <!--    <input type="text" id="searchInput" class="form-control" style="max-width: 400px;" placeholder="Filter requests in the current tab...">-->
+                        <!--</div>-->
+                
+                        <!-- Bootstrap Tabs Navigation -->
+                        <!--<ul class="nav nav-tabs" id="requestTabs" role="tablist">-->
+                        <!--    <li class="nav-item" role="presentation">-->
+                        <!--        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab" aria-controls="pending" aria-selected="true">Pending Approval</button>-->
+                        <!--    </li>-->
+                        <!--    <li class="nav-item" role="presentation">-->
+                        <!--        <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">Approved</button>-->
+                        <!--    </li>-->
+                        <!--    <li class="nav-item" role="presentation">-->
+                        <!--        <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab" aria-controls="rejected" aria-selected="false">Rejected</button>-->
+                        <!--    </li>-->
+                        <!--    <li class="nav-item" role="presentation">-->
+                        <!--        <button class="nav-link" id="finalised-tab" data-bs-toggle="tab" data-bs-target="#finalised" type="button" role="tab" aria-controls="finalised" aria-selected="false">Finalised</button>-->
+                        <!--    </li>-->
+                        <!--</ul>-->
+                        
+                        
+                        <!-- Tab Content Panes -->
+                        <!--<div class="tab-content pt-3" id="requestTabsContent">-->
+                        <!--    <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="finalised" role="tabpanel" aria-labelledby="finalised-tab"></div>-->
+                        <!--</div>-->
+                        
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                                <!-- Bootstrap Tabs Navigation -->
+                                <!--<ul class="nav nav-tabs" id="requestTabs" role="tablist">-->
+                                <!--    <li class="nav-item" role="presentation">-->
+                                <!--        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab" aria-controls="pending" aria-selected="true">Pending Approval</button>-->
+                                <!--    </li>-->
+                                <!--    <li class="nav-item" role="presentation">-->
+                                <!--        <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">Approved</button>-->
+                                <!--    </li>-->
+                                <!--    <li class="nav-item" role="presentation">-->
+                                <!--        <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab" aria-controls="rejected" aria-selected="false">Rejected</button>-->
+                                <!--    </li>-->
+                                <!--    <li class="nav-item" role="presentation">-->
+                                <!--        <button class="nav-link" id="finalised-tab" data-bs-toggle="tab" data-bs-target="#finalised" type="button" role="tab" aria-controls="finalised" aria-selected="false">Finalised</button>-->
+                                <!--    </li>-->
+                                <!--</ul>-->
+                                
+                                <div id="status-chips-container" class="chip-container mb-4">
+                                    <!-- Using a data-status attribute is the key to linking the chip to the data -->
+                                    <button class="chip active" data-status="Pending Approval">
+                                        Pending Approval
+                                        <span id="count-pending" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Approved">
+                                        Approved
+                                        <span id="count-approved" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Rejected">
+                                        Rejected
+                                        <span id="count-rejected" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Finalised">
+                                        Finalised
+                                        <span id="count-finalised" class="chip-count"></span>
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center mt-3 md:mt-0 gap-2">
+                                    <div class="relative">
+                                        <input id="searchRequests" type="text" placeholder="Search data..." class="px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                                        <span class="material-symbols-outlined absolute right-3 top-2.5 text-gray-400">search</span>
+                                    </div>
+                                </div>
+                        </div>
+                        
+                        <!-- Tab Content Panes -->
+                        <!--<div class="tab-content pt-3" id="requestTabsContent">-->
+                        <!--    <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab"></div>-->
+                        <!--    <div class="tab-pane fade" id="finalised" role="tabpanel" aria-labelledby="finalised-tab"></div>-->
+                        <!--</div>-->
+                        
+                        <div id="requests-table-area">
+                            <!-- The JavaScript will generate the table inside this div -->
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <div class="flex justify-between items-center mt-4 px-2">
+                            <!-- pagination content can go here -->
+                        </div>
+                
+                    </div> <!-- End of the scrollable wrapper -->
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Bootstrap Modal for View Dataset -->
-    <div class="modal fade" id="viewDatasetModal" tabindex="-1" aria-labelledby="viewDatasetModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg"> <!-- Optional: Use 'modal-lg' for larger width -->
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="viewDatasetModalLabel">Data Set Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="viewDatasetModalBody">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        
+        <!-- Modal Templates -->    
+        
+        <!-- Bootstrap Modal Template -->
+        <div class="modal fade" id="viewRequestModal" tabindex="-1" aria-labelledby="viewRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewRequestModalLabel">Request Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     
-    <!-- Approve Request Modal -->
-    <div class="modal fade" id="approveRequestModal" tabindex="-1" aria-labelledby="approveRequestModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="approveRequestModalLabel">Approve Request</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="approveRequestModalBody">
-                    <!-- Dynamic content will be inserted here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <!-- Bootstrap Modal for View Dataset -->
+        <div class="modal fade" id="viewDatasetModal" tabindex="-1" aria-labelledby="viewDatasetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg"> <!-- Optional: Use 'modal-lg' for larger width -->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewDatasetModalLabel">Data Set Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewDatasetModalBody">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+        
+        <!-- Bootstrap Modal Template -->
+        <div class="modal fade" id="viewRequestModal" tabindex="-1" aria-labelledby="viewRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewRequestModalLabel">Request Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     
-    <!-- Reject Request Modal -->
-    <div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-labelledby="rejectRequestModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="rejectRequestModalLabel">Reject Request</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="rejectRequestModalBody">
-                    <!-- Dynamic content will be inserted here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <!-- Bootstrap Modal for View Dataset -->
+        <div class="modal fade" id="viewDatasetModal" tabindex="-1" aria-labelledby="viewDatasetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg"> <!-- Optional: Use 'modal-lg' for larger width -->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewDatasetModalLabel">Data Set Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewDatasetModalBody">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-</body>
+        
+        <!-- Approve Request Modal -->
+        <div class="modal fade" id="approveRequestModal" tabindex="-1" aria-labelledby="approveRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="approveRequestModalLabel">Approve Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="approveRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reject Request Modal -->
+        <div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-labelledby="rejectRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectRequestModalLabel">Reject Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="rejectRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
 </html>
