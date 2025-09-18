@@ -1,5 +1,88 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 5
+// --- STATE MANAGEMENT ---
+// These variables need to be accessible by multiple functions.
+let currentPage = 1;
+let rowsPerPage = 5; // Default, will be updated by API response
+let tableConfig = {}; // Will hold your headers configuration
+const searchInput = document.getElementById('searchRequests');
+
+/**
+ * Fetches ALL DataSourceTypes from the paginated API.
+ * This is a self-contained function that returns the results.
+ * @param {number} [pageSize=100] - The number of items per page.
+ * @returns {Promise<Array>} A promise that resolves to an array of all data source types.
+ */
+async function getAllDataSourceTypes(pageSize = 100) {
+    const DATASOURCETYPE_API_ID = 13;
+    let allResults = []; // Use a local variable to store results
+
+    try {
+        // --- 1. Initial request ---
+        const initialParams = { "page": 1, "pageSize": pageSize, "search": '' };
+        const initialResponse = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, initialParams);
+        const parsedInitial = safeParseJson(initialResponse);
+
+        if (!parsedInitial || parsedInitial.RowCount === 0) {
+            console.log("No data source types found.");
+            return []; // Return an empty array if there's no data
+        }
+
+        allResults = parsedInitial.Results;
+        const totalPages = parsedInitial.PageCount;
+
+        // If only one page, we're done
+        if (totalPages <= 1) {
+            return allResults;
+        }
+
+        // --- 2. Loop for remaining pages ---
+        for (let page = 2; page <= totalPages; page++) {
+            console.log(`Fetching page ${page} of ${totalPages}...`);
+            const params = { "page": page, "pageSize": pageSize, "search": '' };
+            // FIXED BUG: Use the correct API ID in the loop
+            const response = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, params);
+            const parsed = safeParseJson(response);
+            if (parsed && parsed.Results) {
+                allResults = allResults.concat(parsed.Results);
+            }
+        }
+        
+        console.log(`Successfully fetched a total of ${allResults.length} data source types.`);
+        return allResults;
+
+    } catch (error) {
+        console.error("An error occurred while fetching data source types:", error);
+        return []; // Return empty array on failure
+    }
+}
+
+/**
+ * Fetches all data source types and creates a lookup map.
+ * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
+ *          key is the DataSourceTypeIID and the value is the Name.
+ */
+async function createDataSourceTypeMap() {
+    // 1. Await the results from your fetching function
+    const allTypesArray = await getAllDataSourceTypes();
+
+    if (!allTypesArray || allTypesArray.length === 0) {
+        return new Map(); // Return an empty map if no data
+    }
+
+    // 2. Use reduce() to transform the array into a Map
+    const typeMap = allTypesArray.reduce((map, item) => {
+        // For each item in the array, add an entry to our map
+        // The key is item.DataSourceTypeIID, the value is item.Name
+        if (item.DataSourceTypeID && item.Name) {
+            map.set(item.DataSourceTypeID, item.Name);
+        }
+        return map; // Return the map for the next iteration
+    }, new Map()); // The 'new Map()' is the initial value for our accumulator
+
+    return typeMap;
+}
 
 /**
  * Renders pagination controls.
@@ -48,37 +131,273 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
 }
 
 /**
- * Renders a generic data table based on a configuration object.
+ * Fetches data from the API for a specific page and search term, then updates the UI.
+ * This is the central function for all data updates.
+ * @param {number} page The page number to fetch.
+ * @param {string} searchTerm The search term to filter by.
+ */
+async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
+    try {
+        // --- 1. Call the API with pagination parameters ---
+        // NOTE: Your loomeApi.runApiRequest must support passing parameters.
+        // This is a hypothetical structure. Adjust it to how your API expects them.
+        const apiParams = {
+            "page": page,
+            "pageSize": rowsPerPage,
+            "search": searchTerm
+        };
+        console.log(apiParams)
+        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
+        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+
+        
+        const parsedResponse = safeParseJson(response);
+        console.log(parsedResponse)
+
+        // --- 2. Extract Data and Update State ---
+        const dataForPage = parsedResponse.Results;
+        const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
+        currentPage = parsedResponse.CurrentPage;
+        rowsPerPage = parsedResponse.PageSize;
+        
+        // --- 3. Filter using searchTerm ---
+        const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
+        const filteredData = lowerCaseSearchTerm
+            ? dataForPage.filter(item => 
+                Object.values(item).some(value =>
+                    String(value).toLowerCase().includes(lowerCaseSearchTerm)
+                )
+            )
+        : dataForPage;
+
+        // --- 4. Render the UI Components ---
+        // Render the table with only the data for the current page
+        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
+            renderAccordionContent: renderAccordionDetails 
+        });
+
+        // Render pagination using the TOTAL item count from the API
+        renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+
+        // Update the total count display
+        const dataSourceCount = document.getElementById('dataSourceCount');
+        if(dataSourceCount) {
+            dataSourceCount.textContent = totalItems;
+        }
+
+    } catch (error) {
+        console.error("Failed to fetch or render page:", error);
+        const container = document.getElementById(TABLE_CONTAINER_ID);
+        container.innerHTML = `<div class="p-4 text-red-600">Error loading data: ${error.message}</div>`;
+    }
+}
+
+// /**
+//  * Renders a generic data table based on a configuration object.
+//  * @param {string} containerId - The ID of the element to render the table into.
+//  * @param {Array} headers - The array of header configuration objects.
+//  * @param {Array} data - The array of data objects to display.
+// //  */
+// function renderTable(containerId, headers, data) {
+//     const container = document.getElementById(containerId);
+//     if (!container) {
+//         console.error(`Container with ID "${containerId}" not found.`);
+//         return;
+//     }
+//     container.innerHTML = ''; // Clear previous content
+
+//     const table = document.createElement('table');
+//     //table.className = 'min-w-full divide-y divide-gray-200';
+//     table.className = 'w-full divide-y divide-gray-200 table-fixed';
+    
+//     // --- 1. Build The Head ---
+//     const thead = document.createElement('thead');
+//     thead.className = 'bg-gray-50';
+//     const headerRow = document.createElement('tr');
+//     headers.forEach(headerConfig => {
+//         const th = document.createElement('th');
+//         th.scope = 'col';
+        
+//         // Start with base classes
+//         let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        
+//         // If a widthClass is defined in the config, add it.
+//         if (headerConfig.widthClass) {
+//             thClasses += ` ${headerConfig.widthClass}`;
+//         }
+//         th.className = thClasses;
+//         th.textContent = headerConfig.label;
+//         headerRow.appendChild(th);
+//     });
+//     thead.appendChild(headerRow);
+//     table.appendChild(thead);
+
+//     // --- 2. Build The Body ---
+//     const tbody = document.createElement('tbody');
+//     tbody.className = 'bg-white divide-y divide-gray-200';
+
+//     if (data.length === 0) {
+//         const colSpan = headers.length || 1;
+//         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
+//     } else {
+//         data.forEach(item => {
+//             const row = document.createElement('tr');
+//             headers.forEach(headerConfig => {
+//                 const td = document.createElement('td');
+                
+//                 // Start with the base classes for every cell.
+//                 let tdClasses = 'px-6 py-4 text-sm text-gray-800';
+
+//                 // Now, add the specific class from your config.
+//                 if (headerConfig.className) {
+//                     tdClasses += ` ${headerConfig.className}`;
+//                 } else {
+//                     // If no class is specified, default to break-words to prevent overflow.
+//                     // This is a safe fallback.
+//                     tdClasses += ' break-words';
+//                 }
+//                 td.className = tdClasses;
+                
+//                 let cellContent;
+
+//                 // If a custom render function exists, use it.
+//                 if (headerConfig.render) {
+//                     // For 'actions', we pass the whole item. Otherwise, pass the specific value.
+//                     const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
+//                     cellContent = headerConfig.render(value);
+//                 } else {
+//                     // Otherwise, just get the data using the key.
+//                     const value = item[headerConfig.key];
+//                     cellContent = value ?? 'N/A'; // Use 'N/A' for null or undefined values
+//                 }
+
+//                 // If content is HTML, set innerHTML. Otherwise, textContent is safer.
+//                 if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
+//                     td.innerHTML = cellContent;
+//                 } else {
+//                     td.textContent = cellContent;
+//                 }
+                
+//                 row.appendChild(td);
+//             });
+//             tbody.appendChild(row);
+//         });
+//     }
+
+//     table.appendChild(tbody);
+//     container.appendChild(table);
+// }
+
+// --- 3. Define the Accordion Content Renderer ---
+const renderAccordionDetails = (item) => {
+    // Helper to check for "true" as a boolean or string
+    const isActive = item.active === true || item.active === 'True';
+    
+    return `
+    <div class="accordion-body bg-slate-50 p-6" data-id="${item.id}">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
+            <!-- LEFT COLUMN: Combined View/Edit Details -->
+            <div>
+                <table class="w-full text-sm">
+                    <tbody>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Id</td><td class="py-2 text-gray-900">${item.id}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
+                            <!-- View State -->
+                            <span class="view-state">${item.name}</span>
+                            <!-- Edit State -->
+                            <input type="text" value="${item.name}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Description</td><td class="py-2 text-gray-900">
+                            <span class="view-state">${item.description}</span>
+                            <textarea class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.description}</textarea>
+                        </td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
+                            <span class="view-state">${isActive ? 'Yes' : 'No'}</span>
+                            <div class="edit-state hidden flex items-center">
+                                <input type="checkbox" ${isActive ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-indigo-600">
+                                <label class="ml-2 block text-sm text-gray-900">Is Active</label>
+                            </div>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- RIGHT COLUMN: Static Details & Data Source -->
+            <div>
+                <table class="w-full text-sm mb-4">
+                    <tbody>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Type</td><td class="py-2 text-gray-900">${item.type}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Modified</td><td class="py-2 text-gray-900">${item.dateModified}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${item.dateRefreshed}</td></tr>
+                    </tbody>
+                </table>
+                <h4 class="text-sm font-semibold text-gray-600 mt-6 mb-2">Data Source Fields</h4>
+                <table class="w-full text-sm bg-white rounded shadow-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="p-2 text-left font-medium text-gray-500 w-1/3">Name</th>
+                            <th class="p-2 text-left font-medium text-gray-500">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                         <!-- Loop through data source fields if there were multiple -->
+                        <tr>
+                            <td class="p-2 border-t">UNC Path</td>
+                            <td class="p-2 border-t">
+                                <span class="view-state">${item.dataSourceValue}</span>
+                                <input type="text" value="${item.dataSourceValue}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- ACTION BUTTONS at the bottom -->
+        <div class="mt-6 text-right">
+            <!-- View State -->
+            <div class="view-state">
+                <button class="btn-edit inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Edit</button>
+            </div>
+            <!-- Edit State -->
+            <div class="edit-state hidden space-x-2">
+                <button class="btn-cancel inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancel</button>
+                <button class="btn-save inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    `;
+};
+
+/**
+ * Renders a generic data table based on a configuration object, with optional accordion rows.
  * @param {string} containerId - The ID of the element to render the table into.
  * @param {Array} headers - The array of header configuration objects.
  * @param {Array} data - The array of data objects to display.
-//  */
-function renderTable(containerId, headers, data) {
+ * @param {object} [config={}] - Optional configuration for advanced features.
+ * @param {function(object): string} [config.renderAccordionContent] - A function that takes a data item and returns the HTML content for the accordion.
+ */
+function renderTable(containerId, headers, data, config = {}) {
     const container = document.getElementById(containerId);
     if (!container) {
         console.error(`Container with ID "${containerId}" not found.`);
         return;
     }
-    container.innerHTML = ''; // Clear previous content
+    container.innerHTML = '';
 
     const table = document.createElement('table');
-    //table.className = 'min-w-full divide-y divide-gray-200';
-    table.className = 'w-full divide-y divide-gray-200 table-fixed';
-    
-    // --- 1. Build The Head ---
+    table.className = 'w-full divide-y divide-gray-200';
+
+    // ... (The thead building logic is the same as before) ...
     const thead = document.createElement('thead');
     thead.className = 'bg-gray-50';
     const headerRow = document.createElement('tr');
     headers.forEach(headerConfig => {
         const th = document.createElement('th');
         th.scope = 'col';
-        
-        // Start with base classes
-        let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
-        
-        // If a widthClass is defined in the config, add it.
+        let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ';
         if (headerConfig.widthClass) {
-            thClasses += ` ${headerConfig.widthClass}`;
+            thClasses += headerConfig.widthClass;
         }
         th.className = thClasses;
         th.textContent = headerConfig.label;
@@ -87,7 +406,7 @@ function renderTable(containerId, headers, data) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // --- 2. Build The Body ---
+
     const tbody = document.createElement('tbody');
     tbody.className = 'bg-white divide-y divide-gray-200';
 
@@ -95,54 +414,120 @@ function renderTable(containerId, headers, data) {
         const colSpan = headers.length || 1;
         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
     } else {
-        data.forEach(item => {
-            const row = document.createElement('tr');
-            headers.forEach(headerConfig => {
-                const td = document.createElement('td');
-                
-                // Start with the base classes for every cell.
-                let tdClasses = 'px-6 py-4 text-sm text-gray-800';
+        data.forEach((item, index) => {
+            const isAccordion = typeof config.renderAccordionContent === 'function';
+            const triggerRow = document.createElement('tr');
+            if (isAccordion) {
+                triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
+                const accordionId = `accordion-content-${item.id || index}`;
+                triggerRow.dataset.target = `#${accordionId}`;
+            }
 
-                // Now, add the specific class from your config.
+            // ... (The main row building logic is the same as before) ...
+             headers.forEach(headerConfig => {
+                const td = document.createElement('td');
+                let tdClasses = 'px-6 py-4 text-sm text-gray-800 ';
                 if (headerConfig.className) {
-                    tdClasses += ` ${headerConfig.className}`;
+                    tdClasses += headerConfig.className;
                 } else {
-                    // If no class is specified, default to break-words to prevent overflow.
-                    // This is a safe fallback.
-                    tdClasses += ' break-words';
+                    tdClasses += 'whitespace-nowrap';
                 }
                 td.className = tdClasses;
-                
                 let cellContent;
-
-                // If a custom render function exists, use it.
                 if (headerConfig.render) {
-                    // For 'actions', we pass the whole item. Otherwise, pass the specific value.
                     const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
                     cellContent = headerConfig.render(value);
                 } else {
-                    // Otherwise, just get the data using the key.
                     const value = item[headerConfig.key];
-                    cellContent = value ?? 'N/A'; // Use 'N/A' for null or undefined values
+                    cellContent = value ?? 'N/A';
                 }
-
-                // If content is HTML, set innerHTML. Otherwise, textContent is safer.
                 if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
                     td.innerHTML = cellContent;
                 } else {
                     td.textContent = cellContent;
                 }
-                
-                row.appendChild(td);
+                triggerRow.appendChild(td);
             });
-            tbody.appendChild(row);
+
+
+            tbody.appendChild(triggerRow);
+
+            if (isAccordion) {
+                const contentRow = document.createElement('tr');
+                const accordionId = `accordion-content-${item.id || index}`;
+                contentRow.id = accordionId;
+                contentRow.className = 'accordion-content hidden';
+
+                const contentCell = document.createElement('td');
+                contentCell.colSpan = headers.length;
+                contentCell.innerHTML = config.renderAccordionContent(item);
+                
+                contentRow.appendChild(contentCell);
+                tbody.appendChild(contentRow);
+            }
         });
     }
-
     table.appendChild(tbody);
     container.appendChild(table);
-}
 
+    // --- ENHANCED Event Listener ---
+    if (config.renderAccordionContent) {
+        tbody.addEventListener('click', function(event) {
+            const trigger = event.target.closest('.accordion-trigger');
+            const accordionBody = event.target.closest('.accordion-body');
+            
+            // --- Logic for Opening/Closing the Accordion ---
+            if (trigger && !accordionBody) { // Make sure click is not inside an already open accordion
+                event.preventDefault();
+                const targetId = trigger.dataset.target;
+                const contentRow = document.querySelector(targetId);
+                if (contentRow) {
+                    contentRow.classList.toggle('hidden');
+                    trigger.classList.toggle('expanded');
+                    const chevron = trigger.querySelector('.chevron-icon');
+                    if (chevron) chevron.classList.toggle('rotate-180');
+                }
+                return;
+            }
+
+            // --- Logic for Buttons INSIDE the Accordion ---
+            const editButton = event.target.closest('.btn-edit');
+            const saveButton = event.target.closest('.btn-save');
+            const cancelButton = event.target.closest('.btn-cancel');
+
+            if (!editButton && !saveButton && !cancelButton) return;
+
+            event.stopPropagation(); // VERY IMPORTANT: Prevents the accordion from closing
+
+            const parentAccordion = event.target.closest('.accordion-body');
+            
+            // Function to toggle states
+            const toggleEditState = (isEditing) => {
+                const viewElements = parentAccordion.querySelectorAll('.view-state');
+                const editElements = parentAccordion.querySelectorAll('.edit-state');
+                
+                viewElements.forEach(el => el.classList.toggle('hidden', isEditing));
+                editElements.forEach(el => el.classList.toggle('hidden', !isEditing));
+            };
+
+            if (editButton) {
+                toggleEditState(true);
+            }
+
+            if (saveButton) {
+                // In a real app, you would get form data and send an AJAX request here.
+                alert('Save logic for ' + parentAccordion.dataset.id + ' would run here.');
+                // On success, switch back to view mode.
+                toggleEditState(false);
+            }
+
+            if (cancelButton) {
+                // Just switch back to view mode, optionally resetting form fields.
+                toggleEditState(false);
+            }
+        });
+    }
+}
 function formatDate(inputDate) {
     // Log what the function receives
     console.log(`formatDate received:`, inputDate, `(type: ${typeof inputDate})`);
@@ -192,7 +577,9 @@ function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, s
 
     // --- 4. RENDER TABLE AND PAGINATION ---
     // Render the table with ONLY the data for the current page
-    renderTable(tableContainerId, config.headers, paginatedData);
+    renderTable(tableContainerId, config.headers, paginatedData, {
+        renderAccordionContent: renderAccordionDetails 
+    });
     
     renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
 }
@@ -206,187 +593,60 @@ function safeParseJson(response) {
     return typeof response === 'string' ? JSON.parse(response) : response;
 }
 
+
 async function renderPlatformAdminDataSourcePage() {
-    
-    try {
-        const dataSource = [
-          {
-            "DataSourceID": 1,
-            "Name": "BIS Data (pilot test)",
-            "Description": "Set of Data from the Barwon Infant Study, including UN numbers, to test the platform in the Pilot phase.",
-            "DataSourceTypeID": 2,
-            "IsActive": 1,
-            "ModifiedDate": "2022-05-11 00:14:27.760",
-            "isRefreshed": 1,
-            "RefreshedDate": "2022-05-11 00:08:37.653"
-          },
-          {
-            "DataSourceID": 9,
-            "Name": "Archived projects",
-            "Description": "test on-board archived projects as folder source type",
-            "DataSourceTypeID": 3,
-            "IsActive": 1,
-            "ModifiedDate": "2022-08-24 11:25:19.137",
-            "isRefreshed": 1,
-            "RefreshedDate": "2024-12-04 00:17:45.373"
-          },
-          {
-            "DataSourceID": 4,
-            "Name": "Barwon Health DB Source View 1",
-            "Description": "Data base created for SHeBa that includes the views of the BH Data Warehouse approved for this purpose.",
-            "DataSourceTypeID": 1,
-            "IsActive": 1,
-            "ModifiedDate": "2022-05-24 08:01:22.020",
-            "isRefreshed": 1,
-            "RefreshedDate": "2025-08-11 02:33:25.923"
-          },
-          {
-            "DataSourceID": 11,
-            "Name": "Barwon Health REDCap",
-            "Description": "Connection to Barwon Health REDCap, and therefore Data source for all the projects within Barwon Health REDCap",
-            "DataSourceTypeID": 2,
-            "IsActive": 1,
-            "ModifiedDate": "2022-10-24 05:55:39.457",
-            "isRefreshed": 1,
-            "RefreshedDate": "2022-10-10 04:17:19.927"
-          },
-          {
-            "DataSourceID": 27,
-            "Name": "Mock Folder Data Source",
-            "Description": null,
-            "DataSourceTypeID": 3,
-            "IsActive": 1,
-            "ModifiedDate": "2025-08-28 13:10:42.700",
-            "isRefreshed": 1,
-            "RefreshedDate": "2025-08-28 13:11:25.590"
-          },
-          {
-            "DataSourceID": 5,
-            "Name": "Test folder source",
-            "Description": "Test folder source",
-            "DataSourceTypeID": 3,
-            "IsActive": 1,
-            "ModifiedDate": "2022-05-30 02:09:10.673",
-            "isRefreshed": 1,
-            "RefreshedDate": "2024-12-04 00:17:45.373"
-          },
-          {
-            "DataSourceID": 7,
-            "Name": "Mangosteen pericarp for bipolar depression",
-            "Description": "16 week RCT placebo vs 1000mg/day mangosteen pericarp treatment of bipolar depression (data custodian note: in BH REDCap)",
-            "DataSourceTypeID": 2,
-            "IsActive": 1,
-            "ModifiedDate": "2022-07-26 06:12:36.700",
-            "isRefreshed": 1,
-            "RefreshedDate": "2022-07-26 06:12:36.700"
-          },
-          {
-            "DataSourceID": 8,
-            "Name": "testDeidentifiedREDCap",
-            "Description": "verify that export with token from user with de-identified only rights is de-identified",
-            "DataSourceTypeID": 2,
-            "IsActive": 1,
-            "ModifiedDate": "2022-07-26 10:31:37.290",
-            "isRefreshed": 1,
-            "RefreshedDate": "2022-07-26 10:31:37.290"
-          },
-          {
-            "DataSourceID": 25,
-            "Name": "Source Mock SQL Data for Testing",
-            "Description": null,
-            "DataSourceTypeID": 1,
-            "IsActive": 1,
-            "ModifiedDate": "2025-08-06 17:40:50.003",
-            "isRefreshed": 1,
-            "RefreshedDate": "2025-08-06 17:41:32.507"
-          }
-        ]
-        
-        // const response = await window.loomeApi.runApiRequest(10);
-        // const parsedResponse = safeParseJson(response);
-        // const dataSet = parsedResponse.Results;
-        let currentPage = 1; //parsedResponse.CurrentPage;
-        const rowsPerPage = 5;//parsedResponse.PageSize; 
-        // console.log(dataSet)
-        
-        
-        
-        // Place this inside renderPlatformAdminPage, replacing your old 'headers' object.
-        const tableConfig = {
+    // --- 1. Define the table configuration ---
+    // (Moved outside the try block so it's accessible to fetchAndRenderPage)
+    const dataSourceTypeMap = await createDataSourceTypeMap();
+    console.log(dataSourceTypeMap.get(2))
+    const tableConfig = {
                 headers: [
+                    { label: "Type", key: "DataSourceTypeID", className: "break-words", widthClass: "w-1/12", 
+                        render: (value) => dataSourceTypeMap.get(value)
+                        
+                    },
                     { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-4/12" },
-                    { label: "Type ID", key: "DataSourceTypeID", widthClass: "w-1/12 text-center" },
+                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
                     { label: "Refreshed Date", key: "RefreshedDate", render: (value) => formatDate(value) },
                     {
                         label: "Active",
                         key: "IsActive",
                         render: (value) => value === 1 ? 'Yes' : 'No'
                     },
-                    {
-                        label: "Actions",
-                        key: "actions",
-                        render: (item) => `<button data-id="${item.DataSourceID}" class="text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>`
+                    { key: 'Details', label: '', widthClass: 'w-12', 
+                      render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
                     }
+                    
+                    
                 ]
             };
         
-        const data = dataSource
-        
-        const rowCounts = dataSource.length
-        
-        const dataSourceCount = document.getElementById('dataSourceCount')
-        dataSourceCount.textContent = rowCounts
-        const searchInput = document.getElementById('searchRequests');
-        
-        // --- SEARCH EVENT LISTENER ---
-        searchInput.addEventListener('input', () => {
-            console.log('Typing event detected!');
-            currentPage = 1;
-            const searchTerm = searchInput.value;
 
-            updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, searchTerm);
-        });
-        
-        // --- NEW PAGINATION EVENT LISTENER (EVENT DELEGATION) ---
-        const paginationContainer = document.getElementById('pagination-controls');
-        paginationContainer.addEventListener('click', (event) => {
-            // Find the button that was clicked, even if the user clicked an inner element
-            const button = event.target.closest('button[data-page]');
+    // --- 2. Set up Event Listeners ---
+    // The search input now calls fetchAndRenderPage
+    searchInput.addEventListener('input', () => {
+        // When a new search is performed, always go back to page 1
+        fetchAndRenderPage(tableConfig, 1, searchInput.value);
+    });
 
-            // If the click was not on a button, do nothing
-            if (!button || button.disabled) {
-                return;
-            }
+    // The pagination container now calls fetchAndRenderPage
+    const paginationContainer = document.getElementById('pagination-controls');
+    paginationContainer.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-page]');
+        if (!button || button.disabled) {
+            return;
+        }
+        const newPage = parseInt(button.dataset.page, 10);
+        console.log('newPage')
+        console.log(newPage)
+        // Fetch the new page, preserving the current search term
+        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+    });
 
-            const page = parseInt(button.dataset.page, 10);
-            currentPage = page; // Update the global state
-
-            // Get the current search term to maintain the filter
-            const searchTerm = searchInput.value; // <-- FIX: Use .value for inputs
-
-            // Re-render the table with the new page and existing search term
-            updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, searchTerm);
-        });
-
-        updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, '');
-            
-        
-    } catch (error) {
-        console.error("Error setting up the page:", error);
-    
-        // Get the error message from the error object
-        const errorMessage = error.message; 
-        
-        const container = document.getElementById(TABLE_CONTAINER_ID);
-        
-        // Display the specific error message in the UI
-        container.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <strong>An error occurred:</strong> ${errorMessage}
-            </div>
-        `;
-    }
+    // --- 3. Initial Page Load ---
+    // Make the first call to fetch page 1 with no search term.
+    await fetchAndRenderPage(tableConfig, 1, '');
 }
+
 
 renderPlatformAdminDataSourcePage()

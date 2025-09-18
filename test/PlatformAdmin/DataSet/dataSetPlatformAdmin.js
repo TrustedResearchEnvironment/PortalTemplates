@@ -1,6 +1,13 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 
+// --- STATE MANAGEMENT ---
+// These variables need to be accessible by multiple functions.
+let currentPage = 1;
+let rowsPerPage = 5; // Default, will be updated by API response
+let tableConfig = {}; // Will hold your headers configuration
+const searchInput = document.getElementById('searchRequests');
+
 /**
  * Renders pagination controls.
  * (This function NO LONGER adds event listeners).
@@ -45,6 +52,65 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     `;
 
     container.innerHTML = paginationHTML;
+}
+
+/**
+ * Fetches data from the API for a specific page and search term, then updates the UI.
+ * This is the central function for all data updates.
+ * @param {number} page The page number to fetch.
+ * @param {string} searchTerm The search term to filter by.
+ */
+async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
+    try {
+        // --- 1. Call the API with pagination parameters ---
+        // NOTE: Your loomeApi.runApiRequest must support passing parameters.
+        // This is a hypothetical structure. Adjust it to how your API expects them.
+        const apiParams = {
+            "page": page,
+            "pageSize": rowsPerPage
+        };
+        console.log(apiParams)
+        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
+        const response = await window.loomeApi.runApiRequest(10, apiParams);
+
+        
+        const parsedResponse = safeParseJson(response);
+        console.log(parsedResponse)
+
+        // --- 2. Extract Data and Update State ---
+        const dataForPage = parsedResponse.Results;
+        const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
+        currentPage = parsedResponse.CurrentPage;
+        rowsPerPage = parsedResponse.PageSize;
+        
+        // --- 3. Filter using searchTerm ---
+        const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
+        const filteredData = lowerCaseSearchTerm
+            ? dataForPage.filter(item => 
+                Object.values(item).some(value =>
+                    String(value).toLowerCase().includes(lowerCaseSearchTerm)
+                )
+            )
+        : dataForPage;
+
+        // --- 4. Render the UI Components ---
+        // Render the table with only the data for the current page
+        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData);
+
+        // Render pagination using the TOTAL item count from the API
+        renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+
+        // Update the total count display
+        const dataSetCount = document.getElementById('dataSetCount');
+        if(dataSetCount) {
+            dataSetCount.textContent = totalItems;
+        }
+
+    } catch (error) {
+        console.error("Failed to fetch or render page:", error);
+        const container = document.getElementById(TABLE_CONTAINER_ID);
+        container.innerHTML = `<div class="p-4 text-red-600">Error loading data: ${error.message}</div>`;
+    }
 }
 
 /**
@@ -206,232 +272,11 @@ function safeParseJson(response) {
     return typeof response === 'string' ? JSON.parse(response) : response;
 }
 
+
 async function renderPlatformAdminDataSetPage() {
-    
-    try {
-        // --- 1. Fetch and prepare ALL data (same as your existing code) ---
-        // const dataSet = [
-        //   {
-        //     "DataSetID": 1,
-        //     "Name": "BIS Data set example",
-        //     "Description": "Barwon Infant Study, including URNs to demonstrate the platform (confirm owner & approvers once tests finished)",
-        //     "DataSourceID": 1,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-03-14 00:35:29.333",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 2,
-        //     "Name": "Admissions & ED presentations",
-        //     "Description": "BH-UHG Admissions and Emergency Department presentations at Barwon Health University Hospital Geelong (confirm owner & approvers once tests finished)",
-        //     "DataSourceID": 4,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-05-08 04:20:55.757",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": "08/05/2025 12:20:42 - Ria.Yangzon@bizdata.com.au - 1294225 08/05/2025 12:20:50 - Ria.Yangzon@bizdata.com.au - 1294280",
-        //     "Owner": "lourdes.llorente@barwonhealth.org.au",
-        //     "OptOutColumn": 11
-        //   },
-        //   {
-        //     "DataSetID": 4,
-        //     "Name": "Folder sourced data set",
-        //     "Description": "A demonstration of using a file server folder as a data set source",
-        //     "DataSourceID": 5,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-04-30 14:35:43.340",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "luke.chen@bizdata.com.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 7,
-        //     "Name": "Deidentification test",
-        //     "Description": "A small data set created to validate de-identification of data on periodic basis.",
-        //     "DataSourceID": 8,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-02-10 02:09:26.307",
-        //     "Approvers": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 10,
-        //     "Name": "OD1-MangosteenBD",
-        //     "Description": "16 week RCT placebo vs 1000mg/day mangosteen pericarp treatment of bipolar depression (data custodian note: in BH REDCap)",
-        //     "DataSourceID": 7,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2022-10-03 01:17:54.793",
-        //     "Approvers": "o.dean@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "o.dean@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 11,
-        //     "Name": "Project-based dataset",
-        //     "Description": "Example project created using data from the archived project TSDIVF",
-        //     "DataSourceID": 9,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-03-04 07:10:14.233",
-        //     "Approvers": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 12,
-        //     "Name": "Longitudinal Study",
-        //     "Description": "A Demo data set using mockup data",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-07-15 16:45:06.020",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 13,
-        //     "Name": "Test data set",
-        //     "Description": "Test with outdated API token to ensure correct validation",
-        //     "DataSourceID": 11,
-        //     "IsActive": 0,
-        //     "ModifiedDate": "2024-12-11 06:30:07.963",
-        //     "Approvers": "lourdes.llorente@barwonhealth.org.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 14,
-        //     "Name": "Secondary dataset demo",
-        //     "Description": "Demonstration of 2 simultaneous REDCap DCs for a secondary dataset",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-05-23 01:56:37.323",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": "04/07/2023 09:45:59 - lourdes.llorente@deakin.edu.au - 1",
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": 1742
-        //   },
-        //   {
-        //     "DataSetID": 36,
-        //     "Name": "Mock Folder Data Source",
-        //     "Description": "Testing Deidentification of file names",
-        //     "DataSourceID": 27,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-08-28 13:15:47.970",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "ria.yangzon@bizdata.com.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 17,
-        //     "Name": "Test data set for development and testing",
-        //     "Description": "Use for development and testing",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2024-12-05 03:20:00.107",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "ria.yangzon@bizdata.com.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 20,
-        //     "Name": "Test data set for onboarding training",
-        //     "Description": "Test REDCap DataSet On-boarding & Ingestion LLL 241001",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2024-12-05 03:19:29.927",
-        //     "Approvers": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 21,
-        //     "Name": "MockUpData1000",
-        //     "Description": "mock up data, 1000 records PID 3462",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-09-10 06:29:57.530",
-        //     "Approvers": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 33,
-        //     "Name": "TestREDCapExportRights",
-        //     "Description": "To test effect of data Export rights for the user providing the REDCap token",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-05-21 01:24:10.253",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lorudes.llorente@barwonhealth.org.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 23,
-        //     "Name": "MockUp100",
-        //     "Description": "Randomly generated data, 100 rows, initially to re-test REDCap database type on-boarding; PID 6312",
-        //     "DataSourceID": 11,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-07-28 13:12:11.363",
-        //     "Approvers": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "lourdes.llorente@deakin.edu.au",
-        //     "OptOutColumn": -1
-        //   },
-        //   {
-        //     "DataSetID": 34,
-        //     "Name": "Mock SQL Data Set for Testing",
-        //     "Description": "",
-        //     "DataSourceID": 25,
-        //     "IsActive": 1,
-        //     "ModifiedDate": "2025-08-06 17:42:41.653",
-        //     "Approvers": "ria.yangzon@bizdata.com.au",
-        //     "OptOutMessage": null,
-        //     "OptOutList": null,
-        //     "Owner": "ria.yangzon@bizdata.com.au",
-        //     "OptOutColumn": -1
-        //   }
-        // ]
-        
-        const response = await window.loomeApi.runApiRequest(10);
-        const parsedResponse = safeParseJson(response);
-        const dataSet = parsedResponse.Results;
-        let currentPage = parsedResponse.CurrentPage;
-        const rowsPerPage = parsedResponse.PageSize; 
-        console.log(dataSet)
-        
-        
-        
-        // Place this inside renderPlatformAdminPage, replacing your old 'headers' object.
-        const tableConfig = {
+    // --- 1. Define the table configuration ---
+    // (Moved outside the try block so it's accessible to fetchAndRenderPage)
+    const tableConfig = {
                 headers: [
                     { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
                     { label: "Description", key: "Description", className: "break-words", widthClass: "w-3/12" },
@@ -454,62 +299,32 @@ async function renderPlatformAdminDataSetPage() {
                 ]
         };
         
-        const data = dataSet
-        
-        const rowCounts = dataSet.length
-        
-        const dataSetCount = document.getElementById('dataSetCount')
-        dataSetCount.textContent = rowCounts
-        const searchInput = document.getElementById('searchRequests');
-        
-        // --- SEARCH EVENT LISTENER ---
-        searchInput.addEventListener('input', () => {
-            console.log('Typing event detected!');
-            currentPage = 1;
-            const searchTerm = searchInput.value;
 
-            updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, searchTerm);
-        });
-        
-        // --- NEW PAGINATION EVENT LISTENER (EVENT DELEGATION) ---
-        const paginationContainer = document.getElementById('pagination-controls');
-        paginationContainer.addEventListener('click', (event) => {
-            // Find the button that was clicked, even if the user clicked an inner element
-            const button = event.target.closest('button[data-page]');
+    // --- 2. Set up Event Listeners ---
+    // The search input now calls fetchAndRenderPage
+    searchInput.addEventListener('input', () => {
+        // When a new search is performed, always go back to page 1
+        fetchAndRenderPage(tableConfig, 1, searchInput.value);
+    });
 
-            // If the click was not on a button, do nothing
-            if (!button || button.disabled) {
-                return;
-            }
+    // The pagination container now calls fetchAndRenderPage
+    const paginationContainer = document.getElementById('pagination-controls');
+    paginationContainer.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-page]');
+        if (!button || button.disabled) {
+            return;
+        }
+        const newPage = parseInt(button.dataset.page, 10);
+        console.log('newPage')
+        console.log(newPage)
+        // Fetch the new page, preserving the current search term
+        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+    });
 
-            const page = parseInt(button.dataset.page, 10);
-            currentPage = page; // Update the global state
-
-            // Get the current search term to maintain the filter
-            const searchTerm = searchInput.value; // <-- FIX: Use .value for inputs
-
-            // Re-render the table with the new page and existing search term
-            updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, searchTerm);
-        });
-
-        updateTable(tableConfig, data, TABLE_CONTAINER_ID, currentPage, rowsPerPage, '');
-            
-        
-    } catch (error) {
-        console.error("Error setting up the page:", error);
-    
-        // Get the error message from the error object
-        const errorMessage = error.message; 
-        
-        const container = document.getElementById(TABLE_CONTAINER_ID);
-        
-        // Display the specific error message in the UI
-        container.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <strong>An error occurred:</strong> ${errorMessage}
-            </div>
-        `;
-    }
+    // --- 3. Initial Page Load ---
+    // Make the first call to fetch page 1 with no search term.
+    await fetchAndRenderPage(tableConfig, 1, '');
 }
+
 
 renderPlatformAdminDataSetPage()
