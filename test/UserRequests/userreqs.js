@@ -1,312 +1,414 @@
+// =================================================================
+//                      STATE & CONFIGURATION
+// =================================================================
+const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 4;
 
-/**
- * Renders a data table with Tailwind CSS styling.
- * This is a refactored version of the original function to match the new design.
- * @param {string} containerId - The ID of the element to render the table into.
- * @param {Array} data - The array of data objects to display.
- * @param {object} config - Configuration object, e.g., { showActions: true }.
- */
-function renderTable(containerId, data, config, selectedStatus) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = ''; // Clear previous content
+// We will store all fetched data here
+let allRequests = []; 
+let currentPage = 1;
+const rowsPerPage = 5; // You can control page size here
+const searchInput = document.getElementById('searchRequests');
 
-    // --- STYLE CHANGE: Main table classes updated to Tailwind ---
-    const table = document.createElement('table');
-    table.className = 'w-full divide-y divide-gray-200';
+// Mapping from Status ID to Status Name
+const statusIdToNameMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
 
-    // --- STYLE CHANGE: Thead class updated ---
-    const thead = document.createElement('thead');
-    thead.className = 'bg-gray-50';
-    const headerRow = document.createElement('tr');
+// Configuration for each status tab
+const configMap = {
+    'Pending Approval': { showActions: true },
+    'Approved': { showActions: true },
+    'Rejected': { showActions: true },
+    'Finalised': { showActions: true },
+};
 
-    // Headers logic remains the same
-    const headers = ['Project', 'Name', 'Data Set', 'Requested On']; //'Status',
-    
-    if (selectedStatus == 'Pending Approval') {
-        headers.push('Approvers');
-    } else if (selectedStatus == 'Approved') {
-        headers.push('Approved by');
-        headers.push('Approved on');
-    } else if (selectedStatus == 'Rejected') {
-        headers.push('Rejected by');
-        headers.push('Rejected on');
-    } else if (selectedStatus == 'Finalised') {
-        headers.push('Approved on');
-        headers.push('Approved by')
-        headers.push('Finalised on');
-    }
-    if (config.showActions) {
-        headers.push('Actions');
-    }
-
-    headers.forEach(headerText => {
-        const th = document.createElement('th');
-        th.scope = 'col';
-        // --- STYLE CHANGE: TH classes updated to Tailwind ---
-        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer';
-
-        const columnKey = headerText.toLowerCase().replace(/ /g, '');
-        th.setAttribute('data-column', columnKey);
-
-        // --- STYLE CHANGE: Added a span for better sort icon styling ---
-        th.innerHTML = `${headerText} <span class="ml-1 text-gray-400"></span>`;
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // --- STYLE CHANGE: Tbody classes updated ---
-    const tbody = document.createElement('tbody');
-    tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        const colSpan = headers.length; // More reliable way to calculate colspan
-        // --- STYLE CHANGE: Added Tailwind classes to the "empty" cell ---
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
-    } else {
-        data.forEach(item => {
-            const row = document.createElement('tr');
-
-            // --- STYLE CHANGE: Map statuses to Tailwind badge classes ---
-            const statusClasses = {
-                'Pending Approval': 'bg-yellow-100 text-yellow-800',
-                'Approved': 'bg-green-100 text-green-800',
-                'Rejected': 'bg-red-100 text-red-800',
-                'Finalised': 'bg-blue-100 text-blue-800'
-            }[item.status] || 'bg-gray-100 text-gray-800';
-            
-            // --- STYLE CHANGE: Base classes for all table cells ---
-            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
-            const actionButtonClasses = 'p-1 text-gray-400 rounded-md hover:bg-gray-100 hover:text-gray-600 focus:outline-none';
-            
-            let statusSpecificCol = ''; // 'let' is preferred over 'var'
-            switch (item.status) {
-                case 'Pending Approval':
-                    statusSpecificCol = `<td class="${tdClasses}">${item.approvers}</td>`;
-                    break;
-                case 'Rejected':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.rejectedBy}</td>
-                        <td class="${tdClasses}">${item.dateRejected}</td>
-                    `;
-                    break;
-                case 'Approved':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                    `;
-                    break;
-                case 'Finalised':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                        <td class="${tdClasses}">${item.dateFinalised}</td>
-                    `;
-                    break;
-                // Optional: A default case if the status is something unexpected
-                default:
-                    statusSpecificCol = '<td>-</td>'; // Or just leave it empty
-                    break;
-            }
-            
-            
-            // --- STYLE CHANGE: Updated the entire innerHTML template with Tailwind classes ---
-            // <td class="px-6 py-4 whitespace-nowrap">
-            //     <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClasses}">
-            //         ${item.status}
-            //     </span>
-            // </td>
-            const actionButtons = `
-                    <div class="btn-group pull-right">
-                        <button class="btn btn-accent" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-accent" title="Delete Request" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
-                            <i class="fa fa-thumbs-down" aria-hidden="true"></i>
-                        </button>
-                    </div>
-            `
-            row.innerHTML = `
-                <td class="${tdClasses}">${item.project}</td>
-                <td class="${tdClasses}">${item.name}</td>
-                
-                <td class="${tdClasses}">${item.dataSet}</td>
-                <td class="${tdClasses}">${item.dateRequested}</td>
-                
-                 ${statusSpecificCol}
-                
-                ${config.showActions ? `
-                    <td class="${tdClasses}">
-                        ${actionButtons}
-                    </td>`
-                : ''}
-            `;
-            //"px-6 py-4 whitespace-nowrap text-sm font-medium flex justify-center items-center"
-            tbody.appendChild(row);
-
-            // This event listener logic does not need to change, as it finds elements by class.
-            if (config.showActions) {
-                const viewReqButton = row.querySelector('.fa-eye')?.parentElement;
-                if (viewReqButton) {
-                    viewReqButton.addEventListener('click', () => {
-                        ViewRequest(item);
-                    });
-                }
-                const deleteRequestButton = row.querySelector('.fa-clone')?.parentElement;
-                if (deleteRequestButton) {
-                    deleteRequestButton.addEventListener('click', () => {
-                        DeleteRequest(item);
-                    });
-                }
-            }
-        });
-    }
-
-    table.appendChild(tbody);
-    container.appendChild(table);
-}
-
-
+// =================================================================
+//                      UTILITY & MODAL FUNCTIONS
+// =================================================================
 function ViewRequest(request) {
     // Get the modal's body element
     const modalBody = document.getElementById('viewRequestModalBody');
-
+    console.log("IN VIEW REQ")
     // Populate the modal body with the provided HTML content (your markup)
     modalBody.innerHTML = `
-    <!-- Body Section -->
-  
-        <div class="container-fluid">
-            <form>
-                <!-- Request Name Field -->
-                <div class="form-group">
-                    <label for="Name" class="control-label">Request Name</label>
-                    <input id="Name" class="form-control" placeholder=${request.name} disabled>
-                </div>
-
-                <!-- Project Field -->
-                <div class="form-group">
-                    <label for="ProjectID" class="control-label">Assist Project</label>
-                    <select id="ProjectID" class="form-select" disabled>
-                        <option value="-1">${request.project}</option>
-                        <option value="82">Project 1 Placeholder</option>
-                        <option value="84">Project 2 Placeholder</option>
-                        <option value="85">Project 3 Placeholder</option>
-                        <option value="86">Project 4 Placeholder</option>
-                    </select>
-                    <div class="validation-message"></div>
-                </div>
-
-                <!-- Scheduled Refresh Field -->
-                <div class="form-group">
-                    <label for="ScheduleRefresh" class="control-label">Scheduled Refresh</label>
-                    <select id="ScheduleRefresh" class="form-select" disabled>
-                        <option value="No Refresh">No Refresh</option>
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                    </select>
-                </div>
-
-                <!-- Filters Table Section -->
-                <div class="row">
-                    <label for="Filters" class="control-label">Filters for this Data Set</label>
-                    <div class="table-responsive">
-                        <table class="table table-condensed table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Column</th>
-                                    <th>Filter Type</th>
-                                    <th>Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Example Row Template -->
-                                <tr>
-                                    <td>[Column Name Placeholder]</td>
-                                    <td>
-                                        <select id="FilterType" class="form-control selectpicker disabled">
-                                            <option value="None">[None]</option>
-                                            <option value="=">[Equal To]</option>
-                                            <option value="&lt;&gt;">[Not Equal To]</option>
-                                            <option value="Between">[Between]</option>
-                                            <option value="&lt;">[Less Than]</option>
-                                            <option value="&lt;=">[Less Than or Equal]</option>
-                                            <option value="&gt;">[Greater Than]</option>
-                                            <option value="&gt;=">[Greater Than or Equal]</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <div class="row">
-                                            <input disabled id="Value1" class="form-control" placeholder="[Value Placeholder]">
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Add Additional Rows Dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">Save</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
+        <form>
+            <div class="form-group">
+            <label for="Name" class="control-label">Request Name</label>
+            <input id="Name" class="form-control" disabled="true" value="${request.name}">
         </div>
-    `;
-
-}
-
-function DeleteRequest(request) {
-    // Get the modal's body element
-    const modalBody = document.getElementById('deleteRequestModalBody');
-    // Assuming request.CreateDate is a valid date string like "2025-09-04 01:54:39.140"
-    const createdDate = new Date(request.CreateDate);
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = !isNaN(createdDate.getTime()) 
-        ? createdDate.toLocaleDateString('en-US', options) 
-        : 'N/A'; // Handle invalid dates gracefully
-
-    // Populate the modal body with the provided HTML content (your markup)
-    modalBody.innerHTML = `
-       <!-- 2. Modal Body -->
-                <!-- Warning Message -->
-                <div class="alert alert-danger" role="alert">
-                    <strong>Warning:</strong> Are you sure you want to delete this request? This action cannot be undone.
-                </div>
-
-                <p>You are about to permanently delete the following item:</p>
-
-                <!-- Details of the item to be deleted -->
+            <div class="form-group">
+                <label for="ProjectID" class="control-label">Assist Project</label>
+                <select id="ProjectID" disabled="true" class="form-control selectpicker valid">
+                    <option value="-1">Assist Project 1</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ScheduleRefresh" class="control-label">Scheduled Refresh</label>
+                <select id="ScheduleRefresh" disabled="true" class="form-control selectpicker valid">
+                    <option value="No Refresh">No Refresh</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="row">
+                <label for="ScheduleRefresh" class="control-label">Filter's for this Data Set</label>
                 <div class="table-responsive">
-                    <table class="table table-bordered table-sm">
+                    <table class="table table-condensed table-striped">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Data Set</th>
-                                <th>Created</th>
+                                <th>Column</th>
+                                <th>Filter Type</th>
+                                <th>Value</th>
                             </tr>
                         </thead>
-                        <tbody id="deleteRequestDetailsBody">
-                            <!-- Dynamic content will be injected here. Example row below. -->
+                        <tbody>
+                            <!-- Example of empty table body; data can be populated later -->
                             <tr>
-                                <td>${request.name}</td>
-                                <td>${request.status}</td>
-                                <td>${request.dataSet}</td>
-                                <td>${formattedDate}</td>
+                                <td colspan="3">No filters available.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-
-            <!-- 3. Modal Footer -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger">Confirm Delete</button>
             </div>
+        </form>
     `;
+
+}
+
+function ViewDataSet(request) {
+    // Get the modal elements
+    const modalBody = document.getElementById('viewDatasetModalBody');
+    //const modalTitle = document.getElementById('viewDatasetModalLabel');
+
+    // Set the title dynamically based on datasetID (example usage; modify as needed)
+    //modalTitle.textContent = `Details for Dataset ID: ${datasetID}`;
+
+    // Populate the modal body with the provided complex HTML content
+    modalBody.innerHTML = `
+        <form>
+            <div class="form-group">
+                <label for="Description" class="control-label">Description</label>
+                <textarea rows="2" id="Name" disabled="true" class="form-control valid"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="Approvers" class="control-label">Owner</label>
+                <input id="Approvers" disabled="true" class="form-control valid">
+            </div>
+            <div class="form-group">
+                <label for="Approvers" class="control-label">Approvers</label>
+                <input id="Approvers" disabled="true" class="form-control valid" value="${request.approvers}">
+            </div>
+            
+            <div class="form-group">
+                <label for="DataSetType" class="form-check-label">Data Source</label>
+                <select disabled="true" class="form-control selectpicker valid">
+                    <option value="1">BIS Data (pilot test)</option>
+                    <option value="4">Barwon Health DB Source View 1</option>
+                    <option value="25">Source Mock SQL Data for Testing</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <div class="form-check">
+                    <input id="Active" disabled="true" type="checkbox" class="form-check-input valid">
+                    <label for="Active" class="form-check-label">Active</label>
+                </div>
+            </div>
+            <br>
+            <h6>Data Set Fields</h6>
+            <div class="table-responsive">
+                <table class="table table-condensed table-striped">
+                    <tbody>
+                        <tr>
+                            <td>Table Name <input type="text" hidden="true"></td>
+                            <td width="70%">
+                                <select disabled="true" class="form-control selectpicker valid">
+                                    <option value="7">dbo.vw_emergency_attendances</option>
+                                    <option value="8">dbo.vw_inpatient_admissions_university_hospital_geelong</option>
+                                    <option value="9">dbo.vw_link_emergency_attendances_inpatient_admissions</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <br>
+            <h6>Meta Data</h6>
+            <div class="table-responsive">
+                <table class="table table-condensed table-striped">
+                    <tbody>
+                        <tr>
+                            <td>Tag <input type="text" hidden="true"></td>
+                            <td width="70%">
+                                <input id="Name" disabled="true" class="form-control valid">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <br>
+            <h6>Columns</h6>
+            <div class="container-fluid">
+                <div class="d-flex align-items-center justify-content-between">
+                    <!-- Section for Attendance Number -->
+                    <div class="flex-grow-1">
+                        <h6 style="color: orange;">[attendance_number] (varchar)</h6>
+                        <input type="text" hidden="true">
+                    </div>
+                
+                    <!-- Section for Checkboxes -->
+                    <div class="d-flex">
+                        <div class="form-check me-3">
+                            <input id="Redact" disabled="true" type="checkbox" class="form-check-input">
+                            <label for="Redact" class="form-check-label">Redact</label>
+                        </div>
+                        <div class="form-check me-3">
+                            <input id="Tokenise" disabled="true" type="checkbox" class="form-check-input">
+                            <label for="Tokenise" class="form-check-label">Tokenise</label>
+                        </div>
+                        <div class="form-check">
+                            <input id="IsFilter" disabled="true" type="checkbox" class="form-check-input">
+                            <label for="IsFilter" class="form-check-label">IsFilter</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group col-md-6">
+                        <label for="LogicalColumnName">Logical Name</label>
+                        <input id="LogicalColumnName" disabled="true" class="form-control valid">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="ExampleValue">Example Value</label>
+                        <input id="ExampleValue" disabled="true" class="form-control valid">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group col-md-12">
+                        <label for="BusinessDescription">Business Description</label>
+                        <input id="BusinessDescription" disabled="true" class="form-control valid">
+                    </div>
+                </div>
+                <br>
+            </div>
+        </form>
+    `;
+
+}
+
+function ApproveRequest(request) {
+            // Get the modal elements
+            const modalBody = document.getElementById('approveRequestModalBody');
+            const modalTitle = document.getElementById('approveRequestModalLabel');
+
+            // Update the modal title dynamically based on requestID
+            modalTitle.textContent = `Approve Request: ${request.name}`;
+
+            // Populate the modal body with the dynamic content
+            modalBody.innerHTML = `
+                <div class="col-md-12">
+                    <form>
+                        <div class="form-group">
+                            <label for="ApprovalMessage" class="control-label">Approval Note</label>
+                            <textarea id="ApprovalMessage" rows="5" placeholder="Note to the Researcher if approved" class="form-control valid"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-accent">Approve</button>
+                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+}
+
+function RejectRequest(request) {
+            // Get the modal elements
+            const modalBody = document.getElementById('rejectRequestModalBody');
+            const modalTitle = document.getElementById('rejectRequestModalLabel');
+
+            // Update the modal title dynamically based on requestID
+            modalTitle.textContent = `Reject Request: ${request.name}`;
+
+            // Populate the modal body with the dynamic content
+            modalBody.innerHTML = `
+                <div class="col-md-12">
+                    <form>
+                        <div class="form-group">
+                            <label for="RequestMessage" class="control-label">Rejection Note</label>
+                            <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-accent">Reject</button>
+                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+}
+
+// =================================================================
+// Miguel
+function DeleteRequest(request) {
+    // Get the modal elements
+    const modalBody = document.getElementById('deleteRequestModalBody');
+    const modalTitle = document.getElementById('deleteRequestModalLabel');
+    
+    // Update the modal title dynamically based on request
+    const truncRequestName = request.Name.length > 20 ? request.Name.slice(0, 20) + "..." : request.Name;
+
+    modalTitle.textContent = `Delete Request: ${truncRequestName}`;
+    
+    // Populate the modal body with the confirmation message
+    modalBody.innerHTML = `
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> 
+                Are you sure you want to delete this request? This action cannot be undone.
+            </div>
+            <div class="form-group">
+                <label for="DeleteReason" class="control-label">Reason for Deletion</label>
+                <textarea id="DeleteReason" rows="3" placeholder="Please provide a reason for deletion" class="form-control valid"></textarea>
+            </div>
+            <div class="form-group mt-3">
+                <button id="confirmDeleteBtn" type="button" class="btn btn-danger">Delete</button>
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    // Add event listener for the confirm delete button
+    setTimeout(() => {
+        document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+            const deleteReason = document.getElementById('DeleteReason').value;
+            if (!deleteReason.trim()) {
+                alert('Please provide a reason for deletion.');
+                return;
+            }
+            
+            // Call the API to delete the request
+            deleteRequestFromAPI(request.ID, deleteReason);
+        });
+    }, 100);
+}
+
+async function deleteRequestFromAPI(requestId, reason) {
+    try {
+        // Show loading state
+        const loadingToast = showToast('Deleting request...', 'info');
+        
+        // Assuming you have an API endpoint for deletion
+        const deleteParams = {
+            "requestId": requestId,
+            "reason": reason
+        };
+        
+        // Replace API_DELETE_REQUEST_ID with the actual API request ID for deletion
+        const API_DELETE_REQUEST_ID = 5; // You need to set the correct ID
+        const response = await window.loomeApi.runApiRequest(API_DELETE_REQUEST_ID, deleteParams);
+        
+        // Hide the modal
+        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
+        deleteModal.hide();
+        
+        // Show success message
+        hideToast(loadingToast);
+        showToast('Request deleted successfully', 'success');
+        
+        // Refresh the UI
+        renderUI();
+    } catch (error) {
+        console.error("Error deleting request:", error);
+        showToast('Failed to delete request. Please try again.', 'error');
+    }
+}
+
+// Toast notification functions
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-message">${message}</div>
+    `;
+    toastContainer.appendChild(toast);
+    
+    // Auto-hide after 3 seconds for success messages
+    if (type === 'success') {
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    return toast;
+}
+
+function hideToast(toast) {
+    if (toast && toast.parentNode) {
+        toast.remove();
+    }
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-top-right';
+    document.body.appendChild(container);
+    return container;
+}
+
+// =================================================================
+
+/**
+ * Safely parses a response that might be a JSON string or an object.
+ * @param {string | object} response The API response.
+ * @returns {object}
+ */
+function safeParseJson(response) {
+    return typeof response === 'string' ? JSON.parse(response) : response;
+}
+
+/**
+ * Renders pagination controls.
+ * (This function NO LONGER adds event listeners).
+ */
+function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    container.innerHTML = ''; // Clear old controls
+
+    if (totalPages <= 1) {
+        return; // No need for pagination.
+    }
+
+    // --- Previous Button ---
+    const prevDisabled = currentPage === 1;
+    let paginationHTML = `
+        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
+            Previous
+        </button>
+    `;
+
+    // --- Page Number Buttons ---
+    paginationHTML += '<div class="flex items-center gap-2">';
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = i === currentPage;
+        paginationHTML += `
+            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
+                ${i}
+            </button>
+        `;
+    }
+    paginationHTML += '</div>';
+
+    // --- Next Button ---
+    const nextDisabled = currentPage === totalPages;
+    paginationHTML += `
+        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
+            Next
+        </button>
+    `;
+
+    container.innerHTML = paginationHTML;
 }
 
 function formatDate(inputDate) {
@@ -337,158 +439,212 @@ function formatDate(inputDate) {
 }
 
 
-async function renderRequestsPage() {
-    // Define the single container ID for the table
-        const TABLE_CONTAINER_ID = 'requests-table-area';
-        
-    try {
-        // --- 1. Fetch and prepare ALL data (same as your existing code) ---
-        // const rawRequestData = [
-        //     {"RequestID":435,"ProjectID":82,"Name":"TestNEWDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 02:01:54.667","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 02:02:04.710","ApprovedDate":"2025-08-28 02:02:04.710","FinalisedDate":"2025-08-28 02:05:03.973","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 02:01:54.667"},
-        //     {"RequestID":436,"ProjectID":82,"Name":"REDCAP_TestOriginalDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 08:47:41.390","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 08:55:25.357","ApprovedDate":"2025-08-28 08:55:25.357","FinalisedDate":"2025-08-28 09:00:58.180","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 08:47:41.390"},
-        //     {"RequestID":437,"ProjectID":82,"Name":"REDCAP_TestNewDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 09:24:18.977","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 09:24:32.453","ApprovedDate":"2025-08-28 09:24:32.453","FinalisedDate":"2025-08-28 09:34:01.340","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 09:24:18.977"},
-        //     {"RequestID":433,"ProjectID":82,"Name":"TestOriginalDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 00:44:10.913","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 01:02:12.887","ApprovedDate":"2025-08-28 01:02:12.887","FinalisedDate":"2025-08-28 01:15:00.760","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 00:44:10.913"},
-        //     {"RequestID":444,"ProjectID":86,"Name":"TestNewHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:25:35.957","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:29:56.843","ApprovedDate":"2025-09-01 04:29:56.843","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:25:35.957"},
-        //     {"RequestID":445,"ProjectID":86,"Name":"TestNewHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:26:20.337","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:30:01.230","ApprovedDate":"2025-09-01 04:30:01.230","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:26:20.337"},
-        //     {"RequestID":448,"ProjectID":86,"Name":"TestOLDHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:04:14.883","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:27.590","ApprovedDate":"2025-09-01 05:04:27.590","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:04:14.883"},
-        //     {"RequestID":454,"ProjectID":86,"Name":"TestOriginalHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:47:59.493","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:48:11.730","ApprovedDate":"2025-09-02 02:48:11.730","FinalisedDate":"2025-09-02 02:50:15.767","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:47:59.493"},
-        //     {"RequestID":447,"ProjectID":86,"Name":"TestOLDHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:03:52.937","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:31.200","ApprovedDate":"2025-09-01 05:04:31.200","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:03:52.937"},
-        //     {"RequestID":455,"ProjectID":82,"Name":"TestRiaRequest","StatusID":1,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":null,"CreateDate":"2025-09-04 01:54:39.140","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-04 01:54:39.140","ApprovedDate":"2025-09-04 01:54:39.140","FinalisedDate":"2025-09-04 01:54:39.140","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-04 01:54:39.140"},
-        //     {"RequestID":452,"ProjectID":86,"Name":"TestNEWHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:40:42.983","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:42:35.113","ApprovedDate":"2025-09-02 02:42:35.113","FinalisedDate":"2025-09-02 02:44:02.573","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:40:42.983"},
-        //     {"RequestID":450,"ProjectID":82,"Name":"FOLDER_TestOriginalDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:08:04.800","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:08:15.070","ApprovedDate":"2025-09-02 02:08:15.070","FinalisedDate":"2025-09-02 02:13:31.327","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:08:04.800"},
-        //     {"RequestID":451,"ProjectID":82,"Name":"FOLDER_TestNEWDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:29:14.497","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:29:27.717","ApprovedDate":"2025-09-02 02:29:27.717","FinalisedDate":"2025-09-02 02:31:39.597","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:29:14.497"},
-        //     // ADDED for demonstration to populate all tabs
-        //     {"RequestID":456,"ProjectID":85,"Name":"Marketing Analysis","StatusID":2,"DataSetID":10,"Approvers":"approver@test.com","CurrentlyApproved":"approver@test.com;","CreateDate":"2025-09-05 10:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-05 10:05:00.000","ApprovedDate":"2025-09-05 10:05:00.000","FinalisedDate":null,"ScheduledRefresh":"Weekly","RequestMessage":null,"RejectedBy":null,"RejectedDate":null},
-        //     {"RequestID":457,"ProjectID":85,"Name":"Budget Review","StatusID":4,"DataSetID":11,"Approvers":"approver@test.com","CurrentlyApproved":null,"CreateDate":"2025-09-06 11:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-06 11:05:00.000","ApprovedDate":null,"FinalisedDate":null,"ScheduledRefresh":"No Refresh","RequestMessage":"Insufficient data","RejectedBy":"admin@test.com","RejectedDate":"2025-09-06 11:05:00.000"}
-        // ];
-        
-        const response = await window.loomeApi.runApiRequest(4);
-        console.log(response)
-        
-        const requestData = typeof response === 'string' ? JSON.parse(response) : response;
-        console.log(requestData)
-        
-        const statusMap = { 1: 'Pending Requests', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
-        const allRequests = requestData.map(item => ({
-            ...item,
-            project: item.projectID,
-            name: item.name,
-            status: statusMap[item.statusID] || 'Unknown',
-            dataSet: item.dataSetID,
-            approvers: item.approvers,
-            dateRequested: formatDate(item.createDate),
-            dateApproved: formatDate(item.approvedDate),
-            dateRejected: formatDate(item.rejectedDate),
-            dateFinalised: formatDate(item.finalisedDate),
-            rejectedBy: item.rejectedBy,
-            currentlyApproved: item.currentlyApproved
-        }));
-        console.log(allRequests)
+// =================================================================
+//                      API & RENDERING FUNCTIONS
+// =================================================================
 
-        // --- 2. Centralized Configuration ---
-        // This maps a status to its specific configuration (like showActions).
-        const configMap = {
-            'Pending Approval': { showActions: true },
-            'Approved': { showActions: false },
-            'Rejected': { showActions: false },
-            'Finalised': { showActions: false },
-        };
-        
-        // --- 3. Update Counts and Set Up Listeners ---
-        const chipsContainer = document.getElementById('status-chips-container');
-        const chips = chipsContainer.querySelectorAll('.chip');
 
-        // Calculate and display the count for each status
-        chips.forEach(chip => {
-            const status = chip.dataset.status;
-            const count = allRequests.filter(req => req.status === status).length;
-            chip.querySelector('.chip-count').textContent = count;
+/**
+ * Renders a data table with dynamic headers and actions.
+ */
+function renderTable(containerId, data, config, selectedStatus) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'w-full divide-y divide-gray-200';
+
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-50';
+    const headerRow = document.createElement('tr');
+    
+    // Define headers based on the selected status
+    const headers = ['Project', 'Name', 'Data Set', 'Requested On'];
+    if (selectedStatus === 'Pending Approval') headers.push('Approvers');
+    else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
+    else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
+    else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
+    if (config.showActions) headers.push('Actions');
+
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
+    
+    if (data.length === 0) {
+        const colSpan = headers.length;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
+    } else {
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
+            
+            let statusSpecificCols = '';
+            switch (item.status) {
+                case 'Pending Approval': statusSpecificCols = `<td class="${tdClasses}">${item.Approvers || 'N/A'}</td>`; break;
+                case 'Rejected': statusSpecificCols = `<td class="${tdClasses}">${item.RejectedBy || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.RejectedDate)}</td>`; break;
+                case 'Approved': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td>`; break;
+                case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
+            }
+
+            const actionButtons = `
+                <div class="btn-group pull-right">
+                    <button class="btn btn-accent action-view-request" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal"><i class="fa fa-eye"></i></button>
+                    <button class="btn btn-accent action-view-dataset" title="View Data Set" data-bs-toggle="modal" data-bs-target="#viewDatasetModal"><i class="fa fa-clone"></i></button>
+                    <button class="btn btn-accent action-delete" title="Delete Request" data-bs-toggle="modal" data-bs-target="#deleteRequestModal"><i class="fa fa-trash"></i></button>
+                </div>`;
+            
+            row.innerHTML = `
+                <td class="${tdClasses}">${item.ProjectID}</td>
+                <td class="${tdClasses}">${item.Name}</td>
+                <td class="${tdClasses}">Data Set ${item.DataSetID}</td>
+                <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
+                ${statusSpecificCols}
+                ${config.showActions ? `<td class="${tdClasses}">${actionButtons}</td>` : ''}
+            `;
+            tbody.appendChild(row);
+
+            // Add event listeners for the action buttons in this row
+            row.querySelector('.action-view-request')?.addEventListener('click', () => ViewRequest(item));
+            row.querySelector('.action-view-dataset')?.addEventListener('click', () => ViewDataSet(item));
+            // row.querySelector('.action-approve')?.addEventListener('click', () => ApproveRequest(item));
+            // row.querySelector('.action-reject')?.addEventListener('click', () => RejectRequest(item));
+            row.querySelector('.action-delete')?.addEventListener('click', () => DeleteRequest(item));
         });
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
 
-        // Add a click event listener to the container (event delegation)
-        const searchInput = document.getElementById('searchRequests');
+
+
+// =================================================================
+//                     PRIMARY RENDER FUNCTION
+// =================================================================
+
+
+async function getCounts(status) {
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": '',
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === status))
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response);
+
+    return parsedResponse.RowCount;
+}
+
+/**
+ * Main function to orchestrate all rendering based on the current state.
+ * It filters, paginates, and renders the table and controls.
+ */
+async function renderUI() {
+    const activeChip = document.querySelector('.chip.active');
+    if (!activeChip) return; // Don't render if no chip is active
+    
+    const selectedStatus = activeChip.dataset.status;
+    const searchTerm = searchInput.value.toLowerCase();
+
+    // --- 1. FETCH ALL DATA ONCE ---
+    // We call the API without pagination params, assuming it returns all records.
+    // If your API requires pagination, you'd need to fetch all pages in a loop here.
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": searchTerm,
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === selectedStatus))
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response)
+    const rawData = parsedResponse.Results;
+    const totalItems = parsedResponse.RowCount;
+    console.log(rawData)
+
+    // --- 2. PREPARE THE MASTER DATA ARRAY ---
+    // Transform the raw data just once into the format our UI needs.
+    allRequests = rawData.map(item => ({
+        ...item,
+        status: statusIdToNameMap[item.StatusID] || 'Unknown'
+    }));
+    console.log(allRequests)
+
+    // --- Render the components ---
+    const configForTable = configMap[selectedStatus];
+    renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
+    renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+}
+
+// =================================================================
+//                      INITIALIZATION
+// =================================================================
+
+/**
+ * Main function to initialize the page, fetch all data, and set up listeners.
+ */
+async function renderMyRequestsPage() {
+    try {
+
+        // --- 3. UPDATE ALL CHIP COUNTS ONCE ---
+        // This is the logic you wanted. It calculates counts from the unfiltered master array.
+        const chipsContainer = document.getElementById('status-chips-container');
+        for (const chip of chipsContainer.querySelectorAll('.chip')) {
+            const status = chip.dataset.status;
+            console.log(status)
+            // Await the asynchronous getCounts function for each chip
+            const count = await getCounts(status);
+            chip.querySelector('.chip-count').textContent = count;
+        }
+
+        // --- 4. SETUP EVENT LISTENERS ---
+        
+        // Listener for status chip clicks
         chipsContainer.addEventListener('click', (event) => {
             const clickedChip = event.target.closest('.chip');
-            if (!clickedChip) return; // Exit if the click was not on a chip
+            if (!clickedChip) return;
 
-            // Update the active state UI
-            chips.forEach(chip => chip.classList.remove('active'));
+            chipsContainer.querySelectorAll('.chip').forEach(chip => chip.classList.remove('active'));
             clickedChip.classList.add('active');
-
-            // Get the status to filter by from the chip's data attribute
-            const selectedStatus = clickedChip.dataset.status;
             
-            // Set Search Term value
-            const searchTerm = searchInput.value.toLowerCase();
-            console.log(searchTerm)
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
-            
-            const filteredData = searchTerm ? 
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
-                    
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) : 
-                dataForTable; // If no search term, just use the status-filtered data
-
-
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
+            currentPage = 1; // Reset to page 1 when changing tabs
+            renderUI(); // Re-render everything
         });
 
-        // --- 4. Initial Render ---
-        // Programmatically click the first chip to render the initial view.
-        // This is a clean way to avoid duplicating rendering logic.
-        document.querySelector('.chip[data-status="Pending Approval"]').click();
-        
+        // Listener for the search input
         searchInput.addEventListener('input', () => {
-            // Get the currently active chip
-            const activeChip = document.querySelector('.chip.active');
-            if (!activeChip) return; // Safety check
-            
-            // Get the status from the active chip
-            const selectedStatus = activeChip.dataset.status;
-            
-            // Get the search term
-            const searchTerm = searchInput.value.toLowerCase();
-            
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-            
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
-            
-            const filteredData = searchTerm ?
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) :
-                dataForTable; // If no search term, just use the status-filtered data
-            
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
+            currentPage = 1; // Reset to page 1 when searching
+            renderUI(); // Re-render everything
         });
-        
 
+        // Listener for pagination buttons
+        document.getElementById('pagination-controls').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-page]');
+            if (!button || button.disabled) return;
+            
+            currentPage = parseInt(button.dataset.page, 10);
+            renderUI(); // Re-render everything
+        });
+
+        // --- 5. INITIAL PAGE RENDER ---
+        // Programmatically click the first chip to trigger the initial render.
+        document.querySelector('.chip[data-status="Pending Approval"]').click();
 
     } catch (error) {
         console.error("Error setting up the page:", error);
-        document.getElementById(TABLE_CONTAINER_ID).innerHTML = `<p class="text-danger">An error occurred.</p>`;
+        // ... your error handling ...
     }
 }
 
-renderRequestsPage()
+// Start the application
+renderMyRequestsPage();
