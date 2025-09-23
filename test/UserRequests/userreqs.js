@@ -409,51 +409,118 @@ function getCurrentUserUpn() {
     return "user@example.com"; // Replace with actual implementation
 }
 
+
+// Global variable to store project data
+let projectsCache = null;
+
+/**
+ * Fetches all projects and caches them
+ * @returns {Promise<Object>} A mapping from project ID to project name
+ */
+async function getProjectsMapping() {
+    // Return cache if already loaded
+    if (projectsCache) {
+        return projectsCache;
+    }
+    
+    try {
+        // Get current user's UPN or use the hardcoded one
+        const upn = getCurrentUserUpn() || 'migueltestupn';
+        
+        // Fetch projects data
+        const response = await window.loomeApi.runApiRequest(9, { upn });
+        const data = safeParseJson(response);
+        
+        // Create a mapping from project ID to project name
+        const mapping = {};
+        if (data && data.Results && Array.isArray(data.Results)) {
+            data.Results.forEach(project => {
+                mapping[project.AssistProjectID] = {
+                    name: project.Name,
+                    description: project.Description
+                };
+            });
+        }
+        
+        // Cache the mapping
+        projectsCache = mapping;
+        return mapping;
+        
+    } catch (error) {
+        console.error("Error fetching projects:", error);
+        return {}; // Return empty object in case of error
+    }
+}
+
+
 /**
  * Displays request details in the container
  * @param {HTMLElement} container - The container element
  * @param {object} details - The request details
  */
-function displayRequestDetails(container, details) {
+async function displayRequestDetails(container, details) {
     // Check if we have valid details
     if (!details || Object.keys(details).length === 0) {
         container.innerHTML = '<p class="text-center text-red-500">No request details available</p>';
         return;
     }
     
-    // Format the details for display
-    let html = '';
+    // Show loading state
+    container.innerHTML = '<p class="text-center">Loading project details...</p>';
     
-    // Add basic request information
-    html += `
-        <p><strong>Project ID:</strong> ${details.ProjectID || 'N/A'}</p>
-        <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
-        <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
-        <p><strong>Created:</strong> ${formatDate(details.CreateDate)}</p>
-        <p><strong>Status:</strong> ${details.Status || 'Unknown'}</p>
-    `;
-    
-    // Add status-specific fields
-    if (details.Approvers) html += `<p><strong>Approvers:</strong> ${details.Approvers}</p>`;
-    if (details.ApprovedBy) html += `<p><strong>Approved By:</strong> ${details.ApprovedBy}</p>`;
-    if (details.ApprovedDate) html += `<p><strong>Approved Date:</strong> ${formatDate(details.ApprovedDate)}</p>`;
-    if (details.RejectedBy) html += `<p><strong>Rejected By:</strong> ${details.RejectedBy}</p>`;
-    if (details.RejectedDate) html += `<p><strong>Rejected Date:</strong> ${formatDate(details.RejectedDate)}</p>`;
-    if (details.FinalisedDate) html += `<p><strong>Finalised Date:</strong> ${formatDate(details.FinalisedDate)}</p>`;
-    
-    // Add any additional fields from the API response
-    const standardFields = ['ProjectID', 'Name', 'Description', 'CreateDate', 'Status', 
-                          'Approvers', 'ApprovedBy', 'ApprovedDate', 'RejectedBy', 
-                          'RejectedDate', 'FinalisedDate'];
-    
-    for (const [key, value] of Object.entries(details)) {
-        if (!standardFields.includes(key) && value !== null && value !== undefined) {
-            html += `<p><strong>${key}:</strong> ${value}</p>`;
+    try {
+        // Get project mapping
+        const projectsMapping = await getProjectsMapping();
+        const projectInfo = projectsMapping[details.ProjectID] || { name: 'Unknown Project', description: '' };
+        
+        // Format the details for display
+        let html = '';
+        
+        // Add basic request information
+        html += `
+            <p><strong>Target Project Name:</strong> ${projectInfo.name}</p>
+        `;
+        
+        // Add project description if available
+        if (projectInfo.description) {
+            html += `<p><strong>Project Description:</strong> ${projectInfo.description}</p>`;
         }
+        
+        // // Add status-specific fields
+        // if (details.Approvers) html += `<p><strong>Approvers:</strong> ${details.Approvers}</p>`;
+        // if (details.ApprovedBy) html += `<p><strong>Approved By:</strong> ${details.ApprovedBy}</p>`;
+        // if (details.ApprovedDate) html += `<p><strong>Approved Date:</strong> ${formatDate(details.ApprovedDate)}</p>`;
+        // if (details.RejectedBy) html += `<p><strong>Rejected By:</strong> ${details.RejectedBy}</p>`;
+        // if (details.RejectedDate) html += `<p><strong>Rejected Date:</strong> ${formatDate(details.RejectedDate)}</p>`;
+        // if (details.FinalisedDate) html += `<p><strong>Finalised Date:</strong> ${formatDate(details.FinalisedDate)}</p>`;
+        
+        // // Add any additional fields from the API response
+        // const standardFields = ['RequestID', 'ProjectID', 'Name', 'Description', 'CreateDate', 'Status', 
+        //                       'Approvers', 'ApprovedBy', 'ApprovedDate', 'RejectedBy', 
+        //                       'RejectedDate', 'FinalisedDate'];
+        
+        // for (const [key, value] of Object.entries(details)) {
+        //     if (!standardFields.includes(key) && value !== null && value !== undefined) {
+        //         html += `<p><strong>${key}:</strong> ${value}</p>`;
+        //     }
+        // }
+        
+        // Update the container
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error displaying request details:", error);
+        container.innerHTML = `
+            <p class="text-center text-red-500">Error loading project details</p>
+            <div class="mt-3">
+                <p><strong>Request ID:</strong> ${details.RequestID || 'N/A'}</p>
+                <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
+                <p><strong>Project ID:</strong> ${details.ProjectID || 'N/A'}</p>
+                <p><strong>Status:</strong> ${details.Status || 'Unknown'}</p>
+                <!-- Add other critical fields here -->
+            </div>
+        `;
     }
-    
-    // Update the container
-    container.innerHTML = html;
 }
 
 /**
@@ -473,12 +540,9 @@ function displayDatasetDetails(container, details) {
     
     // Add basic dataset information
     html += `
-        <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
-        <p><strong>Dataset ID:</strong> ${details.DataSetID || 'N/A'}</p>
+        <p><strong>Requested Dataset:</strong> ${details.Name || 'N/A'}</p>
         <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
         <p><strong>Data Source ID:</strong> ${details.DataSourceID || 'N/A'}</p>
-        <p><strong>Active:</strong> ${details.IsActive ? 'Yes' : 'No'}</p>
-        <p><strong>Last Modified:</strong> ${formatDate(details.ModifiedDate)}</p>
     `;
     
     // Add fields table if available
@@ -681,7 +745,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                     try {
                         // Fetch request details
                         const requestDetails = await fetchRequestDetails(item.RequestID);
-                        displayRequestDetails(requestDetailsContainer, requestDetails);
+                        await displayRequestDetails(requestDetailsContainer, requestDetails);
                         
                         // Fetch dataset details
                         const datasetDetails = await fetchDatasetDetails(item.DataSetID);
