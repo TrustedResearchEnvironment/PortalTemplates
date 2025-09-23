@@ -350,6 +350,176 @@ function createToastContainer() {
     return container;
 }
 
+
+/**
+ * Fetches request details from the API
+ * @param {string|number} requestID - The ID of the request
+ * @returns {Promise<object>} - The request details
+ */
+async function fetchRequestDetails(requestID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(8, {
+            "RequestID": requestID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching request details for ID ${requestID}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Fetches dataset details from the API
+ * @param {string|number} datasetID - The ID of the dataset
+ * @returns {Promise<object>} - The dataset details
+ */
+async function fetchDatasetDetails(datasetID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(6, {
+            "DataSetID": datasetID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching dataset details for ID ${datasetID}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Gets the current user's UPN
+ * @returns {string} - The user's UPN
+ */
+function getCurrentUserUpn() {
+    // Implement your logic to get the current user's UPN
+    // This might come from a global variable, session storage, or another source
+    return "user@example.com"; // Replace with actual implementation
+}
+
+/**
+ * Displays request details in the container
+ * @param {HTMLElement} container - The container element
+ * @param {object} details - The request details
+ */
+function displayRequestDetails(container, details) {
+    // Check if we have valid details
+    if (!details || Object.keys(details).length === 0) {
+        container.innerHTML = '<p class="text-center text-red-500">No request details available</p>';
+        return;
+    }
+    
+    // Format the details for display
+    let html = '';
+    
+    // Add basic request information
+    html += `
+        <p><strong>Project ID:</strong> ${details.ProjectID || 'N/A'}</p>
+        <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
+        <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
+        <p><strong>Created:</strong> ${formatDate(details.CreateDate)}</p>
+        <p><strong>Status:</strong> ${details.Status || 'Unknown'}</p>
+    `;
+    
+    // Add status-specific fields
+    if (details.Approvers) html += `<p><strong>Approvers:</strong> ${details.Approvers}</p>`;
+    if (details.ApprovedBy) html += `<p><strong>Approved By:</strong> ${details.ApprovedBy}</p>`;
+    if (details.ApprovedDate) html += `<p><strong>Approved Date:</strong> ${formatDate(details.ApprovedDate)}</p>`;
+    if (details.RejectedBy) html += `<p><strong>Rejected By:</strong> ${details.RejectedBy}</p>`;
+    if (details.RejectedDate) html += `<p><strong>Rejected Date:</strong> ${formatDate(details.RejectedDate)}</p>`;
+    if (details.FinalisedDate) html += `<p><strong>Finalised Date:</strong> ${formatDate(details.FinalisedDate)}</p>`;
+    
+    // Add any additional fields from the API response
+    const standardFields = ['ProjectID', 'Name', 'Description', 'CreateDate', 'Status', 
+                          'Approvers', 'ApprovedBy', 'ApprovedDate', 'RejectedBy', 
+                          'RejectedDate', 'FinalisedDate'];
+    
+    for (const [key, value] of Object.entries(details)) {
+        if (!standardFields.includes(key) && value !== null && value !== undefined) {
+            html += `<p><strong>${key}:</strong> ${value}</p>`;
+        }
+    }
+    
+    // Update the container
+    container.innerHTML = html;
+}
+
+/**
+ * Displays dataset details in the container
+ * @param {HTMLElement} container - The container element
+ * @param {object} details - The dataset details
+ */
+function displayDatasetDetails(container, details) {
+    // Check if we have valid details
+    if (!details || Object.keys(details).length === 0) {
+        container.innerHTML = '<p class="text-center text-red-500">No dataset details available</p>';
+        return;
+    }
+    
+    // Format the details for display
+    let html = '';
+    
+    // Add basic dataset information
+    html += `
+        <p><strong>Dataset ID:</strong> ${details.DataSetID || 'N/A'}</p>
+        <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
+        <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
+        <p><strong>Data Source:</strong> ${details.DataSource || 'N/A'}</p>
+        <p><strong>Active:</strong> ${details.Active ? 'Yes' : 'No'}</p>
+        <p><strong>Created:</strong> ${formatDate(details.CreatedDate)}</p>
+        <p><strong>Last Modified:</strong> ${formatDate(details.LastModified)}</p>
+    `;
+    
+    // Add fields table if available
+    if (details.Fields && details.Fields.length > 0) {
+        html += `
+            <div class="mt-3">
+                <strong>Fields:</strong>
+                <div class="mt-2">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th class="text-left">Field</th>
+                                <th class="text-left">Type</th>
+                                <th class="text-left">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        details.Fields.forEach(field => {
+            html += `
+                <tr>
+                    <td>${field.Name || 'N/A'}</td>
+                    <td>${field.Type || 'N/A'}</td>
+                    <td>${field.Description || ''}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Update the container
+    container.innerHTML = html;
+}
 // =================================================================
 
 /**
@@ -497,8 +667,33 @@ function renderTable(containerId, data, config, selectedStatus) {
             `;
 
             // Add click event to toggle accordion
-            row.addEventListener('click', () => {
+            row.addEventListener('click', async () => {
+                // Toggle the accordion visibility
                 accordionRow.classList.toggle('hidden');
+                
+                // Only fetch data if the accordion is becoming visible
+                if (!accordionRow.classList.contains('hidden')) {
+                    const requestDetailsContainer = accordionRow.querySelector(`#request-details-${item.ProjectID} .request-content`);
+                    const datasetDetailsContainer = accordionRow.querySelector(`#dataset-details-${item.DataSetID} .dataset-content`);
+                    
+                    // Show loading indicators
+                    requestDetailsContainer.innerHTML = '<p class="text-center">Loading request details...</p>';
+                    datasetDetailsContainer.innerHTML = '<p class="text-center">Loading dataset details...</p>';
+                    
+                    try {
+                        // Fetch request details
+                        const requestDetails = await fetchRequestDetails(item.ProjectID);
+                        displayRequestDetails(requestDetailsContainer, requestDetails);
+                        
+                        // Fetch dataset details
+                        const datasetDetails = await fetchDatasetDetails(item.DataSetID);
+                        displayDatasetDetails(datasetDetailsContainer, datasetDetails);
+                    } catch (error) {
+                        console.error("Error loading details:", error);
+                        requestDetailsContainer.innerHTML = '<p class="text-center text-red-500">Error loading request details</p>';
+                        datasetDetailsContainer.innerHTML = '<p class="text-center text-red-500">Error loading dataset details</p>';
+                    }
+                }
             });
             
             // Create accordion row
@@ -521,30 +716,14 @@ function renderTable(containerId, data, config, selectedStatus) {
                                 <div id="request-details-${item.ProjectID}" class="border p-4 rounded">
                                     <h4 class="font-semibold mb-2">Request Information</h4>
                                     <div class="request-content">
-                                        <p><strong>Project ID:</strong> ${item.ProjectID}</p>
-                                        <p><strong>Name:</strong> ${item.Name}</p>
-                                        <p><strong>Data Set ID:</strong> ${item.DataSetID}</p>
-                                        <p><strong>Created:</strong> ${formatDate(item.CreateDate)}</p>
-                                        <p><strong>Status:</strong> ${item.status || 'Unknown'}</p>
-                                        <!-- Additional fields based on status -->
-                                        ${item.Approvers ? `<p><strong>Approvers:</strong> ${item.Approvers}</p>` : ''}
-                                        ${item.CurrentlyApproved ? `<p><strong>Approved By:</strong> ${item.CurrentlyApproved}</p>` : ''}
-                                        ${item.ApprovedDate ? `<p><strong>Approved Date:</strong> ${formatDate(item.ApprovedDate)}</p>` : ''}
-                                        ${item.RejectedBy ? `<p><strong>Rejected By:</strong> ${item.RejectedBy}</p>` : ''}
-                                        ${item.RejectedDate ? `<p><strong>Rejected Date:</strong> ${formatDate(item.RejectedDate)}</p>` : ''}
-                                        ${item.FinalisedDate ? `<p><strong>Finalised Date:</strong> ${formatDate(item.FinalisedDate)}</p>` : ''}
+                                        <p class="text-center text-gray-500">Loading request details...</p>
                                     </div>
                                 </div>
                                 
                                 <div id="dataset-details-${item.DataSetID}" class="border p-4 rounded">
                                     <h4 class="font-semibold mb-2">Dataset Information</h4>
                                     <div class="dataset-content">
-                                        <p class="text-center text-gray-500">Click "Load Dataset Details" to view information</p>
-                                    </div>
-                                    <div class="mt-4 text-center">
-                                        <button class="btn btn-primary load-dataset-details" data-project-id="${item.ProjectID}" data-dataset-id="${item.DataSetID}">
-                                            Load Dataset Details
-                                        </button>
+                                        <p class="text-center text-gray-500">Loading dataset details...</p>
                                     </div>
                                 </div>
                             </div>
@@ -552,7 +731,6 @@ function renderTable(containerId, data, config, selectedStatus) {
                     </div>
                 </td>
             `;
-
             // Add event listeners for the accordion
             const loadDatasetBtn = accordionRow.querySelector('.load-dataset-details');
             const deleteBtn = accordionRow.querySelector('.action-delete');
