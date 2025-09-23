@@ -581,6 +581,87 @@ function displayDatasetDetails(container, details) {
 }
 // =================================================================
 
+
+/**
+ * Displays combined request and dataset details in a single container
+ * @param {HTMLElement} container - The container element
+ * @param {object} requestDetails - The request details
+ * @param {object} datasetDetails - The dataset details
+ */
+async function displayCombinedDetails(container, requestDetails, datasetDetails) {
+    // Check if we have valid details
+    if ((!requestDetails || Object.keys(requestDetails).length === 0) && 
+        (!datasetDetails || Object.keys(datasetDetails).length === 0)) {
+        container.innerHTML = '<p class="text-center text-red-500">No details available</p>';
+        return;
+    }
+    
+    // Show loading state
+    container.innerHTML = '<p class="text-center">Loading details...</p>';
+    
+    try {
+        // Get project mapping for request details
+        const projectsMapping = await getProjectsMapping();
+        const projectInfo = requestDetails && requestDetails.ProjectID ? 
+            (projectsMapping[requestDetails.ProjectID] || { name: 'Unknown Project', description: '' }) : 
+            { name: 'Unknown Project', description: '' };
+        
+        // Start building HTML
+        let html = `
+            <div class="grid grid-cols-1 gap-5">
+                <!-- Request Information -->
+                <div>
+                    <div class="space-y-3">
+                       
+                        <!-- Dataset Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Requested Dataset</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Name || 'N/A'}</span>
+                        </div>
+
+                        ${datasetDetails.Description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Dataset Description</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Description}</span>
+                        </div>` : ''}
+                        
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Data Source ID</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.DataSource || datasetDetails.DataSourceID || 'N/A'}</span>
+                        </div>
+
+                        <!-- Project Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Target Project Name</span>
+                            <span class="text-sm text-gray-500">${projectInfo.name}</span>
+                        </div>
+                        
+                        ${projectInfo.description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Project Description</span>
+                            <span class="text-sm text-gray-500">${projectInfo.description}</span>
+                        </div>` : ''}
+
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Update the container
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error displaying combined details:", error);
+        container.innerHTML = `
+            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                <p class="text-sm">${error.message || 'Unknown error'}</p>
+            </div>
+        `;
+    }
+}
+
+
 /**
  * Safely parses a response that might be a JSON string or an object.
  * @param {string | object} response The API response.
@@ -725,31 +806,81 @@ function renderTable(containerId, data, config, selectedStatus) {
             `;
 
             // Add click event to toggle accordion
+            // Modify your click event handler with better debugging
             row.addEventListener('click', async () => {
                 // Toggle the accordion visibility
                 accordionRow.classList.toggle('hidden');
                 
                 // Only fetch data if the accordion is becoming visible
                 if (!accordionRow.classList.contains('hidden')) {
-                    const requestDetailsContainer = accordionRow.querySelector(`#request-details-${item.ProjectID} .request-content`);
-                    const datasetDetailsContainer = accordionRow.querySelector(`#dataset-details-${item.DataSetID} .dataset-content`);
+                    const combinedDetailsContainer = accordionRow.querySelector(`#combined-details-${item.RequestID}`);
                     
-                    // Show loading indicators
-                    requestDetailsContainer.innerHTML = '<p class="text-center">Loading request details...</p>';
-                    datasetDetailsContainer.innerHTML = '<p class="text-center">Loading dataset details...</p>';
+                    // Show loading indicator
+                    combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
                     
                     try {
-                        // Fetch request details
-                        const requestDetails = await fetchRequestDetails(item.RequestID);
-                        await displayRequestDetails(requestDetailsContainer, requestDetails);
+                        console.log(`Fetching details for RequestID: ${item.RequestID}, DataSetID: ${item.DataSetID}`);
                         
-                        // Fetch dataset details
-                        const datasetDetails = await fetchDatasetDetails(item.DataSetID);
-                        displayDatasetDetails(datasetDetailsContainer, datasetDetails);
+                        // Try fetching request details first
+                        let requestDetails;
+                        try {
+                            console.log('Fetching request details...');
+                            requestDetails = await fetchRequestDetails(item.RequestID);
+                            console.log('Request details received:', requestDetails);
+                        } catch (requestError) {
+                            console.error('Error fetching request details:', requestError);
+                            requestDetails = null;
+                        }
+                        
+                        // Then try fetching dataset details
+                        let datasetDetails;
+                        try {
+                            console.log('Fetching dataset details...');
+                            datasetDetails = await fetchDatasetDetails(item.DataSetID);
+                            console.log('Dataset details received:', datasetDetails);
+                        } catch (datasetError) {
+                            console.error('Error fetching dataset details:', datasetError);
+                            datasetDetails = null;
+                        }
+                        
+                        // Check if we have at least one set of details
+                        if (!requestDetails && !datasetDetails) {
+                            throw new Error('Failed to fetch both request and dataset details');
+                        }
+                        
+                        // Display whatever details we have
+                        console.log('Displaying combined details');
+                        displayCombinedDetails(combinedDetailsContainer, requestDetails, datasetDetails);
+                        
                     } catch (error) {
                         console.error("Error loading details:", error);
-                        requestDetailsContainer.innerHTML = '<p class="text-center text-red-500">Error loading request details</p>';
-                        datasetDetailsContainer.innerHTML = '<p class="text-center text-red-500">Error loading dataset details</p>';
+                        combinedDetailsContainer.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                                <p class="text-sm">${error.message || 'Unknown error'}</p>
+                                <button class="mt-2 px-3 py-1 bg-white border border-gray-300 rounded text-sm retry-btn">
+                                    Retry
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add retry button functionality
+                        combinedDetailsContainer.querySelector('.retry-btn')?.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
+                            try {
+                                const retryRequestDetails = await fetchRequestDetails(item.RequestID);
+                                const retryDatasetDetails = await fetchDatasetDetails(item.DataSetID);
+                                displayCombinedDetails(combinedDetailsContainer, retryRequestDetails, retryDatasetDetails);
+                            } catch (retryError) {
+                                combinedDetailsContainer.innerHTML = `
+                                    <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                        <p class="text-red-600">Failed to load details</p>
+                                        <p class="text-sm text-red-500 mt-1">${retryError.message || 'Unknown error'}</p>
+                                    </div>
+                                `;
+                            }
+                        });
                     }
                 }
             });
@@ -762,41 +893,18 @@ function renderTable(containerId, data, config, selectedStatus) {
                     <div class="bg-gray-50 p-4 m-2 rounded">
                         <div class="grid grid-cols-1 gap-4">
                             <div class="flex justify-end mb-1">
-                                <div class="space-x-2">
-                                    <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                        Delete Request
-                                    </button>
-                                </div>
+                                <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                </button>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4">
-                                <!-- Request Information Panel -->
-                                <div id="request-details-${item.ProjectID}" class="bg-white p-4 rounded-md shadow-sm">
-                                    <h4 class="text-md font-medium text-blue-700 mb-3 flex items-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        Request Information
-                                    </h4>
-                                    <div class="request-content">
-                                        <p class="text-center text-gray-500">Loading request details...</p>
-                                    </div>
-                                </div>
-                                
-                                <!-- Dataset Information Panel -->
-                                <div id="dataset-details-${item.DataSetID}" class="bg-white p-4 rounded-md shadow-sm">
-                                    <h4 class="text-md font-medium text-green-700 mb-3 flex items-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                                        </svg>
-                                        Dataset Information
-                                    </h4>
-                                    <div class="dataset-content">
-                                        <p class="text-center text-gray-500">Loading dataset details...</p>
-                                    </div>
+                            <!-- Combined Information Card -->
+                            <div class="bg-white p-5 rounded-md shadow-sm">
+                                <div id="combined-details-${item.RequestID}" class="combined-content">
+                                    <p class="text-center text-gray-500">Loading details...</p>
                                 </div>
                             </div>
                         </div>
