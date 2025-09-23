@@ -75,123 +75,119 @@ function ViewRequest(request) {
 
 }
 
-function ViewDataSet(request) {
-    // Get the modal elements
-    const modalBody = document.getElementById('viewDatasetModalBody');
-    //const modalTitle = document.getElementById('viewDatasetModalLabel');
-
-    // Set the title dynamically based on datasetID (example usage; modify as needed)
-    //modalTitle.textContent = `Details for Dataset ID: ${datasetID}`;
-
-    // Populate the modal body with the provided complex HTML content
-    modalBody.innerHTML = `
-        <form>
-            <div class="form-group">
-                <label for="Description" class="control-label">Description</label>
-                <textarea rows="2" id="Name" disabled="true" class="form-control valid"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="Approvers" class="control-label">Owner</label>
-                <input id="Approvers" disabled="true" class="form-control valid">
-            </div>
-            <div class="form-group">
-                <label for="Approvers" class="control-label">Approvers</label>
-                <input id="Approvers" disabled="true" class="form-control valid" value="${request.approvers}">
-            </div>
+async function ViewDataSet(request) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // You can still update the modal if needed
+            const modalBody = document.getElementById('viewDatasetModalBody');
             
-            <div class="form-group">
-                <label for="DataSetType" class="form-check-label">Data Source</label>
-                <select disabled="true" class="form-control selectpicker valid">
-                    <option value="1">BIS Data (pilot test)</option>
-                    <option value="4">Barwon Health DB Source View 1</option>
-                    <option value="25">Source Mock SQL Data for Testing</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <div class="form-check">
-                    <input id="Active" disabled="true" type="checkbox" class="form-check-input valid">
-                    <label for="Active" class="form-check-label">Active</label>
-                </div>
-            </div>
-            <br>
-            <h6>Data Set Fields</h6>
-            <div class="table-responsive">
-                <table class="table table-condensed table-striped">
-                    <tbody>
-                        <tr>
-                            <td>Table Name <input type="text" hidden="true"></td>
-                            <td width="70%">
-                                <select disabled="true" class="form-control selectpicker valid">
-                                    <option value="7">dbo.vw_emergency_attendances</option>
-                                    <option value="8">dbo.vw_inpatient_admissions_university_hospital_geelong</option>
-                                    <option value="9">dbo.vw_link_emergency_attendances_inpatient_admissions</option>
-                                </select>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <br>
-            <h6>Meta Data</h6>
-            <div class="table-responsive">
-                <table class="table table-condensed table-striped">
-                    <tbody>
-                        <tr>
-                            <td>Tag <input type="text" hidden="true"></td>
-                            <td width="70%">
-                                <input id="Name" disabled="true" class="form-control valid">
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <br>
-            <h6>Columns</h6>
-            <div class="container-fluid">
-                <div class="d-flex align-items-center justify-content-between">
-                    <!-- Section for Attendance Number -->
-                    <div class="flex-grow-1">
-                        <h6 style="color: orange;">[attendance_number] (varchar)</h6>
-                        <input type="text" hidden="true">
+            // Fetch dataset details - replace this with your actual data fetching logic
+            // This could be an API call, database query, etc.
+            const datasetDetails = await fetchDatasetDetails(request.DataSetID);
+            
+            // If you still want to update the modal
+            if (modalBody) {
+                // Format the dataset details for the modal
+                let modalContent = `
+                    <div class="form-group">
+                        <label for="DataSetType" class="form-check-label">Data Source</label>
+                        <select disabled="true" class="form-control selectpicker valid">
+                            <option value="1" ${datasetDetails.DataSourceID === 1 ? 'selected' : ''}>BIS Data (pilot test)</option>
+                            <option value="4" ${datasetDetails.DataSourceID === 4 ? 'selected' : ''}>Barwon Health DB Source View 1</option>
+                            <option value="25" ${datasetDetails.DataSourceID === 25 ? 'selected' : ''}>Source Mock SQL Data for Testing</option>
+                        </select>
                     </div>
-                
-                    <!-- Section for Checkboxes -->
-                    <div class="d-flex">
-                        <div class="form-check me-3">
-                            <input id="Redact" disabled="true" type="checkbox" class="form-check-input">
-                            <label for="Redact" class="form-check-label">Redact</label>
-                        </div>
-                        <div class="form-check me-3">
-                            <input id="Tokenise" disabled="true" type="checkbox" class="form-check-input">
-                            <label for="Tokenise" class="form-check-label">Tokenise</label>
-                        </div>
+                    <div class="form-group">
                         <div class="form-check">
-                            <input id="IsFilter" disabled="true" type="checkbox" class="form-check-input">
-                            <label for="IsFilter" class="form-check-label">IsFilter</label>
+                            <input id="Active" disabled="true" type="checkbox" class="form-check-input valid" ${datasetDetails.Active ? 'checked' : ''}>
+                            <label for="Active" class="form-check-label">Active</label>
                         </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="form-group col-md-6">
-                        <label for="LogicalColumnName">Logical Name</label>
-                        <input id="LogicalColumnName" disabled="true" class="form-control valid">
+                    <br>
+                    <h6>Data Set Fields</h6>
+                    <div class="table-responsive">
+                        <table class="table table-condensed table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Field Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                // Add dataset fields to the modal
+                if (datasetDetails.Fields && datasetDetails.Fields.length > 0) {
+                    datasetDetails.Fields.forEach(field => {
+                        modalContent += `
+                            <tr>
+                                <td>${field.Name}</td>
+                                <td>${field.Type}</td>
+                                <td>${field.Description || ''}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    modalContent += `<tr><td colspan="3" class="text-center">No fields available</td></tr>`;
+                }
+                
+                modalContent += `
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="form-group col-md-6">
-                        <label for="ExampleValue">Example Value</label>
-                        <input id="ExampleValue" disabled="true" class="form-control valid">
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="form-group col-md-12">
-                        <label for="BusinessDescription">Business Description</label>
-                        <input id="BusinessDescription" disabled="true" class="form-control valid">
-                    </div>
-                </div>
-                <br>
-            </div>
-        </form>
-    `;
+                `;
+                
+                modalBody.innerHTML = modalContent;
+            }
+            
+            // Format the dataset details for the accordion
+            const formattedDetails = {
+                DataSetID: datasetDetails.DataSetID,
+                Name: datasetDetails.Name,
+                Description: datasetDetails.Description || 'No description available',
+                DataSource: getDataSourceName(datasetDetails.DataSourceID),
+                Active: datasetDetails.Active ? 'Yes' : 'No',
+                CreatedDate: formatDate(datasetDetails.CreatedDate),
+                LastModified: formatDate(datasetDetails.LastModified),
+                FieldCount: datasetDetails.Fields ? datasetDetails.Fields.length : 0,
+                Fields: formatFieldsForAccordion(datasetDetails.Fields)
+            };
+            
+            // Resolve the promise with the formatted details
+            resolve(formattedDetails);
+            
+        } catch (error) {
+            console.error('Error fetching dataset details:', error);
+            reject(error);
+        }
+    });
+}
 
+// Helper function to get data source name from ID
+function getDataSourceName(dataSourceID) {
+    const dataSources = {
+        1: 'BIS Data (pilot test)',
+        4: 'Barwon Health DB Source View 1',
+        25: 'Source Mock SQL Data for Testing'
+    };
+    return dataSources[dataSourceID] || `Unknown Source (${dataSourceID})`;
+}
+
+// Helper function to format fields for the accordion
+function formatFieldsForAccordion(fields) {
+    if (!fields || fields.length === 0) {
+        return 'No fields available';
+    }
+    
+    let fieldsHtml = '<div class="mt-2"><table class="w-full text-sm"><thead><tr><th class="text-left">Field</th><th class="text-left">Type</th></tr></thead><tbody>';
+    
+    fields.forEach(field => {
+        fieldsHtml += `<tr><td>${field.Name}</td><td>${field.Type}</td></tr>`;
+    });
+    
+    fieldsHtml += '</tbody></table></div>';
+    return fieldsHtml;
 }
 
 function ApproveRequest(request) {
@@ -452,7 +448,6 @@ function renderTable(containerId, data, config, selectedStatus) {
     container.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'w-full divide-y divide-gray-200';
-
     const thead = document.createElement('thead');
     thead.className = 'bg-gray-50';
     const headerRow = document.createElement('tr');
@@ -463,8 +458,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
     else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
-    if (config.showActions) headers.push('Actions');
-
+    
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
@@ -483,6 +477,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     } else {
         data.forEach(item => {
             const row = document.createElement('tr');
+            row.className = 'cursor-pointer hover:bg-gray-100';
             const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
             
             let statusSpecificCols = '';
@@ -492,13 +487,6 @@ function renderTable(containerId, data, config, selectedStatus) {
                 case 'Approved': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td>`; break;
                 case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
             }
-
-            const actionButtons = `
-                <div class="btn-group pull-right">
-                    <button class="btn btn-accent action-view-request" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal"><i class="fa fa-eye"></i></button>
-                    <button class="btn btn-accent action-view-dataset" title="View Data Set" data-bs-toggle="modal" data-bs-target="#viewDatasetModal"><i class="fa fa-clone"></i></button>
-                    <button class="btn btn-accent action-delete" title="Delete Request" data-bs-toggle="modal" data-bs-target="#deleteRequestModal"><i class="fa fa-trash"></i></button>
-                </div>`;
             
             row.innerHTML = `
                 <td class="${tdClasses}">${item.ProjectID}</td>
@@ -506,22 +494,133 @@ function renderTable(containerId, data, config, selectedStatus) {
                 <td class="${tdClasses}">Data Set ${item.DataSetID}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
                 ${statusSpecificCols}
-                ${config.showActions ? `<td class="${tdClasses}">${actionButtons}</td>` : ''}
             `;
-            tbody.appendChild(row);
 
-            // Add event listeners for the action buttons in this row
-            row.querySelector('.action-view-request')?.addEventListener('click', () => ViewRequest(item));
-            row.querySelector('.action-view-dataset')?.addEventListener('click', () => ViewDataSet(item));
-            // row.querySelector('.action-approve')?.addEventListener('click', () => ApproveRequest(item));
-            // row.querySelector('.action-reject')?.addEventListener('click', () => RejectRequest(item));
-            row.querySelector('.action-delete')?.addEventListener('click', () => DeleteRequest(item));
+            // Add click event to toggle accordion
+            row.addEventListener('click', () => {
+                accordionRow.classList.toggle('hidden');
+            });
+            
+            // Create accordion row
+            const accordionRow = document.createElement('tr');
+            accordionRow.classList.add('hidden', 'accordion-row');
+            accordionRow.innerHTML = `
+                <td colspan="${headers.length}" class="p-0">
+                    <div class="bg-gray-50 p-4 m-2 rounded">
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="flex justify-between mb-4">
+                                <h3 class="font-bold">Details</h3>
+                                <div class="space-x-2">
+                                    <button class="btn btn-danger action-delete" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                        Delete Request
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div id="request-details-${item.ProjectID}" class="border p-4 rounded">
+                                    <h4 class="font-semibold mb-2">Request Information</h4>
+                                    <div class="request-content">
+                                        <p><strong>Project ID:</strong> ${item.ProjectID}</p>
+                                        <p><strong>Name:</strong> ${item.Name}</p>
+                                        <p><strong>Data Set ID:</strong> ${item.DataSetID}</p>
+                                        <p><strong>Created:</strong> ${formatDate(item.CreateDate)}</p>
+                                        <p><strong>Status:</strong> ${item.status || 'Unknown'}</p>
+                                        <!-- Additional fields based on status -->
+                                        ${item.Approvers ? `<p><strong>Approvers:</strong> ${item.Approvers}</p>` : ''}
+                                        ${item.CurrentlyApproved ? `<p><strong>Approved By:</strong> ${item.CurrentlyApproved}</p>` : ''}
+                                        ${item.ApprovedDate ? `<p><strong>Approved Date:</strong> ${formatDate(item.ApprovedDate)}</p>` : ''}
+                                        ${item.RejectedBy ? `<p><strong>Rejected By:</strong> ${item.RejectedBy}</p>` : ''}
+                                        ${item.RejectedDate ? `<p><strong>Rejected Date:</strong> ${formatDate(item.RejectedDate)}</p>` : ''}
+                                        ${item.FinalisedDate ? `<p><strong>Finalised Date:</strong> ${formatDate(item.FinalisedDate)}</p>` : ''}
+                                    </div>
+                                </div>
+                                
+                                <div id="dataset-details-${item.DataSetID}" class="border p-4 rounded">
+                                    <h4 class="font-semibold mb-2">Dataset Information</h4>
+                                    <div class="dataset-content">
+                                        <p class="text-center text-gray-500">Click "Load Dataset Details" to view information</p>
+                                    </div>
+                                    <div class="mt-4 text-center">
+                                        <button class="btn btn-primary load-dataset-details" data-project-id="${item.ProjectID}" data-dataset-id="${item.DataSetID}">
+                                            Load Dataset Details
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+
+            // Add event listeners for the accordion
+            const loadDatasetBtn = accordionRow.querySelector('.load-dataset-details');
+            const deleteBtn = accordionRow.querySelector('.action-delete');
+
+            loadDatasetBtn?.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const datasetContentDiv = accordionRow.querySelector(`#dataset-details-${item.DataSetID} .dataset-content`);
+                const loadBtn = e.target;
+                
+                // Update UI to show loading
+                datasetContentDiv.innerHTML = '<p class="text-center">Loading dataset details...</p>';
+                loadBtn.disabled = true;
+                loadBtn.textContent = 'Loading...';
+                
+                try {
+                    // Call the modified ViewDataSet function which returns a Promise
+                    const datasetDetails = await ViewDataSet(item);
+                    
+                    // Create HTML to display dataset details
+                    let detailsHTML = '';
+                    
+                    if (datasetDetails) {
+                        for (const [key, value] of Object.entries(datasetDetails)) {
+                            // Skip rendering the Fields property directly since it's HTML
+                            if (key === 'Fields') continue;
+                            
+                            detailsHTML += `<p><strong>${key}:</strong> ${value}</p>`;
+                        }
+                        
+                        // Add the fields table if it exists
+                        if (datasetDetails.Fields) {
+                            detailsHTML += `
+                                <div class="mt-3">
+                                    <strong>Fields:</strong>
+                                    ${datasetDetails.Fields}
+                                </div>
+                            `;
+                        }
+                    } else {
+                        detailsHTML = '<p class="text-center text-red-500">No dataset details available</p>';
+                    }
+                    
+                    // Update the content
+                    datasetContentDiv.innerHTML = detailsHTML;
+                    
+                    // Update button
+                    loadBtn.textContent = 'Refresh Dataset Details';
+                    loadBtn.disabled = false;
+                    
+                } catch (error) {
+                    datasetContentDiv.innerHTML = `<p class="text-center text-red-500">Error loading dataset: ${error.message}</p>`;
+                    loadBtn.textContent = 'Retry Loading Details';
+                    loadBtn.disabled = false;
+                }
+            });
+
+            deleteBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                DeleteRequest(item);
+            });
+            tbody.appendChild(row);
+            tbody.appendChild(accordionRow);
         });
     }
+    
     table.appendChild(tbody);
     container.appendChild(table);
 }
-
 
 
 // =================================================================
