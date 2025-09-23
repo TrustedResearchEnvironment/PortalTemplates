@@ -407,8 +407,8 @@ function showToast(message, type = 'info') {
                 if (toast.parentNode) {
                     toast.remove();
                 }
-            }, 300); // Wait for fade out
-        }, 3000);
+            }, 500); //Fade out transition for 500 milliseconds
+        }, 5000); // Display duration of 5 seconds
     }
     
     console.log('Toast created and appended to container');
