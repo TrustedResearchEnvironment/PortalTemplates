@@ -473,13 +473,12 @@ function displayDatasetDetails(container, details) {
     
     // Add basic dataset information
     html += `
-        <p><strong>Dataset ID:</strong> ${details.DataSetID || 'N/A'}</p>
         <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
+        <p><strong>Dataset ID:</strong> ${details.DataSetID || 'N/A'}</p>
         <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
-        <p><strong>Data Source:</strong> ${details.DataSource || 'N/A'}</p>
-        <p><strong>Active:</strong> ${details.Active ? 'Yes' : 'No'}</p>
-        <p><strong>Created:</strong> ${formatDate(details.CreatedDate)}</p>
-        <p><strong>Last Modified:</strong> ${formatDate(details.LastModified)}</p>
+        <p><strong>Data Source ID:</strong> ${details.DataSourceID || 'N/A'}</p>
+        <p><strong>Active:</strong> ${details.IsActive ? 'Yes' : 'No'}</p>
+        <p><strong>Last Modified:</strong> ${formatDate(details.ModifiedDate)}</p>
     `;
     
     // Add fields table if available
@@ -623,7 +622,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     const headerRow = document.createElement('tr');
     
     // Define headers based on the selected status
-    const headers = ['Project', 'Name', 'Data Set', 'Requested On'];
+    const headers = ['Request ID', 'Request Name', 'Requested On'];
     if (selectedStatus === 'Pending Approval') headers.push('Approvers');
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
@@ -659,9 +658,8 @@ function renderTable(containerId, data, config, selectedStatus) {
             }
             
             row.innerHTML = `
-                <td class="${tdClasses}">${item.ProjectID}</td>
+                <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
-                <td class="${tdClasses}">Data Set ${item.DataSetID}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
                 ${statusSpecificCols}
             `;
@@ -682,7 +680,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                     
                     try {
                         // Fetch request details
-                        const requestDetails = await fetchRequestDetails(item.ProjectID);
+                        const requestDetails = await fetchRequestDetails(item.RequestID);
                         displayRequestDetails(requestDetailsContainer, requestDetails);
                         
                         // Fetch dataset details
