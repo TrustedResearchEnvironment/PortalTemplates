@@ -261,10 +261,16 @@ function DeleteRequest(request) {
                 <strong>${request.Name}</strong>
             </div>
             <div class="form-group mt-3 d-flex justify-content-center">
-                <button id="confirmDeleteBtn" type="button" class="btn btn-danger">Delete</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                </button>
             </div>
         </div>
     `;
+    
     
     // Add event listener for the confirm delete button
     setTimeout(() => {
@@ -755,25 +761,39 @@ function renderTable(containerId, data, config, selectedStatus) {
                 <td colspan="${headers.length}" class="p-0">
                     <div class="bg-gray-50 p-4 m-2 rounded">
                         <div class="grid grid-cols-1 gap-4">
-                            <div class="flex justify-between mb-4">
-                                <h3 class="font-bold">Details</h3>
+                            <div class="flex justify-end mb-1">
                                 <div class="space-x-2">
-                                    <button class="btn btn-danger action-delete" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                    <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
                                         Delete Request
                                     </button>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-2 gap-4">
-                                <div id="request-details-${item.ProjectID}" class="border p-4 rounded">
-                                    <h4 class="font-semibold mb-2">Request Information</h4>
+                                <!-- Request Information Panel -->
+                                <div id="request-details-${item.ProjectID}" class="bg-white p-4 rounded-md shadow-sm">
+                                    <h4 class="text-md font-medium text-blue-700 mb-3 flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        Request Information
+                                    </h4>
                                     <div class="request-content">
                                         <p class="text-center text-gray-500">Loading request details...</p>
                                     </div>
                                 </div>
                                 
-                                <div id="dataset-details-${item.DataSetID}" class="border p-4 rounded">
-                                    <h4 class="font-semibold mb-2">Dataset Information</h4>
+                                <!-- Dataset Information Panel -->
+                                <div id="dataset-details-${item.DataSetID}" class="bg-white p-4 rounded-md shadow-sm">
+                                    <h4 class="text-md font-medium text-green-700 mb-3 flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                                        </svg>
+                                        Dataset Information
+                                    </h4>
                                     <div class="dataset-content">
                                         <p class="text-center text-gray-500">Loading dataset details...</p>
                                     </div>
