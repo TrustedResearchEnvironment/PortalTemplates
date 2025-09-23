@@ -250,22 +250,18 @@ function DeleteRequest(request) {
     // Update the modal title dynamically based on request
     const truncRequestName = request.Name.length > 20 ? request.Name.slice(0, 20) + "..." : request.Name;
 
-    modalTitle.textContent = `Delete Request: ${truncRequestName}`;
+    modalTitle.textContent = `Deleting Request...`;
     
     // Populate the modal body with the confirmation message
     modalBody.innerHTML = `
         <div class="col-md-12">
             <div class="alert alert-warning">
                 <i class="fa fa-exclamation-triangle"></i> 
-                Are you sure you want to delete this request? This action cannot be undone.
+                You are about to delete the request:<br>
+                <strong>${request.Name}</strong>
             </div>
-            <div class="form-group">
-                <label for="DeleteReason" class="control-label">Reason for Deletion</label>
-                <textarea id="DeleteReason" rows="3" placeholder="Please provide a reason for deletion" class="form-control valid"></textarea>
-            </div>
-            <div class="form-group mt-3">
+            <div class="form-group mt-3 d-flex justify-content-center">
                 <button id="confirmDeleteBtn" type="button" class="btn btn-danger">Delete</button>
-                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
             </div>
         </div>
     `;
@@ -273,12 +269,6 @@ function DeleteRequest(request) {
     // Add event listener for the confirm delete button
     setTimeout(() => {
         document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
-            const deleteReason = document.getElementById('DeleteReason').value;
-            if (!deleteReason.trim()) {
-                alert('Please provide a reason for deletion.');
-                return;
-            }
-            
             // Call the API to delete the request
             deleteRequestFromAPI(request.ID, deleteReason);
         });
