@@ -247,10 +247,8 @@ function DeleteRequest(request) {
     const modalBody = document.getElementById('deleteRequestModalBody');
     const modalTitle = document.getElementById('deleteRequestModalLabel');
     
-    // Update the modal title dynamically based on request
-    const truncRequestName = request.Name.length > 20 ? request.Name.slice(0, 20) + "..." : request.Name;
-
-    modalTitle.textContent = `Deleting Request...`;
+    // Update the modal title
+    modalTitle.textContent = `Delete Request`;
     
     // Populate the modal body with the confirmation message
     modalBody.innerHTML = `
@@ -261,7 +259,7 @@ function DeleteRequest(request) {
                 <strong>${request.Name}</strong>
             </div>
             <div class="form-group mt-3 d-flex justify-content-center">
-                <button id="confirmDeleteBtn" class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                <button id="confirmDeleteBtn" class="btn btn-danger px-3 py-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
@@ -271,70 +269,164 @@ function DeleteRequest(request) {
         </div>
     `;
     
-    
     // Add event listener for the confirm delete button
     setTimeout(() => {
-        document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
-            // Call the API to delete the request
-            deleteRequestFromAPI(request.ID, deleteReason);
-        });
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        if (confirmBtn) {
+            console.log('Adding click listener to confirm delete button');
+            confirmBtn.addEventListener('click', () => {
+                console.log('Delete button clicked for request:', request.RequestID);
+                // Call the API to delete the request
+                deleteRequestFromAPI(request.RequestID);
+            });
+        } else {
+            console.error('Confirm delete button not found');
+        }
     }, 100);
 }
 
-async function deleteRequestFromAPI(requestId, reason) {
+async function deleteRequestFromAPI(requestId) {
+    let loadingToast = null;
+    
     try {
+        console.log('Starting delete request process for ID:', requestId);
+        
         // Show loading state
-        const loadingToast = showToast('Deleting request...', 'info');
+        loadingToast = showToast('Deleting request...', 'info');
+        console.log('Loading toast shown:', loadingToast);
         
-        // Assuming you have an API endpoint for deletion
-        const deleteParams = {
-            "requestId": requestId,
-            "reason": reason
-        };
+        const response = await window.loomeApi.runApiRequest(20, {
+            "id": requestId,
+            "upn": getCurrentUserUpn()
+        });
         
-        // Replace API_DELETE_REQUEST_ID with the actual API request ID for deletion
-        const API_DELETE_REQUEST_ID = 5; // You need to set the correct ID
-        const response = await window.loomeApi.runApiRequest(API_DELETE_REQUEST_ID, deleteParams);
+        // Log the response to console
+        console.log('Delete request API response:', response);
         
         // Hide the modal
-        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
-        deleteModal.hide();
+        try {
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
+            if (deleteModal) {
+                deleteModal.hide();
+                console.log('Delete modal hidden');
+            } else {
+                console.log('Delete modal not found or already hidden');
+            }
+        } catch (modalError) {
+            console.error('Error hiding modal:', modalError);
+        }
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden');
+        }
         
         // Show success message
-        hideToast(loadingToast);
-        showToast('Request deleted successfully', 'success');
+        const successToast = showToast('Request deleted successfully', 'success');
+        console.log('Success toast shown:', successToast);
         
         // Refresh the UI
-        renderUI();
+        console.log('Refreshing UI');
+        setTimeout(() => {
+            renderUI();
+        }, 100);
+        
     } catch (error) {
         console.error("Error deleting request:", error);
-        showToast('Failed to delete request. Please try again.', 'error');
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden after error');
+        }
+        
+        // Show error message
+        const errorToast = showToast('Failed to delete request. Please try again.', 'error');
+        console.log('Error toast shown:', errorToast);
     }
 }
 
 // Toast notification functions
 function showToast(message, type = 'info') {
+    console.log(`Showing toast: ${message} (${type})`);
+    
     const toastContainer = document.getElementById('toast-container') || createToastContainer();
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-message">${message}</div>
+    
+    // Add styling based on type
+    let backgroundColor, textColor;
+    switch(type) {
+        case 'success':
+            backgroundColor = '#4caf50';
+            textColor = 'white';
+            break;
+        case 'error':
+            backgroundColor = '#f44336';
+            textColor = 'white';
+            break;
+        case 'info':
+        default:
+            backgroundColor = '#2196F3';
+            textColor = 'white';
+    }
+    
+    // Apply styles directly
+    toast.style.cssText = `
+        margin-bottom: 10px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: ${textColor};
+        background-color: ${backgroundColor};
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        min-width: 250px;
+        max-width: 350px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     `;
+    
+    toast.innerHTML = `
+        <div style="flex-grow: 1;">${message}</div>
+    `;
+    
     toastContainer.appendChild(toast);
+    
+    // Trigger reflow to ensure transition works
+    void toast.offsetWidth;
+    
+    // Make visible
+    toast.style.opacity = '1';
     
     // Auto-hide after 3 seconds for success messages
     if (type === 'success') {
         setTimeout(() => {
-            toast.remove();
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300); // Wait for fade out
         }, 3000);
     }
     
+    console.log('Toast created and appended to container');
     return toast;
 }
 
 function hideToast(toast) {
     if (toast && toast.parentNode) {
-        toast.remove();
+        console.log('Hiding toast');
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.remove();
+                console.log('Toast removed');
+            }
+        }, 300); // Wait for fade out
+    } else {
+        console.log('Toast not found or already removed');
     }
 }
 
@@ -342,6 +434,7 @@ function createToastContainer() {
     const container = document.createElement('div');
     container.id = 'toast-container';
     container.className = 'toast-top-right';
+    container.style.cssText = 'position: fixed; top: 12px; right: 12px; z-index: 9999;';
     document.body.appendChild(container);
     return container;
 }
