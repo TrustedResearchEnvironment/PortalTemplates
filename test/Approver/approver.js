@@ -2,7 +2,7 @@
 //                      STATE & CONFIGURATION
 // =================================================================
 const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_REQUEST_ID = 15;
+const API_REQUEST_ID = 16;
 
 // We will store all fetched data here
 let allRequests = []; 
@@ -432,14 +432,22 @@ async function getCounts(status) {
     console.log(apiParams)
     const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
     const parsedResponse = safeParseJson(response);
+    const rawData = parsedResponse.Results;
 
-    return parsedResponse.RowCount;
+    const filteredData = rawData.filter(item => {
+        return item.Approvers && item.Approvers.includes(AllowedToApprove);
+    });
+
+    return filteredData.length;
 }
 
 /**
  * Main function to orchestrate all rendering based on the current state.
  * It filters, paginates, and renders the table and controls.
  */
+
+const AllowedToApprove = "ria.yangzon@bizdata.com.au";
+
 async function renderUI() {
     const activeChip = document.querySelector('.chip.active');
     if (!activeChip) return; // Don't render if no chip is active
@@ -464,9 +472,16 @@ async function renderUI() {
     const totalItems = parsedResponse.RowCount;
     console.log(rawData)
 
+
+
+    // Filter datasets where the Approvers field contains AllowedToApprove
+    const filteredData = rawData.filter(item => {
+        return item.Approvers && item.Approvers.includes(AllowedToApprove);
+    });
+
     // --- 2. PREPARE THE MASTER DATA ARRAY ---
     // Transform the raw data just once into the format our UI needs.
-    allRequests = rawData.map(item => ({
+    allRequests = filteredData.map(item => ({
         ...item,
         status: statusIdToNameMap[item.StatusID] || 'Unknown'
     }));
@@ -475,7 +490,7 @@ async function renderUI() {
     // --- Render the components ---
     const configForTable = configMap[selectedStatus];
     renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
-    renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
 }
 
 // =================================================================
