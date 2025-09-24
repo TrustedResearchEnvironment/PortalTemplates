@@ -200,23 +200,107 @@ function ApproveRequest(request) {
             const modalTitle = document.getElementById('approveRequestModalLabel');
 
             // Update the modal title dynamically based on requestID
-            modalTitle.textContent = `Approve Request: ${request.name}`;
+            modalTitle.textContent = `Approve Request:`;
 
             // Populate the modal body with the dynamic content
             modalBody.innerHTML = `
                 <div class="col-md-12">
-                    <form>
-                        <div class="form-group">
-                            <label for="ApprovalMessage" class="control-label">Approval Note</label>
-                            <textarea id="ApprovalMessage" rows="5" placeholder="Note to the Researcher if approved" class="form-control valid"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-accent">Approve</button>
-                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
-                        </div>
-                    </form>
+                    <div class="alert alert-warning">
+                        <i class="fa fa-exclamation-triangle"></i> 
+                        Please confirm the approval of the request:<br>
+                        <strong>${request.Name}</strong>
+                    </div>
+                    <div class="form-group mt-3 d-flex justify-content-center">
+                        <button id="confirmApprovalBtn" class="btn btn-success px-3 py-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            Approve
+                        </button>
+                    </div>
                 </div>
             `;
+
+            // Add event listener for the confirm approval button
+            setTimeout(() => {
+                const confirmBtn = document.getElementById('confirmApprovalBtn');
+                if (confirmBtn) {
+                    console.log('Adding click listener to confirm approval button');
+                    confirmBtn.addEventListener('click', () => {
+                        console.log('Approve button clicked for request:', request.RequestID);
+                        // Call the API to delete the request
+                        approveRequestFromAPI(request.RequestID);
+                    });
+                } else {
+                    console.error('Confirm approval button not found');
+                }
+            }, 100);
+}
+
+async function approveRequestFromAPI(requestId) {
+    let loadingToast = null;
+    
+    try {
+        console.log('Approving request ID:', requestId);
+        
+        // Show loading state
+        loadingToast = showToast('Approving request...', 'info');
+        console.log('Loading toast shown:', loadingToast);
+        
+        const response = await window.loomeApi.runApiRequest(20, {
+            "id": requestId,
+            "upn": getCurrentUserUpn()
+        });
+        
+        // Log the response to console
+        console.log('Delete request API response:', response);
+        
+        // Hide the modal
+        try {
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
+            if (deleteModal) {
+                deleteModal.hide();
+                console.log('Delete modal hidden');
+            } else {
+                console.log('Delete modal not found or already hidden');
+            }
+        } catch (modalError) {
+            console.error('Error hiding modal:', modalError);
+        }
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden');
+        }
+        
+        // Show success message
+        const successToast = showToast('Request deleted successfully', 'success');
+        console.log('Success toast shown:', successToast);
+        
+        // Update all chip counts after deletion
+        console.log('Refreshing chip counts');
+        await refreshAllChipCounts();
+
+        // Refresh the UI
+        console.log('Refreshing UI');
+        setTimeout(() => {
+            renderUI();
+        }, 100);
+        
+    } catch (error) {
+        console.error("Error deleting request:", error);
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden after error');
+        }
+        
+        // Show error message
+        const errorToast = showToast('Failed to delete request. Please try again.', 'error');
+        console.log('Error toast shown:', errorToast);
+    }
 }
 
 function RejectRequest(request) {
@@ -387,8 +471,6 @@ function renderTable(containerId, data, config, selectedStatus) {
 
             const actionButtons = `
                 <div class="btn-group pull-right">
-                    <button class="btn btn-accent action-view-request" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal"><i class="fa fa-eye"></i></button>
-                    <button class="btn btn-accent action-view-dataset" title="View Data Set" data-bs-toggle="modal" data-bs-target="#viewDatasetModal"><i class="fa fa-clone"></i></button>
                     <button class="btn btn-accent action-approve" title="Approve Request" data-bs-toggle="modal" data-bs-target="#approveRequestModal"><i class="fa fa-thumbs-up"></i></button>
                     <button class="btn btn-accent action-reject" title="Reject Request" data-bs-toggle="modal" data-bs-target="#rejectRequestModal"><i class="fa fa-thumbs-down"></i></button>
                 </div>`;
@@ -404,8 +486,6 @@ function renderTable(containerId, data, config, selectedStatus) {
             tbody.appendChild(row);
 
             // Add event listeners for the action buttons in this row
-            row.querySelector('.action-view-request')?.addEventListener('click', () => ViewRequest(item));
-            row.querySelector('.action-view-dataset')?.addEventListener('click', () => ViewDataSet(item));
             row.querySelector('.action-approve')?.addEventListener('click', () => ApproveRequest(item));
             row.querySelector('.action-reject')?.addEventListener('click', () => RejectRequest(item));
         });
