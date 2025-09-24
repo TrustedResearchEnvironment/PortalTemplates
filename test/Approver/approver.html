@@ -24,53 +24,8 @@
                 
                     <!-- 2. SCROLLABLE WRAPPER: Added p-6 for padding -->
                     <div class="flex-grow overflow-y-auto p-6">
-            
-                        <!-- Search Input -->
-                        <!--<div class="mb-3">-->
-                        <!--    <input type="text" id="searchInput" class="form-control" style="max-width: 400px;" placeholder="Filter requests in the current tab...">-->
-                        <!--</div>-->
-                
-                        <!-- Bootstrap Tabs Navigation -->
-                        <!--<ul class="nav nav-tabs" id="requestTabs" role="tablist">-->
-                        <!--    <li class="nav-item" role="presentation">-->
-                        <!--        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab" aria-controls="pending" aria-selected="true">Pending Approval</button>-->
-                        <!--    </li>-->
-                        <!--    <li class="nav-item" role="presentation">-->
-                        <!--        <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">Approved</button>-->
-                        <!--    </li>-->
-                        <!--    <li class="nav-item" role="presentation">-->
-                        <!--        <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab" aria-controls="rejected" aria-selected="false">Rejected</button>-->
-                        <!--    </li>-->
-                        <!--    <li class="nav-item" role="presentation">-->
-                        <!--        <button class="nav-link" id="finalised-tab" data-bs-toggle="tab" data-bs-target="#finalised" type="button" role="tab" aria-controls="finalised" aria-selected="false">Finalised</button>-->
-                        <!--    </li>-->
-                        <!--</ul>-->
-                        
-                        
-                        <!-- Tab Content Panes -->
-                        <!--<div class="tab-content pt-3" id="requestTabsContent">-->
-                        <!--    <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="finalised" role="tabpanel" aria-labelledby="finalised-tab"></div>-->
-                        <!--</div>-->
                         
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-                                <!-- Bootstrap Tabs Navigation -->
-                                <!--<ul class="nav nav-tabs" id="requestTabs" role="tablist">-->
-                                <!--    <li class="nav-item" role="presentation">-->
-                                <!--        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab" aria-controls="pending" aria-selected="true">Pending Approval</button>-->
-                                <!--    </li>-->
-                                <!--    <li class="nav-item" role="presentation">-->
-                                <!--        <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">Approved</button>-->
-                                <!--    </li>-->
-                                <!--    <li class="nav-item" role="presentation">-->
-                                <!--        <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab" aria-controls="rejected" aria-selected="false">Rejected</button>-->
-                                <!--    </li>-->
-                                <!--    <li class="nav-item" role="presentation">-->
-                                <!--        <button class="nav-link" id="finalised-tab" data-bs-toggle="tab" data-bs-target="#finalised" type="button" role="tab" aria-controls="finalised" aria-selected="false">Finalised</button>-->
-                                <!--    </li>-->
-                                <!--</ul>-->
                                 
                                 <div id="status-chips-container" class="chip-container mb-4">
                                     <!-- Using a data-status attribute is the key to linking the chip to the data -->
@@ -100,20 +55,13 @@
                                 </div>
                         </div>
                         
-                        <!-- Tab Content Panes -->
-                        <!--<div class="tab-content pt-3" id="requestTabsContent">-->
-                        <!--    <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab"></div>-->
-                        <!--    <div class="tab-pane fade" id="finalised" role="tabpanel" aria-labelledby="finalised-tab"></div>-->
-                        <!--</div>-->
                         
                         <div id="requests-table-area">
                             <!-- The JavaScript will generate the table inside this div -->
                         </div>
                         
                         <!-- Pagination -->
-                        <div class="flex justify-between items-center mt-4 px-2">
+                        <div id="pagination-controls" class="flex justify-between items-center mt-4 px-2">
                             <!-- pagination content can go here -->
                         </div>
                 

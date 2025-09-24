@@ -326,6 +326,10 @@ async function deleteRequestFromAPI(requestId) {
         const successToast = showToast('Request deleted successfully', 'success');
         console.log('Success toast shown:', successToast);
         
+        // Update all chip counts after deletion
+        console.log('Refreshing chip counts');
+        await refreshAllChipCounts();
+
         // Refresh the UI
         console.log('Refreshing UI');
         setTimeout(() => {
@@ -1092,6 +1096,16 @@ async function getCounts(status) {
     const parsedResponse = safeParseJson(response);
 
     return parsedResponse.RowCount;
+}
+
+// Add this function to refresh all chip counts
+async function refreshAllChipCounts() {
+    const chipsContainer = document.getElementById('status-chips-container');
+    for (const chip of chipsContainer.querySelectorAll('.chip')) {
+        const status = chip.dataset.status;
+        const count = await getCounts(status);
+        chip.querySelector('.chip-count').textContent = count;
+    }
 }
 
 /**

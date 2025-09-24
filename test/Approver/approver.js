@@ -1,3 +1,29 @@
+// =================================================================
+//                      STATE & CONFIGURATION
+// =================================================================
+const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 15;
+
+// We will store all fetched data here
+let allRequests = []; 
+let currentPage = 1;
+const rowsPerPage = 5; // You can control page size here
+const searchInput = document.getElementById('searchRequests');
+
+// Mapping from Status ID to Status Name
+const statusIdToNameMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
+
+// Configuration for each status tab
+const configMap = {
+    'Pending Approval': { showActions: true },
+    'Approved': { showActions: true },
+    'Rejected': { showActions: true },
+    'Finalised': { showActions: true },
+};
+
+// =================================================================
+//                      UTILITY & MODAL FUNCTIONS
+// =================================================================
 function ViewRequest(request) {
     // Get the modal's body element
     const modalBody = document.getElementById('viewRequestModalBody');
@@ -219,188 +245,58 @@ function RejectRequest(request) {
 }
 
 /**
- * Renders a data table with Tailwind CSS styling.
- * This is a refactored version of the original function to match the new design.
- * @param {string} containerId - The ID of the element to render the table into.
- * @param {Array} data - The array of data objects to display.
- * @param {object} config - Configuration object, e.g., { showActions: true }.
+ * Safely parses a response that might be a JSON string or an object.
+ * @param {string | object} response The API response.
+ * @returns {object}
  */
-function renderTable(containerId, data, config, selectedStatus) {
+function safeParseJson(response) {
+    return typeof response === 'string' ? JSON.parse(response) : response;
+}
+
+/**
+ * Renders pagination controls.
+ * (This function NO LONGER adds event listeners).
+ */
+function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     const container = document.getElementById(containerId);
-    container.innerHTML = ''; // Clear previous content
+    if (!container) return;
 
-    // --- STYLE CHANGE: Main table classes updated to Tailwind ---
-    const table = document.createElement('table');
-    table.className = 'w-full divide-y divide-gray-200';
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    container.innerHTML = ''; // Clear old controls
 
-    // --- STYLE CHANGE: Thead class updated ---
-    const thead = document.createElement('thead');
-    thead.className = 'bg-gray-50';
-    const headerRow = document.createElement('tr');
-
-    // Headers logic remains the same
-    const headers = ['Project', 'Name', 'Data Set', 'Requested On']; //'Status',
-    
-    if (selectedStatus == 'Pending Approval') {
-        headers.push('Approvers');
-    } else if (selectedStatus == 'Approved') {
-        headers.push('Approved by');
-        headers.push('Approved on');
-    } else if (selectedStatus == 'Rejected') {
-        headers.push('Rejected by');
-        headers.push('Rejected on');
-    } else if (selectedStatus == 'Finalised') {
-        headers.push('Approved on');
-        headers.push('Approved by')
-        headers.push('Finalised on');
-    }
-    if (config.showActions) {
-        headers.push('Actions');
+    if (totalPages <= 1) {
+        return; // No need for pagination.
     }
 
-    headers.forEach(headerText => {
-        const th = document.createElement('th');
-        th.scope = 'col';
-        // --- STYLE CHANGE: TH classes updated to Tailwind ---
-        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer';
+    // --- Previous Button ---
+    const prevDisabled = currentPage === 1;
+    let paginationHTML = `
+        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
+            Previous
+        </button>
+    `;
 
-        const columnKey = headerText.toLowerCase().replace(/ /g, '');
-        th.setAttribute('data-column', columnKey);
-
-        // --- STYLE CHANGE: Added a span for better sort icon styling ---
-        th.innerHTML = `${headerText} <span class="ml-1 text-gray-400"></span>`;
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // --- STYLE CHANGE: Tbody classes updated ---
-    const tbody = document.createElement('tbody');
-    tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        const colSpan = headers.length; // More reliable way to calculate colspan
-        // --- STYLE CHANGE: Added Tailwind classes to the "empty" cell ---
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
-    } else {
-        data.forEach(item => {
-            const row = document.createElement('tr');
-
-            // --- STYLE CHANGE: Map statuses to Tailwind badge classes ---
-            const statusClasses = {
-                'Pending Approval': 'bg-yellow-100 text-yellow-800',
-                'Approved': 'bg-green-100 text-green-800',
-                'Rejected': 'bg-red-100 text-red-800',
-                'Finalised': 'bg-blue-100 text-blue-800'
-            }[item.status] || 'bg-gray-100 text-gray-800';
-            
-            // --- STYLE CHANGE: Base classes for all table cells ---
-            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
-            const actionButtonClasses = 'p-1 text-gray-400 rounded-md hover:bg-gray-100 hover:text-gray-600 focus:outline-none';
-            
-            let statusSpecificCol = ''; // 'let' is preferred over 'var'
-            switch (item.status) {
-                case 'Pending Approval':
-                    statusSpecificCol = `<td class="${tdClasses}">${item.approvers}</td>`;
-                    break;
-                case 'Rejected':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.rejectedBy}</td>
-                        <td class="${tdClasses}">${item.dateRejected}</td>
-                    `;
-                    break;
-                case 'Approved':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                    `;
-                    break;
-                case 'Finalised':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                        <td class="${tdClasses}">${item.dateFinalised}</td>
-                    `;
-                    break;
-                // Optional: A default case if the status is something unexpected
-                default:
-                    statusSpecificCol = '<td>-</td>'; // Or just leave it empty
-                    break;
-            }
-            
-            
-            // --- STYLE CHANGE: Updated the entire innerHTML template with Tailwind classes ---
-            // <td class="px-6 py-4 whitespace-nowrap">
-            //     <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClasses}">
-            //         ${item.status}
-            //     </span>
-            // </td>
-            const actionButtons = `
-                    <div class="btn-group pull-right">
-                        <button class="btn btn-accent" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-accent" title="View Data Set" data-bs-toggle="modal" data-bs-target="#viewDatasetModal">
-                            <i class="fa fa-clone" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-accent" title="Approve Request" data-bs-toggle="modal" data-bs-target="#approveRequestModal">
-                            <i class="fa fa-thumbs-up" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-accent" title="Reject Request" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
-                            <i class="fa fa-thumbs-down" aria-hidden="true"></i>
-                        </button>
-                    </div>
-            `
-            row.innerHTML = `
-                <td class="${tdClasses}">${item.project}</td>
-                <td class="${tdClasses}">${item.name}</td>
-                
-                <td class="${tdClasses}">${item.dataSet}</td>
-                <td class="${tdClasses}">${item.dateRequested}</td>
-                
-                 ${statusSpecificCol}
-                
-                ${config.showActions ? `
-                    <td class="${tdClasses}">
-                        ${actionButtons}
-                    </td>`
-                : ''}
-            `;
-            //"px-6 py-4 whitespace-nowrap text-sm font-medium flex justify-center items-center"
-            tbody.appendChild(row);
-
-            // This event listener logic does not need to change, as it finds elements by class.
-            if (config.showActions) {
-                const viewReqButton = row.querySelector('.fa-eye')?.parentElement;
-                if (viewReqButton) {
-                    viewReqButton.addEventListener('click', () => {
-                        ViewRequest(item);
-                    });
-                }
-                const viewDataSetButton = row.querySelector('.fa-clone')?.parentElement;
-                if (viewDataSetButton) {
-                    viewDataSetButton.addEventListener('click', () => {
-                        ViewDataSet(item);
-                    });
-                }
-                const approveButton = row.querySelector('.fa-eye')?.parentElement;
-                if (approveButton) {
-                    approveButton.addEventListener('click', () => {
-                        ApproveRequest(item);
-                    });
-                }
-                const rejectButton = row.querySelector('.fa-clone')?.parentElement;
-                if (rejectButton) {
-                    rejectButton.addEventListener('click', () => {
-                        RejectRequest(item);
-                    });
-                }
-            }
-        });
+    // --- Page Number Buttons ---
+    paginationHTML += '<div class="flex items-center gap-2">';
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = i === currentPage;
+        paginationHTML += `
+            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
+                ${i}
+            </button>
+        `;
     }
+    paginationHTML += '</div>';
 
-    table.appendChild(tbody);
-    container.appendChild(table);
+    // --- Next Button ---
+    const nextDisabled = currentPage === totalPages;
+    paginationHTML += `
+        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
+            Next
+        </button>
+    `;
+
+    container.innerHTML = paginationHTML;
 }
 
 function formatDate(inputDate) {
@@ -430,213 +326,217 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
-async function renderRequestsPage() {
+function getCurrentUserUpn() {
+    // Implement your logic to get the current user's UPN
+    // This might come from a global variable, session storage, or another source
+    return "user@example.com"; // Replace with actual implementation
+}
+// =================================================================
+//                      API & RENDERING FUNCTIONS
+// =================================================================
+
+
+/**
+ * Renders a data table with dynamic headers and actions.
+ */
+function renderTable(containerId, data, config, selectedStatus) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'w-full divide-y divide-gray-200';
+
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-50';
+    const headerRow = document.createElement('tr');
     
-    // Define the single container ID for the table
-    const TABLE_CONTAINER_ID = 'requests-table-area';
-        
+    // Define headers based on the selected status
+    const headers = ['Project', 'Name', 'Data Set', 'Requested On'];
+    if (selectedStatus === 'Pending Approval') headers.push('Approvers');
+    else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
+    else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
+    else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
+    if (config.showActions) headers.push('Actions');
+
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
     
-    try {
-        // --- 1. Fetch and prepare ALL data (same as your existing code) ---
-        const requestData = [
-            {"RequestID":435,"ProjectID":82,"Name":"TestNEWDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 02:01:54.667","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 02:02:04.710","ApprovedDate":"2025-08-28 02:02:04.710","FinalisedDate":"2025-08-28 02:05:03.973","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 02:01:54.667"},
-            {"RequestID":436,"ProjectID":82,"Name":"REDCAP_TestOriginalDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 08:47:41.390","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 08:55:25.357","ApprovedDate":"2025-08-28 08:55:25.357","FinalisedDate":"2025-08-28 09:00:58.180","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 08:47:41.390"},
-            {"RequestID":437,"ProjectID":82,"Name":"REDCAP_TestNewDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 09:24:18.977","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 09:24:32.453","ApprovedDate":"2025-08-28 09:24:32.453","FinalisedDate":"2025-08-28 09:34:01.340","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 09:24:18.977"},
-            {"RequestID":433,"ProjectID":82,"Name":"TestOriginalDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 00:44:10.913","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 01:02:12.887","ApprovedDate":"2025-08-28 01:02:12.887","FinalisedDate":"2025-08-28 01:15:00.760","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 00:44:10.913"},
-            {"RequestID":444,"ProjectID":86,"Name":"TestNewHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:25:35.957","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:29:56.843","ApprovedDate":"2025-09-01 04:29:56.843","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:25:35.957"},
-            {"RequestID":445,"ProjectID":86,"Name":"TestNewHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:26:20.337","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:30:01.230","ApprovedDate":"2025-09-01 04:30:01.230","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:26:20.337"},
-            {"RequestID":448,"ProjectID":86,"Name":"TestOLDHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:04:14.883","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:27.590","ApprovedDate":"2025-09-01 05:04:27.590","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:04:14.883"},
-            {"RequestID":454,"ProjectID":86,"Name":"TestOriginalHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:47:59.493","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:48:11.730","ApprovedDate":"2025-09-02 02:48:11.730","FinalisedDate":"2025-09-02 02:50:15.767","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:47:59.493"},
-            {"RequestID":447,"ProjectID":86,"Name":"TestOLDHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:03:52.937","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:31.200","ApprovedDate":"2025-09-01 05:04:31.200","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:03:52.937"},
-            {"RequestID":455,"ProjectID":82,"Name":"TestRiaRequest","StatusID":1,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":null,"CreateDate":"2025-09-04 01:54:39.140","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-04 01:54:39.140","ApprovedDate":"2025-09-04 01:54:39.140","FinalisedDate":"2025-09-04 01:54:39.140","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-04 01:54:39.140"},
-            {"RequestID":452,"ProjectID":86,"Name":"TestNEWHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:40:42.983","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:42:35.113","ApprovedDate":"2025-09-02 02:42:35.113","FinalisedDate":"2025-09-02 02:44:02.573","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:40:42.983"},
-            {"RequestID":450,"ProjectID":82,"Name":"FOLDER_TestOriginalDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:08:04.800","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:08:15.070","ApprovedDate":"2025-09-02 02:08:15.070","FinalisedDate":"2025-09-02 02:13:31.327","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:08:04.800"},
-            {"RequestID":451,"ProjectID":82,"Name":"FOLDER_TestNEWDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:29:14.497","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:29:27.717","ApprovedDate":"2025-09-02 02:29:27.717","FinalisedDate":"2025-09-02 02:31:39.597","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:29:14.497"},
-            // ADDED for demonstration to populate all tabs
-            {"RequestID":456,"ProjectID":85,"Name":"Marketing Analysis","StatusID":2,"DataSetID":10,"Approvers":"approver@test.com","CurrentlyApproved":"approver@test.com;","CreateDate":"2025-09-05 10:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-05 10:05:00.000","ApprovedDate":"2025-09-05 10:05:00.000","FinalisedDate":null,"ScheduledRefresh":"Weekly","RequestMessage":null,"RejectedBy":null,"RejectedDate":null},
-            {"RequestID":457,"ProjectID":85,"Name":"Budget Review","StatusID":4,"DataSetID":11,"Approvers":"approver@test.com","CurrentlyApproved":null,"CreateDate":"2025-09-06 11:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-06 11:05:00.000","ApprovedDate":null,"FinalisedDate":null,"ScheduledRefresh":"No Refresh","RequestMessage":"Insufficient data","RejectedBy":"admin@test.com","RejectedDate":"2025-09-06 11:05:00.000"}
-        ];
-        
-        // window.loomeApi.runApiRequest(8, {
-        //     "upn":  /* value for upn */
-        // });
-        
-        // console.log('before api request')
-        // const response = await window.loomeApi.runApiRequest(8,{
-        //     "upn": "ria.yangzon@bizdata.com.au"
-        // });
-        // console.log(response)
-        
-        // // // Check if the response is a string and parse it
-        // const requestData = typeof response === 'string' ? JSON.parse(response) : response;
-        // console.log(requestData)
-        
-        const statusMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
-        const allRequests = requestData.map(item => ({
-            ...item,
-            project: item.ProjectID,
-            name: item.Name,
-            status: statusMap[item.StatusID] || 'Unknown',
-            dataSet: `Data Set ${item.DataSetID}`,
-            approvers: item.Approvers,
-            dateRequested: formatDate(item.CreateDate),
-            dateApproved: formatDate(item.ApprovedDate),
-            dateRejected: formatDate(item.RejectedDate),
-            dateFinalised: formatDate(item.FinalisedDate),
-            rejectedBy: item.RejectedBy,
-            currentlyApproved: item.CurrentlyApproved
-        }));
-        
-        console.log(allRequests)
-        
-        // --- 2. Centralized Configuration ---
-        // This maps a status to its specific configuration (like showActions).
-        const configMap = {
-            'Pending Approval': { showActions: true },
-            'Approved': { showActions: false },
-            'Rejected': { showActions: false },
-            'Finalised': { showActions: false },
-        };
-        
-
-        // --- 3. Update Counts and Set Up Listeners ---
-        const chipsContainer = document.getElementById('status-chips-container');
-        const chips = chipsContainer.querySelectorAll('.chip');
-
-        // Calculate and display the count for each status
-        chips.forEach(chip => {
-            const status = chip.dataset.status;
-            const count = allRequests.filter(req => req.status === status).length;
-            chip.querySelector('.chip-count').textContent = count;
-        });
-
-        // Add a click event listener to the container (event delegation)
-        const searchInput = document.getElementById('searchRequests');
-        chipsContainer.addEventListener('click', (event) => {
-            const clickedChip = event.target.closest('.chip');
-            if (!clickedChip) return; // Exit if the click was not on a chip
-
-            // Update the active state UI
-            chips.forEach(chip => chip.classList.remove('active'));
-            clickedChip.classList.add('active');
-
-            // Get the status to filter by from the chip's data attribute
-            const selectedStatus = clickedChip.dataset.status;
-            
-            // Set Search Term value
-            const searchTerm = searchInput.value.toLowerCase();
-            console.log(searchTerm)
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
-            
-            const filteredData = searchTerm ? 
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
-                    
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) : 
-                dataForTable; // If no search term, just use the status-filtered data
-
-
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable, selectedStatus);
-        });
-
-        // --- 4. Initial Render ---
-        // Programmatically click the first chip to render the initial view.
-        // This is a clean way to avoid duplicating rendering logic.
-        document.querySelector('.chip[data-status="Pending Approval"]').click();
-        
-        searchInput.addEventListener('input', () => {
-            // Get the currently active chip
-            const activeChip = document.querySelector('.chip.active');
-            if (!activeChip) return; // Safety check
-            
-            // Get the status from the active chip
-            const selectedStatus = activeChip.dataset.status;
-            
-            // Get the search term
-            const searchTerm = searchInput.value.toLowerCase();
-            
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-            
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
-            
-            const filteredData = searchTerm ?
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) :
-                dataForTable; // If no search term, just use the status-filtered data
-            
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable, selectedStatus);
-        });
-        
-        // --- 5. Search Function ---
-        // const searchInput = document.getElementById('searchRequests');
-        // searchInput.addEventListener('input', () => {
-        //     const searchTerm = searchInput.value.toLowerCase();
-            
-        //     const clickedChip = event.target.closest('.chip');
-        //     if (!clickedChip) return; // Exit if the click was not on a chip
-
-        //     // Update the active state UI
-        //     chips.forEach(chip => chip.classList.remove('active'));
-        //     clickedChip.classList.add('active');
-
-        //     // Get the status to filter by from the chip's data attribute
-        //     const selectedStatus = clickedChip.dataset.status;
-        //     const config = configMap[clickedChip.dataset.status];
-            
-        //     const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-         
-        //     const filteredData = dataForTable.filter(item => {
-        //         // Use String() to safely handle potential null or undefined values
-        //         const project = String(item.project || '').toLowerCase();
-        //         const name = String(item.name || '').toLowerCase();
-        //         const dataset = String(item.dataSet || '').toLowerCase();
-        
-        //         return project.includes(searchTerm) || 
-        //               name.includes(searchTerm) || 
-        //               dataset.includes(searchTerm);
-        //     });
-            
-        //     renderTable(TABLE_CONTAINER_ID, filteredData, config);
-        // });
-
-    } catch (error) {
-        console.error("Error setting up the page:", error);
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
     
-        // Get the error message from the error object
-        const errorMessage = error.message; 
-        
-        const container = document.getElementById(TABLE_CONTAINER_ID);
-        
-        // Display the specific error message in the UI
-        container.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <strong>An error occurred:</strong> ${errorMessage}
-            </div>
-        `;
+    if (data.length === 0) {
+        const colSpan = headers.length;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
+    } else {
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
+            
+            let statusSpecificCols = '';
+            switch (item.status) {
+                case 'Pending Approval': statusSpecificCols = `<td class="${tdClasses}">${item.Approvers || 'N/A'}</td>`; break;
+                case 'Rejected': statusSpecificCols = `<td class="${tdClasses}">${item.RejectedBy || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.RejectedDate)}</td>`; break;
+                case 'Approved': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td>`; break;
+                case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
+            }
+
+            const actionButtons = `
+                <div class="btn-group pull-right">
+                    <button class="btn btn-accent action-view-request" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal"><i class="fa fa-eye"></i></button>
+                    <button class="btn btn-accent action-view-dataset" title="View Data Set" data-bs-toggle="modal" data-bs-target="#viewDatasetModal"><i class="fa fa-clone"></i></button>
+                    <button class="btn btn-accent action-approve" title="Approve Request" data-bs-toggle="modal" data-bs-target="#approveRequestModal"><i class="fa fa-thumbs-up"></i></button>
+                    <button class="btn btn-accent action-reject" title="Reject Request" data-bs-toggle="modal" data-bs-target="#rejectRequestModal"><i class="fa fa-thumbs-down"></i></button>
+                </div>`;
+            
+            row.innerHTML = `
+                <td class="${tdClasses}">${item.ProjectID}</td>
+                <td class="${tdClasses}">${item.Name}</td>
+                <td class="${tdClasses}">Data Set ${item.DataSetID}</td>
+                <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
+                ${statusSpecificCols}
+                ${config.showActions ? `<td class="${tdClasses}">${actionButtons}</td>` : ''}
+            `;
+            tbody.appendChild(row);
+
+            // Add event listeners for the action buttons in this row
+            row.querySelector('.action-view-request')?.addEventListener('click', () => ViewRequest(item));
+            row.querySelector('.action-view-dataset')?.addEventListener('click', () => ViewDataSet(item));
+            row.querySelector('.action-approve')?.addEventListener('click', () => ApproveRequest(item));
+            row.querySelector('.action-reject')?.addEventListener('click', () => RejectRequest(item));
+        });
     }
+    table.appendChild(tbody);
+    container.appendChild(table);
 }
 
 
 
-renderRequestsPage()
+// =================================================================
+//                     PRIMARY RENDER FUNCTION
+// =================================================================
+
+async function getCounts(status) {
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": '',
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === status)),
+        "upn": getCurrentUserUpn()
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response);
+
+    return parsedResponse.RowCount;
+}
+
+/**
+ * Main function to orchestrate all rendering based on the current state.
+ * It filters, paginates, and renders the table and controls.
+ */
+async function renderUI() {
+    const activeChip = document.querySelector('.chip.active');
+    if (!activeChip) return; // Don't render if no chip is active
+    
+    const selectedStatus = activeChip.dataset.status;
+    const searchTerm = searchInput.value.toLowerCase();
+
+    // --- 1. FETCH ALL DATA ONCE ---
+    // We call the API without pagination params, assuming it returns all records.
+    // If your API requires pagination, you'd need to fetch all pages in a loop here.
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": searchTerm,
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === selectedStatus))
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response)
+    const rawData = parsedResponse.Results;
+    const totalItems = parsedResponse.RowCount;
+    console.log(rawData)
+
+    // --- 2. PREPARE THE MASTER DATA ARRAY ---
+    // Transform the raw data just once into the format our UI needs.
+    allRequests = rawData.map(item => ({
+        ...item,
+        status: statusIdToNameMap[item.StatusID] || 'Unknown'
+    }));
+    console.log(allRequests)
+
+    // --- Render the components ---
+    const configForTable = configMap[selectedStatus];
+    renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
+    renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+}
+
+// =================================================================
+//                      INITIALIZATION
+// =================================================================
+
+/**
+ * Main function to initialize the page, fetch all data, and set up listeners.
+ */
+async function renderApproversPage() {
+    try {
+
+        // --- 3. UPDATE ALL CHIP COUNTS ONCE ---
+        // This is the logic you wanted. It calculates counts from the unfiltered master array.
+        const chipsContainer = document.getElementById('status-chips-container');
+        for (const chip of chipsContainer.querySelectorAll('.chip')) {
+            const status = chip.dataset.status;
+            console.log(status)
+            // Await the asynchronous getCounts function for each chip
+            const count = await getCounts(status);
+            chip.querySelector('.chip-count').textContent = count;
+        }
+
+        // --- 4. SETUP EVENT LISTENERS ---
+        
+        // Listener for status chip clicks
+        chipsContainer.addEventListener('click', (event) => {
+            const clickedChip = event.target.closest('.chip');
+            if (!clickedChip) return;
+
+            chipsContainer.querySelectorAll('.chip').forEach(chip => chip.classList.remove('active'));
+            clickedChip.classList.add('active');
+            
+            currentPage = 1; // Reset to page 1 when changing tabs
+            renderUI(); // Re-render everything
+        });
+
+        // Listener for the search input
+        searchInput.addEventListener('input', () => {
+            currentPage = 1; // Reset to page 1 when searching
+            renderUI(); // Re-render everything
+        });
+
+        // Listener for pagination buttons
+        document.getElementById('pagination-controls').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-page]');
+            if (!button || button.disabled) return;
+            
+            currentPage = parseInt(button.dataset.page, 10);
+            renderUI(); // Re-render everything
+        });
+
+        // --- 5. INITIAL PAGE RENDER ---
+        // Programmatically click the first chip to trigger the initial render.
+        document.querySelector('.chip[data-status="Pending Approval"]').click();
+
+    } catch (error) {
+        console.error("Error setting up the page:", error);
+        // ... your error handling ...
+    }
+}
+
+// Start the application
+renderApproversPage();
