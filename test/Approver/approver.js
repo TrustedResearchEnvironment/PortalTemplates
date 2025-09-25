@@ -195,46 +195,46 @@ function ViewDataSet(request) {
 }
 
 function ApproveRequest(request) {
-            // Get the modal elements
-            const modalBody = document.getElementById('approveRequestModalBody');
-            const modalTitle = document.getElementById('approveRequestModalLabel');
+    // Get the modal elements
+    const modalBody = document.getElementById('approveRequestModalBody');
+    const modalTitle = document.getElementById('approveRequestModalLabel');
 
-            // Update the modal title dynamically based on requestID
-            modalTitle.textContent = `Approve Request:`;
+    // Update the modal title dynamically based on requestID
+    modalTitle.textContent = `Approve Request:`;
 
-            // Populate the modal body with the dynamic content
-            modalBody.innerHTML = `
-                <div class="col-md-12">
-                    <div class="alert alert-warning">
-                        <i class="fa fa-exclamation-triangle"></i> 
-                        Please confirm the approval of the request:<br>
-                        <strong>${request.Name}</strong>
-                    </div>
-                    <div class="form-group mt-3 d-flex justify-content-center">
-                        <button id="confirmApprovalBtn" class="btn btn-success px-3 py-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                            </svg>
-                            Approve
-                        </button>
-                    </div>
-                </div>
-            `;
+    // Populate the modal body with the dynamic content
+    modalBody.innerHTML = `
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> 
+                Please confirm the approval of the request:<br>
+                <strong>${request.Name}</strong>
+            </div>
+            <div class="form-group mt-3 d-flex justify-content-center">
+                <button id="confirmApprovalBtn" class="btn btn-success px-3 py-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                    </svg>
+                    Approve
+                </button>
+            </div>
+        </div>
+    `;
 
-            // Add event listener for the confirm approval button
-            setTimeout(() => {
-                const confirmBtn = document.getElementById('confirmApprovalBtn');
-                if (confirmBtn) {
-                    console.log('Adding click listener to confirm approval button');
-                    confirmBtn.addEventListener('click', () => {
-                        console.log('Approve button clicked for request:', request.RequestID);
-                        // Call the API to delete the request
-                        approveRequestFromAPI(request.RequestID);
-                    });
-                } else {
-                    console.error('Confirm approval button not found');
-                }
-            }, 100);
+    // Add event listener for the confirm approval button
+    setTimeout(() => {
+        const confirmBtn = document.getElementById('confirmApprovalBtn');
+        if (confirmBtn) {
+            console.log('Adding click listener to confirm approval button');
+            confirmBtn.addEventListener('click', () => {
+                console.log('Approve button clicked for request:', request.RequestID);
+                // Call the API to delete the request
+                approveRequestFromAPI(request.RequestID);
+            });
+        } else {
+            console.error('Confirm approval button not found');
+        }
+    }, 100);
 }
 
 async function approveRequestFromAPI(requestId) {
@@ -275,7 +275,7 @@ async function approveRequestFromAPI(requestId) {
         }
         
         // Show success message
-        const successToast = showToast('Request deleted successfully', 'success');
+        const successToast = showToast('Success', 'success');
         console.log('Success toast shown:', successToast);
         
         // Update all chip counts after deletion
@@ -289,7 +289,7 @@ async function approveRequestFromAPI(requestId) {
         }, 100);
         
     } catch (error) {
-        console.error("Error deleting request:", error);
+        console.error("Error request:", error);
         
         // Hide loading toast
         if (loadingToast) {
@@ -298,7 +298,7 @@ async function approveRequestFromAPI(requestId) {
         }
         
         // Show error message
-        const errorToast = showToast('Failed to delete request. Please try again.', 'error');
+        const errorToast = showToast('Please try again.', 'error');
         console.log('Error toast shown:', errorToast);
     }
 }
@@ -847,7 +847,7 @@ async function getCounts(status) {
 
 // this should be UPN
 // use /api/Request/List instead
-const AllowedToApprove = "ria.yangzon@bizdata.com.au";
+const AllowedToApprove = "string";
 
 async function renderUI() {
     const activeChip = document.querySelector('.chip.active');
@@ -950,7 +950,6 @@ async function renderApproversPage() {
 
     } catch (error) {
         console.error("Error setting up the page:", error);
-        // ... your error handling ...
     }
 }
 

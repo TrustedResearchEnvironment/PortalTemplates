@@ -190,55 +190,6 @@ function formatFieldsForAccordion(fields) {
     return fieldsHtml;
 }
 
-function ApproveRequest(request) {
-            // Get the modal elements
-            const modalBody = document.getElementById('approveRequestModalBody');
-            const modalTitle = document.getElementById('approveRequestModalLabel');
-
-            // Update the modal title dynamically based on requestID
-            modalTitle.textContent = `Approve Request: ${request.name}`;
-
-            // Populate the modal body with the dynamic content
-            modalBody.innerHTML = `
-                <div class="col-md-12">
-                    <form>
-                        <div class="form-group">
-                            <label for="ApprovalMessage" class="control-label">Approval Note</label>
-                            <textarea id="ApprovalMessage" rows="5" placeholder="Note to the Researcher if approved" class="form-control valid"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-accent">Approve</button>
-                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            `;
-}
-
-function RejectRequest(request) {
-            // Get the modal elements
-            const modalBody = document.getElementById('rejectRequestModalBody');
-            const modalTitle = document.getElementById('rejectRequestModalLabel');
-
-            // Update the modal title dynamically based on requestID
-            modalTitle.textContent = `Reject Request: ${request.name}`;
-
-            // Populate the modal body with the dynamic content
-            modalBody.innerHTML = `
-                <div class="col-md-12">
-                    <form>
-                        <div class="form-group">
-                            <label for="RequestMessage" class="control-label">Rejection Note</label>
-                            <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-accent">Reject</button>
-                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            `;
-}
 
 // =================================================================
 // Miguel
