@@ -526,6 +526,8 @@ async function getCounts(status) {
  * It filters, paginates, and renders the table and controls.
  */
 
+// this should be UPN
+// use /api/Request/List instead
 const AllowedToApprove = "ria.yangzon@bizdata.com.au";
 
 async function renderUI() {

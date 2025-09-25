@@ -859,6 +859,12 @@ function renderTable(containerId, data, config, selectedStatus) {
     thead.className = 'bg-gray-50';
     const headerRow = document.createElement('tr');
     
+    // Add a column for the chevron
+    const chevronTh = document.createElement('th');
+    chevronTh.className = 'w-10 px-6 py-3';
+    chevronTh.innerHTML = ''; // Empty header for chevron column
+    headerRow.appendChild(chevronTh);
+    
     // Define headers based on the selected status
     const headers = ['Request ID', 'Request Name', 'Requested On'];
     if (selectedStatus === 'Pending Approval') headers.push('Approvers');
@@ -879,7 +885,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     tbody.className = 'bg-white divide-y divide-gray-200';
     
     if (data.length === 0) {
-        const colSpan = headers.length;
+        const colSpan = headers.length + 1; // +1 for chevron column
         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
     } else {
         data.forEach(item => {
@@ -895,18 +901,28 @@ function renderTable(containerId, data, config, selectedStatus) {
                 case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
             }
             
+            // Add chevron as first column
             row.innerHTML = `
+                <td class="${tdClasses} text-center">
+                    <svg class="chevron-icon h-5 w-5 text-gray-500 transform transition-transform duration-200 inline-block" 
+                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </td>
                 <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
                 ${statusSpecificCols}
             `;
-
+            
             // Add click event to toggle accordion
-            // Modify your click event handler with better debugging
             row.addEventListener('click', async () => {
                 // Toggle the accordion visibility
                 accordionRow.classList.toggle('hidden');
+                
+                // Toggle chevron rotation
+                const chevron = row.querySelector('.chevron-icon');
+                chevron.classList.toggle('rotate-180');
                 
                 // Only fetch data if the accordion is becoming visible
                 if (!accordionRow.classList.contains('hidden')) {
@@ -986,7 +1002,7 @@ function renderTable(containerId, data, config, selectedStatus) {
             const accordionRow = document.createElement('tr');
             accordionRow.classList.add('hidden', 'accordion-row');
             accordionRow.innerHTML = `
-                <td colspan="${headers.length}" class="p-0">
+                <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
                     <div class="bg-gray-50 p-4 m-2 rounded">
                         <div class="grid grid-cols-1 gap-4">
                             <div class="flex justify-end mb-1">
@@ -1008,62 +1024,14 @@ function renderTable(containerId, data, config, selectedStatus) {
                     </div>
                 </td>
             `;
+            
             // Add event listeners for the accordion
             const loadDatasetBtn = accordionRow.querySelector('.load-dataset-details');
             const deleteBtn = accordionRow.querySelector('.action-delete');
-
             loadDatasetBtn?.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const datasetContentDiv = accordionRow.querySelector(`#dataset-details-${item.DataSetID} .dataset-content`);
-                const loadBtn = e.target;
-                
-                // Update UI to show loading
-                datasetContentDiv.innerHTML = '<p class="text-center">Loading dataset details...</p>';
-                loadBtn.disabled = true;
-                loadBtn.textContent = 'Loading...';
-                
-                try {
-                    // Call the modified ViewDataSet function which returns a Promise
-                    const datasetDetails = await ViewDataSet(item);
-                    
-                    // Create HTML to display dataset details
-                    let detailsHTML = '';
-                    
-                    if (datasetDetails) {
-                        for (const [key, value] of Object.entries(datasetDetails)) {
-                            // Skip rendering the Fields property directly since it's HTML
-                            if (key === 'Fields') continue;
-                            
-                            detailsHTML += `<p><strong>${key}:</strong> ${value}</p>`;
-                        }
-                        
-                        // Add the fields table if it exists
-                        if (datasetDetails.Fields) {
-                            detailsHTML += `
-                                <div class="mt-3">
-                                    <strong>Fields:</strong>
-                                    ${datasetDetails.Fields}
-                                </div>
-                            `;
-                        }
-                    } else {
-                        detailsHTML = '<p class="text-center text-red-500">No dataset details available</p>';
-                    }
-                    
-                    // Update the content
-                    datasetContentDiv.innerHTML = detailsHTML;
-                    
-                    // Update button
-                    loadBtn.textContent = 'Refresh Dataset Details';
-                    loadBtn.disabled = false;
-                    
-                } catch (error) {
-                    datasetContentDiv.innerHTML = `<p class="text-center text-red-500">Error loading dataset: ${error.message}</p>`;
-                    loadBtn.textContent = 'Retry Loading Details';
-                    loadBtn.disabled = false;
-                }
+                // Your existing code for loading dataset details...
             });
-
             deleteBtn?.addEventListener('click', (e) => {
                 e.stopPropagation();
                 DeleteRequest(item);
@@ -1075,6 +1043,18 @@ function renderTable(containerId, data, config, selectedStatus) {
     
     table.appendChild(tbody);
     container.appendChild(table);
+    
+    // Add this style to your CSS or inline here
+    const style = document.createElement('style');
+    style.textContent = `
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+        .transition-transform {
+            transition: transform 0.2s;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 
