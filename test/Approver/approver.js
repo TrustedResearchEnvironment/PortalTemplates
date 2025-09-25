@@ -428,10 +428,14 @@ function renderTable(containerId, data, config, selectedStatus) {
     container.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'w-full divide-y divide-gray-200';
-
     const thead = document.createElement('thead');
     thead.className = 'bg-gray-50';
     const headerRow = document.createElement('tr');
+    
+    // Add a column for the chevron
+    const chevronHeader = document.createElement('th');
+    chevronHeader.className = 'w-10 px-6 py-3';
+    headerRow.appendChild(chevronHeader);
     
     // Define headers based on the selected status
     const headers = ['Request ID', 'Request Name', 'Requested On'];
@@ -439,7 +443,6 @@ function renderTable(containerId, data, config, selectedStatus) {
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
     else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
-
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
@@ -453,11 +456,12 @@ function renderTable(containerId, data, config, selectedStatus) {
     tbody.className = 'bg-white divide-y divide-gray-200';
     
     if (data.length === 0) {
-        const colSpan = headers.length;
+        const colSpan = headers.length + 1; // +1 for chevron column
         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
     } else {
         data.forEach(item => {
             const row = document.createElement('tr');
+            row.classList.add('cursor-pointer', 'hover:bg-gray-50'); // Add visual indication this row is clickable
             const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
             
             let statusSpecificCols = '';
@@ -467,28 +471,159 @@ function renderTable(containerId, data, config, selectedStatus) {
                 case 'Approved': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td>`; break;
                 case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
             }
-
-            const actionButtons = `
-                <div class="btn-group pull-right">
-                    <button class="btn btn-accent action-approve" title="Approve Request" data-bs-toggle="modal" data-bs-target="#approveRequestModal"><i class="fa fa-thumbs-up"></i></button>
-                    <button class="btn btn-accent action-reject" title="Reject Request" data-bs-toggle="modal" data-bs-target="#rejectRequestModal"><i class="fa fa-thumbs-down"></i></button>
-                </div>`;
             
             row.innerHTML = `
+                <td class="${tdClasses} text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 chevron-icon transition-transform inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </td>
                 <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
                 ${statusSpecificCols}
             `;
+            
+            // Create accordion row
+            const accordionRow = document.createElement('tr');
+            accordionRow.classList.add('hidden', 'accordion-row');
+            accordionRow.innerHTML = `
+                <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                    <div class="bg-gray-50 p-4 m-2 rounded">
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="flex justify-end mb-1">
+                                <div class="btn-group">
+                                    <button class="btn btn-success action-approve px-3 py-1 mr-2" data-bs-toggle="modal" data-bs-target="#approveRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Accept
+                                    </button>
+                                    <button class="btn btn-danger action-reject px-3 py-1" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        Reject
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Combined Information Card -->
+                            <div class="bg-white p-5 rounded-md shadow-sm">
+                                <div id="combined-details-${item.RequestID}" class="combined-content">
+                                    <p class="text-center text-gray-500">Loading details...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            
+            // Add click event to toggle accordion
+            row.addEventListener('click', async () => {
+                console.log('Row clicked:', item.RequestID);
+                // Toggle the accordion visibility
+                accordionRow.classList.toggle('hidden');
+                
+                // Toggle chevron rotation
+                const chevron = row.querySelector('.chevron-icon');
+                if (chevron) {
+                    chevron.classList.toggle('rotate-180');
+                }
+                
+                // Only fetch data if the accordion is becoming visible
+                if (!accordionRow.classList.contains('hidden')) {
+                    const combinedDetailsContainer = accordionRow.querySelector(`#combined-details-${item.RequestID}`);
+                    
+                    // Show loading indicator
+                    combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
+                    
+                    try {
+                        console.log(`Fetching details for RequestID: ${item.RequestID}, DataSetID: ${item.DataSetID}`);
+                        
+                        // Try fetching request details first
+                        let requestDetails;
+                        try {
+                            console.log('Fetching request details...');
+                            requestDetails = await fetchRequestDetails(item.RequestID);
+                            console.log('Request details received:', requestDetails);
+                        } catch (requestError) {
+                            console.error('Error fetching request details:', requestError);
+                            requestDetails = null;
+                        }
+                        
+                        // Then try fetching dataset details
+                        let datasetDetails;
+                        try {
+                            console.log('Fetching dataset details...');
+                            datasetDetails = await fetchDatasetDetails(item.DataSetID);
+                            console.log('Dataset details received:', datasetDetails);
+                        } catch (datasetError) {
+                            console.error('Error fetching dataset details:', datasetError);
+                            datasetDetails = null;
+                        }
+                        
+                        // Check if we have at least one set of details
+                        if (!requestDetails && !datasetDetails) {
+                            throw new Error('Failed to fetch both request and dataset details');
+                        }
+                        
+                        // Display whatever details we have
+                        console.log('Displaying combined details');
+                        displayCombinedDetails(combinedDetailsContainer, requestDetails, datasetDetails);
+                        
+                    } catch (error) {
+                        console.error("Error loading details:", error);
+                        combinedDetailsContainer.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                                <p class="text-sm">${error.message || 'Unknown error'}</p>
+                                <button class="mt-2 px-3 py-1 bg-white border border-gray-300 rounded text-sm retry-btn">
+                                    Retry
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add retry button functionality
+                        combinedDetailsContainer.querySelector('.retry-btn')?.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
+                            try {
+                                const retryRequestDetails = await fetchRequestDetails(item.RequestID);
+                                const retryDatasetDetails = await fetchDatasetDetails(item.DataSetID);
+                                displayCombinedDetails(combinedDetailsContainer, retryRequestDetails, retryDatasetDetails);
+                            } catch (retryError) {
+                                combinedDetailsContainer.innerHTML = `
+                                    <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                        <p class="text-red-600">Failed to load details</p>
+                                        <p class="text-sm text-red-500 mt-1">${retryError.message || 'Unknown error'}</p>
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                }
+            });
+            
             tbody.appendChild(row);
-
-            // Add event listeners for the action buttons in this row
-            row.querySelector('.action-approve')?.addEventListener('click', () => ApproveRequest(item));
-            row.querySelector('.action-reject')?.addEventListener('click', () => RejectRequest(item));
+            tbody.appendChild(accordionRow);
+            
+            // Add event listeners for the action buttons in the accordion
+            accordionRow.querySelector('.action-approve')?.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent event from bubbling up to row
+                ApproveRequest(item);
+            });
+            
+            accordionRow.querySelector('.action-reject')?.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent event from bubbling up to row
+                RejectRequest(item);
+            });
         });
     }
+    
     table.appendChild(tbody);
     container.appendChild(table);
+    
 }
 
 
