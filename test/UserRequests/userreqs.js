@@ -448,9 +448,7 @@ async function fetchDatasetDetails(datasetID) {
  * @returns {string} - The user's UPN
  */
 function getCurrentUserUpn() {
-    // Implement your logic to get the current user's UPN
-    // This might come from a global variable, session storage, or another source
-    return "user@example.com"; // Replace with actual implementation
+    return "hardcoded miguel as approver";
 }
 
 

@@ -326,6 +326,99 @@ function RejectRequest(request) {
 }
 
 
+// Toast notification functions
+function showToast(message, type = 'info') {
+    console.log(`Showing toast: ${message} (${type})`);
+    
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    
+    // Add styling based on type
+    let backgroundColor, textColor;
+    switch(type) {
+        case 'success':
+            backgroundColor = '#4caf50';
+            textColor = 'white';
+            break;
+        case 'error':
+            backgroundColor = '#f44336';
+            textColor = 'white';
+            break;
+        case 'info':
+        default:
+            backgroundColor = '#2196F3';
+            textColor = 'white';
+    }
+    
+    // Apply styles directly
+    toast.style.cssText = `
+        margin-bottom: 10px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: ${textColor};
+        background-color: ${backgroundColor};
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        min-width: 250px;
+        max-width: 350px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    `;
+    
+    toast.innerHTML = `
+        <div style="flex-grow: 1;">${message}</div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Trigger reflow to ensure transition works
+    void toast.offsetWidth;
+    
+    // Make visible
+    toast.style.opacity = '1';
+    
+    // Auto-hide after 3 seconds for success messages
+    if (type === 'success') {
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 500); //Fade out transition for 500 milliseconds
+        }, 5000); // Display duration of 5 seconds
+    }
+    
+    console.log('Toast created and appended to container');
+    return toast;
+}
+
+function hideToast(toast) {
+    if (toast && toast.parentNode) {
+        console.log('Hiding toast');
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.remove();
+                console.log('Toast removed');
+            }
+        }, 300); // Wait for fade out
+    } else {
+        console.log('Toast not found or already removed');
+    }
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-top-right';
+    container.style.cssText = 'position: fixed; top: 12px; right: 12px; z-index: 9999;';
+    document.body.appendChild(container);
+    return container;
+}
+
+
 /**
  * Fetches request details from the API
  * @param {string|number} requestID - The ID of the request
@@ -576,10 +669,12 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
+/**
+ * Gets the current user's UPN
+ * @returns {string} - The user's UPN
+ */
 function getCurrentUserUpn() {
-    // Implement your logic to get the current user's UPN
-    // This might come from a global variable, session storage, or another source
-    return "user@example.com"; // Replace with actual implementation
+    return "o.dean@deakin.edu.au";
 }
 // =================================================================
 //                      API & RENDERING FUNCTIONS
@@ -847,7 +942,7 @@ async function getCounts(status) {
 
 // this should be UPN
 // use /api/Request/List instead
-const AllowedToApprove = "string";
+const AllowedToApprove = "o.dean@deakin.edu.au";
 
 async function renderUI() {
     const activeChip = document.querySelector('.chip.active');
