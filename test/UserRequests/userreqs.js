@@ -1001,29 +1001,47 @@ function renderTable(containerId, data, config, selectedStatus) {
             // Create accordion row
             const accordionRow = document.createElement('tr');
             accordionRow.classList.add('hidden', 'accordion-row');
-            accordionRow.innerHTML = `
-                <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
-                    <div class="bg-gray-50 p-4 m-2 rounded">
-                        <div class="grid grid-cols-1 gap-4">
-                            <div class="flex justify-end mb-1">
-                                <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Delete
-                                </button>
-                            </div>
-                            
-                            <!-- Combined Information Card -->
-                            <div class="bg-white p-5 rounded-md shadow-sm">
-                                <div id="combined-details-${item.RequestID}" class="combined-content">
-                                    <p class="text-center text-gray-500">Loading details...</p>
+            if (selectedStatus === 'Pending Approval') {
+                accordionRow.innerHTML = `
+                    <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                        <div class="bg-gray-50 p-4 m-2 rounded">
+                            <div class="grid grid-cols-1 gap-4">
+                                <div class="flex justify-end mb-1">
+                                    <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </div>
+                                
+                                <!-- Combined Information Card -->
+                                <div class="bg-white p-5 rounded-md shadow-sm">
+                                    <div id="combined-details-${item.RequestID}" class="combined-content">
+                                        <p class="text-center text-gray-500">Loading details...</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </td>
-            `;
+                    </td>
+                `;
+            } else {
+                accordionRow.innerHTML = `
+                    <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                        <div class="bg-gray-50 p-4 m-2 rounded">
+                            <div class="grid grid-cols-1 gap-4">                            
+                                <!-- Combined Information Card -->
+                                <div class="bg-white p-5 rounded-md shadow-sm">
+                                    <div id="combined-details-${item.RequestID}" class="combined-content">
+                                        <p class="text-center text-gray-500">Loading details...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+            }
+
             
             // Add event listeners for the accordion
             const loadDatasetBtn = accordionRow.querySelector('.load-dataset-details');
