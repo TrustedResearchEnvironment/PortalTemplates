@@ -16,9 +16,9 @@ const statusIdToNameMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised'
 // Configuration for each status tab
 const configMap = {
     'Pending Approval': { showActions: true },
-    'Approved': { showActions: true },
-    'Rejected': { showActions: true },
-    'Finalised': { showActions: true },
+    'Approved': { showActions: false },
+    'Rejected': { showActions: false },
+    'Finalised': { showActions: false },
 };
 
 // =================================================================
@@ -434,12 +434,11 @@ function renderTable(containerId, data, config, selectedStatus) {
     const headerRow = document.createElement('tr');
     
     // Define headers based on the selected status
-    const headers = ['Project', 'Name', 'Data Set', 'Requested On'];
+    const headers = ['Request ID', 'Request Name', 'Requested On'];
     if (selectedStatus === 'Pending Approval') headers.push('Approvers');
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
     else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
-    if (config.showActions) headers.push('Actions');
 
     headers.forEach(headerText => {
         const th = document.createElement('th');
@@ -476,12 +475,10 @@ function renderTable(containerId, data, config, selectedStatus) {
                 </div>`;
             
             row.innerHTML = `
-                <td class="${tdClasses}">${item.ProjectID}</td>
+                <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
-                <td class="${tdClasses}">Data Set ${item.DataSetID}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
                 ${statusSpecificCols}
-                ${config.showActions ? `<td class="${tdClasses}">${actionButtons}</td>` : ''}
             `;
             tbody.appendChild(row);
 
