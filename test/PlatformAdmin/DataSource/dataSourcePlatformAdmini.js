@@ -1,6 +1,6 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_REQUEST_ID = 5
+const API_DATASOURCE_ID = 5
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
@@ -9,6 +9,275 @@ let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
 
 let dataSourceTypeMap = new Map();
+
+/**
+ * Displays a temporary "toast" notification on the screen.
+ * @param {string} message - The message to display.
+ * @param {string} [type='success'] - The type of toast ('success', 'error', 'info').
+ * @param {number} [duration=3000] - How long the toast should be visible in milliseconds.
+ */
+function showToast(message, type = 'success', duration = 3000) {
+    // Create the toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.textContent = message;
+
+    // Basic styling (add this to your CSS file for better results)
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    style.sheet.insertRule(`
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: sans-serif;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(-20px);
+        }
+    `);
+    style.sheet.insertRule('.toast-success { background-color: #28a745; }'); // Green
+    style.sheet.insertRule('.toast-error { background-color: #dc3545; }');   // Red
+
+    // Append to body and trigger animation
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10); // A tiny delay to allow the CSS transition to work
+
+    // Set a timer to remove the toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        // Remove the element from the DOM after the fade-out animation
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, duration);
+}
+
+/**
+ * Gathers all data from the "Add Data Source" modal form.
+ * It handles both static fields and dynamically generated fields.
+ *
+ * @param {HTMLElement} formElement - The <form> element to read data from.
+ * @returns {object | null} An object containing the structured form data, or null if the form is not found.
+ */
+function getDataSourceFormData(formElement) {
+    if (!formElement) {
+        console.error("Form element not provided to getDataSourceFormData.");
+        return null;
+    }
+
+    // --- 1. Get values from the STATIC fields ---
+    // We use .value for text inputs/textareas and .checked for checkboxes.
+    const name = formElement.querySelector('#dataSourceName').value;
+    const description = formElement.querySelector('#dataSourceDescription').value;
+    const isActive = formElement.querySelector('#dataSourceActive').checked;
+    
+    // For the <select>, we get the value of the selected <option>.
+    const dataSourceTypeID = formElement.querySelector('#dataSourceType').value;
+
+    // --- 2. Get values from the DYNAMICALLY generated fields ---
+    // Initialize an empty object to hold the key-value pairs.
+    const fields = {};
+
+    // Find the input with the class 'dynamic-field'.
+    const dynamicFieldInput = formElement.querySelector('.dynamic-field');
+    const fieldName = dynamicFieldInput.name;
+    const fieldValue = dynamicFieldInput.value;
+
+
+    // --- 3. Combine everything into a final payload object ---
+    // This structure is designed to match your Pydantic "Create" model.
+    const formData = {
+        "name": name,
+        "description": description,
+        "isActive": isActive,
+        "dataSourceTypeID": dataSourceTypeID,//parseInt(dataSourceTypeID, 10), // Convert the string value to an integer
+        "fieldName": fieldName,
+        "fieldValue": fieldValue
+    };
+
+    return formData;
+}
+
+function AddDataSource(typeNamesList, allFields) {
+    // Get the modal's body element
+    const modalBody = document.getElementById('addDatasourceModalBody');
+    console.log("IN add data source")
+
+    // This can now support multiple fields per type if needed.
+    const typeIdToFieldIdMap = {
+        1: [1], // 3], // Database type -> "Database Connection" and "Table Name"
+        2: [4],// 5], // REDCap API type -> "API URL" and "API Key"
+        3: [2]     // Folder type -> "UNC Path"
+    };
+
+    // Generate the HTML string for the <option> elements.
+    // We use map() to transform each name in the list into an <option> tag.
+    // The `index` is used to create a simple value (1, 2, 3, etc.).
+    const optionsHtml = typeNamesList.map((typeName, index) => {
+        // In a real app, you'd likely use an ID from your data source type object
+        // for the value, but index + 1 works for this example.
+        return `<option value="${index + 1}">${typeName}</option>`;
+    }).join(''); // .join('') concatenates all the strings in the array into one big string.
+
+
+    // Populate the modal body with the provided HTML content (your markup)
+    modalBody.innerHTML = `
+                <form id="addDataSourceForm">
+                  <div class="mb-3">
+                    <label for="dataSourceName" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="dataSourceName" placeholder="Name for this Data Source" required>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="dataSourceDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="dataSourceDescription" rows="2" placeholder="Description of this Data Source"></textarea>
+                  </div>
+
+                  <div class="mb-3">
+                      <label for="dataSourceType" class="form-label">Data Source Type</label>
+                      <select class="form-select" id="dataSourceType" required>
+                          <option value="" selected disabled>Select a Type...</option>
+                          ${optionsHtml}
+                      </select>
+                  </div>
+
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" value="" id="dataSourceActive" checked>
+                    <label class="form-check-label" for="dataSourceActive">Active</label>
+                  </div>
+
+                  <hr>
+                  
+                  <h6 class="mb-3">Data Source Fields</h6>
+                  <div id="dataSourceFieldsContainer">
+                    <p class="text-muted">Please select a Data Source Type to see the required fields.</p>
+                  </div>
+                </form>
+              </div>
+              
+            
+            
+    `;
+
+    // --- 4. FIND the elements we need to work with ---
+    const typeSelect = modalBody.querySelector('#dataSourceType');
+    const fieldsContainer = modalBody.querySelector('#dataSourceFieldsContainer');
+
+    // --- 5. CREATE the event handler function ---
+    const handleTypeChange = (event) => {
+        const selectedTypeId = event.target.value;
+
+        // Get the list of required FieldIDs for this type from our map
+        const requiredFieldIds = typeIdToFieldIdMap[selectedTypeId] || [];
+
+        if (requiredFieldIds.length > 0) {
+            // Find the full field objects that match the required IDs
+            const fieldsToRender = allFields.filter(field => requiredFieldIds.includes(field.FieldID));
+            
+            // Generate the HTML for the table rows
+            const fieldRowsHtml = fieldsToRender.map(field => `
+                <tr>
+                    <td>${field.Name}</td>
+                    <td>
+                        <input type="text" 
+                               class="form-control form-control-sm dynamic-field" 
+                               data-field-id="${field.FieldID}"
+                               name="${field.Name}" 
+                               placeholder="Enter value for ${field.Name}">
+                    </td>
+                </tr>
+            `).join('');
+
+            // Inject the full table structure into the container
+            fieldsContainer.innerHTML = `
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40%;">Name</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${fieldRowsHtml}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            // If no fields are required, show the placeholder text
+            fieldsContainer.innerHTML = '<p class="text-muted">Please select a Data Source Type to see the required fields.</p>';
+        }
+    };
+
+    // --- 6. ATTACH the event listener to the dropdown ---
+    typeSelect.addEventListener('change', handleTypeChange);
+
+    // --- 7. Listener for Adding a Data Source
+    // First, get a reference to the modal and the save button
+    const saveButton = document.getElementById('modal-save-add-datasrc-button');
+
+    // Make sure both elements were found before adding a listener
+    if (saveButton) {
+
+        // Define the function that will run when "Save" is clicked
+        const handleSaveClick = async () => {
+            // Find the form in the modal.
+            const form = document.getElementById('addDataSourceForm'); // Give your form an ID
+
+            // --- VALIDATION (from previous example) ---
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                console.log("Form is invalid. Aborting save.");
+                return;
+            }
+
+            // --- GATHER DATA using our new function ---
+            const payload = getDataSourceFormData(form);
+
+            console.log("Data gathered from form:", payload);
+
+            saveButton.disabled = true;
+            saveButton.innerHTML = `
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Saving...
+            `;
+
+            // --- Now, you can SEND this payload to your backend API ---
+            try {
+            
+                const response = await window.loomeApi.runApiRequest(22, payload);
+            
+                showToast('Data Source created successfully!');
+
+            } catch (error) {
+                console.error("API call failed:", error);
+                showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+            } finally {
+                // --- UX IMPROVEMENT: Always reset the button state ---
+                // This runs whether the API call succeeded or failed.
+                saveButton.disabled = false;
+                saveButton.innerHTML = 'Save';
+
+                const closeButton = document.querySelector('#addDatasourceModal [data-bs-dismiss="modal"]');
+                // Programmatically click the button.
+                closeButton.click();
+            }
+        };
+
+        // --- 6. Add the event listener ---
+        // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
+        saveButton.addEventListener('click', handleSaveClick);
+
+    } else {
+        console.error("Could not find the modal or the save button to attach the event listener.");
+    }
+}
 
 /**
  * Fetches ALL DataSourceTypes from the paginated API.
@@ -65,9 +334,7 @@ async function getAllDataSourceTypes(pageSize = 100) {
  * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
  *          key is the DataSourceTypeIID and the value is the Name.
  */
-async function createDataSourceTypeMap() {
-    // 1. Await the results from your fetching function
-    const allTypesArray = await getAllDataSourceTypes();
+async function createDataSourceTypeMap(allTypesArray) {
 
     if (!allTypesArray || allTypesArray.length === 0) {
         return new Map(); // Return an empty map if no data
@@ -118,14 +385,14 @@ async function fetchApiData(apiId, params = {}, context = 'data') {
  * @param {number} dataSourceID - The ID of the data source.
  * @returns {Promise<Array|null>} A promise resolving to an array of field values, or null on failure.
  */
-async function getDataSourceFieldValueByDataSourceID(dataSourceID) {
-    const DATASOURCEFIELDVALUE_API_ID = 18;
-    const params = { "dataSourceID": dataSourceID };
-    const context = `field values for data source ${dataSourceID}`;
+// async function getDataSourceFieldValueByDataSourceID(dataSourceID) {
+//     const DATASOURCEFIELDVALUE_API_ID = 18;
+//     const params = { "dataSourceID": dataSourceID };
+//     const context = `field values for data source ${dataSourceID}`;
     
-    // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
-}
+//     // Call the generic helper
+//     return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
+// }
 
 
 /**
@@ -133,13 +400,11 @@ async function getDataSourceFieldValueByDataSourceID(dataSourceID) {
  * @param {number} fieldID - The ID of the field.
  * @returns {Promise<object|null>} A promise resolving to a single field value object, or null on failure.
  */
-async function getFieldValueByFieldID(fieldID) {
+async function getAllFields(fieldID) {
     const DATASOURCEFIELDVALUE_API_ID = 19;
-    const params = { "fieldID": fieldID };
-    const context = `field value for field ${fieldID}`;
 
     // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
+    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, {});
 }
 /**
  * Renders pagination controls.
@@ -205,7 +470,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         };
         console.log(apiParams)
         // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+        const response = await window.loomeApi.runApiRequest(API_DATASOURCE_ID, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
@@ -250,71 +515,6 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 }
 
 
-// --- 3. Define the Accordion Content Renderer ---
-// const renderAccordionDetails = (item) => {
-//     const dataSourceType = dataSourceTypeMap.get(item.DataSourceTypeID);
-//     const dateModified = formatDate(item.ModifiedDate);
-//     const dateRefreshed = formatDate(item.RefreshedDate);
-//     console.log(item.IsActive)
-//     return `
-//     <div class="accordion-body bg-slate-50 m-6" data-id="${item.DataSourceID}">
-//         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-//             <!-- LEFT COLUMN: Your existing detail fields -->
-//             <div>
-//                 <table class="w-full text-sm">
-//                     <tbody>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
-//                             <span class="view-state">${item.Name}</span>
-//                             <input type="text" value="${item.Name}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-//                         </td></tr>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Description</td><td class="py-2 text-gray-900">
-//                             <span class="view-state">${item.Description || ''}</span>
-//                             <textarea class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
-//                         </td></tr>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
-//                             <span class="view-state">${item.IsActive ? 'Yes' : 'No'}</span>
-//                             <div class="edit-state hidden flex items-center">
-//                                 <input type="checkbox" ${item.IsActive  ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-indigo-600">
-//                                 <label class="ml-2 block text-sm text-gray-900">Is Active</label>
-//                             </div>
-//                         </td></tr>
-//                     </tbody>
-//                 </table>
-//             </div>
-            
-//             <!-- RIGHT COLUMN: Static details + the placeholder -->
-//             <div>
-//                 <table class="w-full text-sm mb-4">
-//                      <tbody>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Type</td><td class="py-2 text-gray-900">${dataSourceType || 'N/A'}</td></tr>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Modified</td><td class="py-2 text-gray-900">${dateModified}</td></tr>
-//                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${dateRefreshed}</td></tr>
-//                     </tbody>
-//                 </table>
-//                 <h4 class="text-sm font-semibold text-gray-600 mt-6 mb-2">Data Source Fields</h4>
-                
-//                 <!-- === PLACEHOLDER START === -->
-//                 <div id="dsf-container-${item.DataSourceID}" class="data-source-fields-container">
-//                     <div class="text-center text-sm text-gray-500 p-4">Loading details...</div>
-//                 </div>
-//                 <!-- === PLACEHOLDER END === -->
-//             </div>
-//         </div>
-        
-//         <!-- Action buttons remain the same -->
-//         <div class="mt-6 text-right">
-//             <div class="view-state">
-//                 <button class="btn-edit inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Edit</button>
-//             </div>
-//             <div class="edit-state hidden space-x-2">
-//                 <button class="btn-cancel inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancel</button>
-//                 <button class="btn-save inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">Save Changes</button>
-//             </div>
-//         </div>
-//     </div>
-//     `;
-// };
 
 const renderAccordionDetails = (item) => {
     const dataSourceType = dataSourceTypeMap.get(item.DataSourceTypeID);
@@ -330,8 +530,8 @@ const renderAccordionDetails = (item) => {
             <tr>
                 <td class="p-2 border-t">${key}</td>
                 <td class="p-2 border-t">
-                    <span class="view-state">${value || ''}</span>
-                    <input type="text" value="${value || ''}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                    <span class="view-state view-state-field" data-field-name="${key}">${value || ''}</span>
+                    <input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
                 </td>
             </tr>
         `).join(''); // Join the array of HTML strings into one string
@@ -363,24 +563,24 @@ const renderAccordionDetails = (item) => {
                     <tbody>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.Name}</span>
-                            <input type="text" value="${item.Name}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <span class="view-state view-state-name">${item.Name}</span>
+                            <input type="text" value="${item.Name}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
                         </td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Description</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.Description || ''}</span>
-                            <textarea class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
+                            <span class="view-state view-state-description">${item.Description || ''}</span>
+                            <textarea class="edit-state edit-state-description hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
                         </td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.IsActive ? 'Yes' : 'No'}</span>
+                            <span class="view-state view-state-isactive">${item.IsActive ? 'Yes' : 'No'}</span>
                             <div class="edit-state hidden flex items-center">
-                                <input type="checkbox" ${item.IsActive ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-indigo-600">
+                                <input type="checkbox" ${item.IsActive ? 'checked' : ''} class="edit-state-isactive h-4 w-4 rounded border-gray-300 text-indigo-600">
                                 <label class="ml-2 block text-sm text-gray-900">Is Active</label>
                             </div>
                         </td></tr>
                     </tbody>
                 </table>
             </div>
-            
+
             <!-- RIGHT COLUMN -->
             <div>
                 <table class="w-full text-sm mb-4">
@@ -413,219 +613,6 @@ const renderAccordionDetails = (item) => {
     `;
 };
 
-// /**
-//  * Renders a generic data table based on a configuration object, with optional accordion rows.
-//  * @param {string} containerId - The ID of the element to render the table into.
-//  * @param {Array} headers - The array of header configuration objects.
-//  * @param {Array} data - The array of data objects to display.
-//  * @param {object} [config={}] - Optional configuration for advanced features.
-//  * @param {function(object): string} [config.renderAccordionContent] - A function that takes a data item and returns the HTML content for the accordion.
-//  */
-// function renderTable(containerId, headers, data, config = {}) {
-//     const container = document.getElementById(containerId);
-//     if (!container) {
-//         console.error(`Container with ID "${containerId}" not found.`);
-//         return;
-//     }
-//     container.innerHTML = '';
-
-//     const table = document.createElement('table');
-//     table.className = 'w-full divide-y divide-gray-200';
-
-//     // ... (The thead building logic is the same as before) ...
-//     const thead = document.createElement('thead');
-//     thead.className = 'bg-gray-50';
-//     const headerRow = document.createElement('tr');
-//     headers.forEach(headerConfig => {
-//         const th = document.createElement('th');
-//         th.scope = 'col';
-//         let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ';
-//         if (headerConfig.widthClass) {
-//             thClasses += headerConfig.widthClass;
-//         }
-//         th.className = thClasses;
-//         th.textContent = headerConfig.label;
-//         headerRow.appendChild(th);
-//     });
-//     thead.appendChild(headerRow);
-//     table.appendChild(thead);
-
-
-//     const tbody = document.createElement('tbody');
-//     tbody.className = 'bg-white divide-y divide-gray-200';
-
-//     if (data.length === 0) {
-//         const colSpan = headers.length || 1;
-//         tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
-//     } else {
-//         data.forEach((item, index) => {
-//             const isAccordion = typeof config.renderAccordionContent === 'function';
-//             const triggerRow = document.createElement('tr');
-//             if (isAccordion) {
-//                 triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
-//                 const accordionId = `accordion-content-${item.id || index}`;
-//                 triggerRow.dataset.target = `#${accordionId}`;
-                
-//                 // This makes the ID available to our click event handler.
-//             triggerRow.dataset.dataSourceId = item.DataSourceID;
-//             }
-
-//             // ... (The main row building logic is the same as before) ...
-//              headers.forEach(headerConfig => {
-//                 const td = document.createElement('td');
-//                 let tdClasses = 'px-6 py-4 text-sm text-gray-800 ';
-//                 if (headerConfig.className) {
-//                     tdClasses += headerConfig.className;
-//                 } else {
-//                     tdClasses += 'whitespace-nowrap';
-//                 }
-//                 td.className = tdClasses;
-//                 let cellContent;
-//                 if (headerConfig.render) {
-//                     const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
-//                     cellContent = headerConfig.render(value);
-//                 } else {
-//                     const value = item[headerConfig.key];
-//                     cellContent = value ?? 'N/A';
-//                 }
-//                 if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
-//                     td.innerHTML = cellContent;
-//                 } else {
-//                     td.textContent = cellContent;
-//                 }
-//                 triggerRow.appendChild(td);
-//             });
-
-
-//             tbody.appendChild(triggerRow);
-
-//             if (isAccordion) {
-//                 const contentRow = document.createElement('tr');
-//                 const accordionId = `accordion-content-${item.id || index}`;
-//                 contentRow.id = accordionId;
-//                 contentRow.className = 'accordion-content hidden';
-
-//                 const contentCell = document.createElement('td');
-//                 contentCell.colSpan = headers.length;
-//                 contentCell.innerHTML = config.renderAccordionContent(item);
-                
-//                 contentRow.appendChild(contentCell);
-//                 tbody.appendChild(contentRow);
-//             }
-//         });
-//     }
-//     table.appendChild(tbody);
-//     container.appendChild(table);
-
-//     // --- ENHANCED Event Listener ---
-//     if (config.renderAccordionContent) {
-//         tbody.addEventListener('click', function(event) {
-//             const trigger = event.target.closest('.accordion-trigger');
-//             const accordionBody = event.target.closest('.accordion-body');
-            
-//             // --- Logic for Opening/Closing the Accordion ---
-//             if (trigger && !accordionBody) {
-//                 event.preventDefault();
-//                 const targetId = trigger.dataset.target;
-//                 const contentRow = document.querySelector(targetId);
-                
-//                 if (contentRow) {
-//                     const isOpening = contentRow.classList.contains('hidden');
-//                     contentRow.classList.toggle('hidden');
-//                     trigger.classList.toggle('expanded');
-//                     const chevron = trigger.querySelector('.chevron-icon');
-//                     if (chevron) chevron.classList.toggle('rotate-180');
-                    
-//                     // === LAZY LOADING LOGIC START ===
-//                     // If we are opening the row AND it has not been loaded yet
-//                     if (isOpening && !contentRow.dataset.loaded) {
-//                         (async () => {
-//                             const dataSourceID = trigger.dataset.dataSourceId;
-//                             const container = contentRow.querySelector(`#dsf-container-${dataSourceID}`);
-                            
-//                             try {
-//                                 const fieldValue = await getDataSourceFieldValueByDataSourceID(dataSourceID);
-//                                 console.log(fieldValue)
-//                                 console.log(fieldValue.length)
-//                                 const fieldNames = await getFieldValueByFieldID(fieldValue.FieldID);
-//                                 console.log(fieldNames)
-//                                 let innerHtml = '';
-//                                 if (fieldValue && fieldNames) {
-                                    
-//                                     innerHtml = `<table class="w-full text-sm bg-white rounded shadow-sm">
-//                                             <thead class="bg-gray-100">
-//                                                 <tr>
-//                                                     <th class="p-2 text-left font-medium text-gray-500 w-1/3">Name</th>
-//                                                     <th class="p-2 text-left font-medium text-gray-500">Value</th>
-//                                                 </tr>
-//                                             </thead>
-//                                             <tbody>
-//                                                 <tr>
-//                                                     <td class="p-2 border-t">${fieldNames.Name || 'N/A'}</td>
-//                                                     <td class="p-2 border-t">
-//                                                         <span class="view-state">${fieldValue.Value || ''}</span>
-//                                                         <input type="text" value="${fieldValue.Value || ''}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-//                                                     </td>
-//                                                 </tr>
-//                                             </tbody>
-//                                         </table>`;
-//                                 } else {
-//                                     innerHtml = `<div class="text-center text-sm text-gray-500 p-4">No data source fields found.</div>`;
-//                                 }
-                                
-//                                 container.innerHTML = innerHtml;
-//                                 contentRow.dataset.loaded = 'true'; // Mark as loaded!
-    
-//                             } catch (error) {
-//                                 console.error("Failed to load data source fields:", error);
-//                                 container.innerHTML = `<div class="text-center text-sm text-red-500 p-4">Failed to load details.</div>`;
-//                             }
-//                         })();
-//                     }
-//                     // === LAZY LOADING LOGIC END ===
-//             }
-//             return;
-//         }
-
-
-//             // --- Logic for Buttons INSIDE the Accordion ---
-//             const editButton = event.target.closest('.btn-edit');
-//             const saveButton = event.target.closest('.btn-save');
-//             const cancelButton = event.target.closest('.btn-cancel');
-
-//             if (!editButton && !saveButton && !cancelButton) return;
-
-//             event.stopPropagation(); // VERY IMPORTANT: Prevents the accordion from closing
-
-//             const parentAccordion = event.target.closest('.accordion-body');
-            
-//             // Function to toggle states
-//             const toggleEditState = (isEditing) => {
-//                 const viewElements = parentAccordion.querySelectorAll('.view-state');
-//                 const editElements = parentAccordion.querySelectorAll('.edit-state');
-                
-//                 viewElements.forEach(el => el.classList.toggle('hidden', isEditing));
-//                 editElements.forEach(el => el.classList.toggle('hidden', !isEditing));
-//             };
-
-//             if (editButton) {
-//                 toggleEditState(true);
-//             }
-
-//             if (saveButton) {
-//                 // In a real app, you would get form data and send an AJAX request here.
-//                 alert('Save logic for ' + parentAccordion.dataset.id + ' would run here.');
-//                 // On success, switch back to view mode.
-//                 toggleEditState(false);
-//             }
-
-//             if (cancelButton) {
-//                 // Just switch back to view mode, optionally resetting form fields.
-//                 toggleEditState(false);
-//             }
-//         });
-//     }
-// }
 
 // This is the simplified renderTable function.
 // All the async logic in the event listener has been removed.
@@ -726,7 +713,7 @@ function renderTable(containerId, headers, data, config = {}) {
 
     // --- SIMPLIFIED Event Listener ---
     if (config.renderAccordionContent) {
-        tbody.addEventListener('click', function(event) {
+        tbody.addEventListener('click', async (event) => {
             const trigger = event.target.closest('.accordion-trigger');
             const accordionBody = event.target.closest('.accordion-body');
             
@@ -759,10 +746,83 @@ function renderTable(containerId, headers, data, config = {}) {
             };
             
             if (editButton) toggleEditState(true);
+
             if (saveButton) {
-                alert('Save logic for ' + parentAccordion.dataset.id + ' would run here.');
-                toggleEditState(false);
+                // Stop the click from propagating and closing the accordion
+                event.stopPropagation();
+                
+                // Get the button that was clicked and its parent accordion
+                const saveBtn = saveButton;
+                const accordionBody = saveBtn.closest('.accordion-body');
+                const dataSourceId = accordionBody.dataset.id; // Using .dataset.id
+
+                // Show a "saving..." state for better UX
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+
+                try {
+                    // --- 1. Gather Data from the Form ---
+                    // Use document.querySelector to find elements within the accordionBody
+                    const updatedName = accordionBody.querySelector('.edit-state-name').value;
+                    const updatedDescription = accordionBody.querySelector('.edit-state-description').value;
+                    const updatedIsActive = accordionBody.querySelector('.edit-state-isactive').checked;
+
+                    // Gather all dynamic field values into a dictionary
+                    //const updatedFields = {};
+                    const dynamicFieldInput = accordionBody.querySelector('.edit-state-field');
+                    const fieldName = dynamicFieldInput.dataset.fieldName;
+                    const fieldValue = dynamicFieldInput.value;
+                    // accordionBody.querySelectorAll('.edit-state-field').forEach(input => {
+                    //     const fieldName = input.dataset.fieldName; // using .dataset
+                    //     const fieldValue = input.value;
+                    //     updatedFields[fieldName] = fieldValue;
+                    // });
+
+                    // --- 2. Send Request to the Endpoint using fetch ---
+                    const updateParams = {
+                        "data_source_id": dataSourceId ,
+                        "description":  updatedDescription,
+                        "isActive":  updatedIsActive,
+                        "name":  updatedName,
+                        "fieldName": fieldName,
+                        "fieldValue": fieldValue
+                    };
+                    const updatedDataSource = await window.loomeApi.runApiRequest(21, updateParams);
+
+                    // --- 3. Handle the Server's Response ---
+                    if (!updatedDataSource) {
+                        // Handle cases where the API might return an empty or null response on success
+                        throw new Error("API call succeeded but returned no data.");
+                    }
+                    console.log(updatedDataSource)
+                    showToast('Data Source edited successfully!');
+
+                    // --- 4. Update the UI with the New Data ---
+                    accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
+                    accordionBody.querySelector('.view-state-description').textContent = updatedDataSource.Description;
+                    accordionBody.querySelector('.view-state-isactive').textContent = updatedDataSource.IsActive ? 'Yes' : 'No';
+
+                    // Update the dynamic fields
+                    for (const [fieldName, fieldValue] of Object.entries(updatedDataSource.Fields)) {
+                        const fieldSpan = accordionBody.querySelector(`.view-state-field[data-field-name="${fieldName}"]`);
+                        if (fieldSpan) {
+                            fieldSpan.textContent = fieldValue;
+                        }
+                    }
+
+                    // Finally, switch back to view mode by calling your existing function
+                    toggleEditState(false);
+
+                } catch (error) {
+                    console.error('Failed to save:', error);
+                    showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+                } finally {
+                    // Reset the button back to its original state
+                    saveBtn.textContent = 'Save Changes';
+                    saveBtn.disabled = false;
+                }
             }
+
             if (cancelButton) toggleEditState(false);
         });
     }
@@ -837,8 +897,16 @@ function safeParseJson(response) {
 async function renderPlatformAdminDataSourcePage() {
     // --- 1. Define the table configuration ---
     // (Moved outside the try block so it's accessible to fetchAndRenderPage)
-    dataSourceTypeMap = await createDataSourceTypeMap();
-    
+    // 1. Await the results from your fetching function
+    const allTypesArray = await getAllDataSourceTypes();
+    dataSourceTypeMap = await createDataSourceTypeMap(allTypesArray);
+
+    const typeNamesList = allTypesArray.map(item => item.Name);
+
+    const fields = await getAllFields();
+    console.log('Fields:');
+    console.log(fields);
+
     const tableConfig = {
                 headers: [
                     { label: "Type", key: "DataSourceTypeID", className: "break-words", widthClass: "w-1/12", 
@@ -882,6 +950,13 @@ async function renderPlatformAdminDataSourcePage() {
         // Fetch the new page, preserving the current search term
         fetchAndRenderPage(tableConfig, newPage, searchInput.value);
     });
+
+    const addDataSrcButton = document.querySelector('#addDatasourceBtn');;
+    if (addDataSrcButton) {
+        addDataSrcButton.addEventListener('click', () => {
+            AddDataSource(typeNamesList, fields);
+        });
+    }
 
     // --- 3. Initial Page Load ---
     // Make the first call to fetch page 1 with no search term.
