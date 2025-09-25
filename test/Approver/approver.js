@@ -328,6 +328,175 @@ function RejectRequest(request) {
             `;
 }
 
+
+/**
+ * Fetches request details from the API
+ * @param {string|number} requestID - The ID of the request
+ * @returns {Promise<object>} - The request details
+ */
+async function fetchRequestDetails(requestID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(8, {
+            "RequestID": requestID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching request details for ID ${requestID}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Fetches dataset details from the API
+ * @param {string|number} datasetID - The ID of the dataset
+ * @returns {Promise<object>} - The dataset details
+ */
+async function fetchDatasetDetails(datasetID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(6, {
+            "DataSetID": datasetID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching dataset details for ID ${datasetID}:`, error);
+        throw error;
+    }
+}
+
+// Global variable to store project data
+let projectsCache = null;
+
+async function getProjectsMapping() {
+    // Return cache if already loaded
+    if (projectsCache) {
+        return projectsCache;
+    }
+    
+    try {
+        // Get current user's UPN or use the hardcoded one
+        const upn = getCurrentUserUpn() || 'migueltestupn';
+        
+        // Fetch projects data
+        const response = await window.loomeApi.runApiRequest(9, { upn });
+        const data = safeParseJson(response);
+        
+        // Create a mapping from project ID to project name
+        const mapping = {};
+        if (data && data.Results && Array.isArray(data.Results)) {
+            data.Results.forEach(project => {
+                mapping[project.AssistProjectID] = {
+                    name: project.Name,
+                    description: project.Description
+                };
+            });
+        }
+        
+        // Cache the mapping
+        projectsCache = mapping;
+        return mapping;
+        
+    } catch (error) {
+        console.error("Error fetching projects:", error);
+        return {}; // Return empty object in case of error
+    }
+}
+
+
+/**
+ * Displays combined request and dataset details in a single container
+ * @param {HTMLElement} container - The container element
+ * @param {object} requestDetails - The request details
+ * @param {object} datasetDetails - The dataset details
+ */
+async function displayCombinedDetails(container, requestDetails, datasetDetails) {
+    // Check if we have valid details
+    if ((!requestDetails || Object.keys(requestDetails).length === 0) && 
+        (!datasetDetails || Object.keys(datasetDetails).length === 0)) {
+        container.innerHTML = '<p class="text-center text-red-500">No details available</p>';
+        return;
+    }
+    
+    // Show loading state
+    container.innerHTML = '<p class="text-center">Loading details...</p>';
+    
+    try {
+        // Get project mapping for request details
+        const projectsMapping = await getProjectsMapping();
+        const projectInfo = requestDetails && requestDetails.ProjectID ? 
+            (projectsMapping[requestDetails.ProjectID] || { name: 'Unknown Project', description: '' }) : 
+            { name: 'Unknown Project', description: '' };
+        
+        // Start building HTML
+        let html = `
+            <div class="grid grid-cols-1 gap-5">
+                <!-- Request Information -->
+                <div>
+                    <div class="space-y-3">
+                       
+                        <!-- Dataset Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Requested Dataset</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Name || 'N/A'}</span>
+                        </div>
+
+                        ${datasetDetails.Description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Dataset Description</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Description}</span>
+                        </div>` : ''}
+                        
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Data Source ID</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.DataSource || datasetDetails.DataSourceID || 'N/A'}</span>
+                        </div>
+
+                        <!-- Project Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Target Project Name</span>
+                            <span class="text-sm text-gray-500">${projectInfo.name}</span>
+                        </div>
+                        
+                        ${projectInfo.description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Project Description</span>
+                            <span class="text-sm text-gray-500">${projectInfo.description}</span>
+                        </div>` : ''}
+
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Update the container
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error displaying combined details:", error);
+        container.innerHTML = `
+            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                <p class="text-sm">${error.message || 'Unknown error'}</p>
+            </div>
+        `;
+    }
+}
+
+
+
 /**
  * Safely parses a response that might be a JSON string or an object.
  * @param {string | object} response The API response.
