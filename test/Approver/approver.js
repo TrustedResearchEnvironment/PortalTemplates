@@ -199,8 +199,9 @@ function ApproveRequest(request) {
     const modalBody = document.getElementById('approveRequestModalBody');
     const modalTitle = document.getElementById('approveRequestModalLabel');
 
-    // Update the modal title dynamically based on requestID
-    modalTitle.textContent = `Approve Request:`;
+
+    // Update the modal title dynamically
+    modalTitle.textContent = `Approve Request: ${request.Name}`;
 
     // Populate the modal body with the dynamic content
     modalBody.innerHTML = `
@@ -221,20 +222,16 @@ function ApproveRequest(request) {
         </div>
     `;
 
+
     // Add event listener for the confirm approval button
-    setTimeout(() => {
-        const confirmBtn = document.getElementById('confirmApprovalBtn');
-        if (confirmBtn) {
-            console.log('Adding click listener to confirm approval button');
-            confirmBtn.addEventListener('click', () => {
-                console.log('Approve button clicked for request:', request.RequestID);
-                // Call the API to delete the request
-                approveRequestFromAPI(request.RequestID);
-            });
-        } else {
-            console.error('Confirm approval button not found');
-        }
-    }, 100);
+    const confirmBtn = document.getElementById('confirmApprovalBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            console.log('Approve button clicked for request:', request.RequestID);
+            // Call the API to approve the request
+            approveRequestFromAPI(request.RequestID);
+        });
+    }
 }
 
 async function approveRequestFromAPI(requestId) {
@@ -247,22 +244,22 @@ async function approveRequestFromAPI(requestId) {
         loadingToast = showToast('Approving request...', 'info');
         console.log('Loading toast shown:', loadingToast);
         
-        const response = await window.loomeApi.runApiRequest(20, {
+        const response = await window.loomeApi.runApiRequest(23, {
             "id": requestId,
             "upn": getCurrentUserUpn()
         });
         
         // Log the response to console
-        console.log('Delete request API response:', response);
+        console.log('Approve request API response:', response);
         
         // Hide the modal
         try {
-            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
-            if (deleteModal) {
-                deleteModal.hide();
-                console.log('Delete modal hidden');
+            const approveModal = bootstrap.Modal.getInstance(document.getElementById('approveRequestModal'));
+            if (approveModal) {
+                approveModal.hide();
+                console.log('Approve modal hidden');
             } else {
-                console.log('Delete modal not found or already hidden');
+                console.log('Approve modal not found or already hidden');
             }
         } catch (modalError) {
             console.error('Error hiding modal:', modalError);
@@ -304,28 +301,28 @@ async function approveRequestFromAPI(requestId) {
 }
 
 function RejectRequest(request) {
-            // Get the modal elements
-            const modalBody = document.getElementById('rejectRequestModalBody');
-            const modalTitle = document.getElementById('rejectRequestModalLabel');
+    // Get the modal elements
+    const modalBody = document.getElementById('rejectRequestModalBody');
+    const modalTitle = document.getElementById('rejectRequestModalLabel');
 
-            // Update the modal title dynamically based on requestID
-            modalTitle.textContent = `Reject Request: ${request.name}`;
+    // Update the modal title dynamically based on requestID
+    modalTitle.textContent = `Reject Request: ${request.name}`;
 
-            // Populate the modal body with the dynamic content
-            modalBody.innerHTML = `
-                <div class="col-md-12">
-                    <form>
-                        <div class="form-group">
-                            <label for="RequestMessage" class="control-label">Rejection Note</label>
-                            <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-accent">Reject</button>
-                            <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
-                        </div>
-                    </form>
+    // Populate the modal body with the dynamic content
+    modalBody.innerHTML = `
+        <div class="col-md-12">
+            <form>
+                <div class="form-group">
+                    <label for="RequestMessage" class="control-label">Rejection Note</label>
+                    <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid"></textarea>
                 </div>
-            `;
+                <div class="form-group">
+                    <button type="submit" class="btn btn-accent">Reject</button>
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    `;
 }
 
 
@@ -657,37 +654,37 @@ function renderTable(containerId, data, config, selectedStatus) {
             const accordionRow = document.createElement('tr');
             accordionRow.classList.add('hidden', 'accordion-row');
             if (selectedStatus === 'Pending Approval') {
-                accordionRow.innerHTML = `
-                    <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
-                        <div class="bg-gray-50 p-4 m-2 rounded">
-                            <div class="grid grid-cols-1 gap-4">
-                                <div class="flex justify-end mb-1">
-                                    <div class="btn-group">
-                                        <button class="btn btn-success action-approve px-3 py-1 mr-2" data-bs-toggle="modal" data-bs-target="#approveRequestModal">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            Accept
-                                        </button>
-                                        <button class="btn btn-danger action-reject px-3 py-1" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                            Reject
-                                        </button>
-                                    </div>
+            accordionRow.innerHTML = `
+                <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                    <div class="bg-gray-50 p-4 m-2 rounded">
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="flex justify-end mb-1">
+                                <div class="btn-group">
+                                    <button class="btn btn-success action-approve px-3 py-1 mr-2" data-bs-toggle="modal" data-bs-target="#approveRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Approve
+                                    </button>
+                                    <button class="btn btn-danger action-reject px-3 py-1" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        Reject
+                                    </button>
                                 </div>
-                                
-                                <!-- Combined Information Card -->
-                                <div class="bg-white p-5 rounded-md shadow-sm">
-                                    <div id="combined-details-${item.RequestID}" class="combined-content">
-                                        <p class="text-center text-gray-500">Loading details...</p>
-                                    </div>
+                            </div>
+                            
+                            <!-- Combined Information Card -->
+                            <div class="bg-white p-5 rounded-md shadow-sm">
+                                <div id="combined-details-${item.RequestID}" class="combined-content">
+                                    <p class="text-center text-gray-500">Loading details...</p>
                                 </div>
                             </div>
                         </div>
-                    </td>
-                `;
+                    </div>
+                </td>
+            `;
             } else {
                 accordionRow.innerHTML = `
                     <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
@@ -795,16 +792,19 @@ function renderTable(containerId, data, config, selectedStatus) {
             
             // Only add event listeners for the action buttons if they exist (Pending Approval status = 1)
             if (item.StatusID === 'Pending Approval') {
-                accordionRow.querySelector('.action-approve')?.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent event from bubbling up to row
-                    ApproveRequest(item);
-                });
-                
-                accordionRow.querySelector('.action-reject')?.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent event from bubbling up to row
-                    RejectRequest(item);
-                });
+                console.log(`Status ID: ${item.StatusID}`);
             }
+            // if (item.StatusID === 'Pending Approval') {
+            accordionRow.querySelector('.action-approve')?.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent event from bubbling up to row
+                ApproveRequest(item);
+            });
+            
+            accordionRow.querySelector('.action-reject')?.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent event from bubbling up to row
+                RejectRequest(item);
+            });
+            // }
         });
     }
     
