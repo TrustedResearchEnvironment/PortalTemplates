@@ -5,6 +5,7 @@ const API_DATASOURCE_ID = 5
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
 let rowsPerPage = 5; // Default, will be updated by API response
+let totalPages = 1;
 let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
 
@@ -220,63 +221,112 @@ function AddDataSource(typeNamesList, allFields) {
 
     // --- 7. Listener for Adding a Data Source
     // First, get a reference to the modal and the save button
-    const saveButton = document.getElementById('modal-save-add-datasrc-button');
+    // const saveButton = document.getElementById('modal-save-add-datasrc-button');
 
-    // Make sure both elements were found before adding a listener
-    if (saveButton) {
+    // // Make sure both elements were found before adding a listener
+    // if (saveButton) {
 
-        // Define the function that will run when "Save" is clicked
-        const handleSaveClick = async () => {
-            // Find the form in the modal.
-            const form = document.getElementById('addDataSourceForm'); // Give your form an ID
+    //     // Define the function that will run when "Save" is clicked
+    //     const handleSaveClick = async () => {
+    //         // Find the form in the modal.
+    //         const form = document.getElementById('addDataSourceForm'); // Give your form an ID
 
-            // --- VALIDATION (from previous example) ---
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                console.log("Form is invalid. Aborting save.");
-                return;
-            }
+    //         // --- VALIDATION (from previous example) ---
+    //         if (!form.checkValidity()) {
+    //             form.classList.add('was-validated');
+    //             console.log("Form is invalid. Aborting save.");
+    //             return;
+    //         }
 
-            // --- GATHER DATA using our new function ---
-            const payload = getDataSourceFormData(form);
+    //         // --- GATHER DATA using our new function ---
+    //         const payload = getDataSourceFormData(form);
 
-            console.log("Data gathered from form:", payload);
+    //         console.log("Data gathered from form:", payload);
 
-            saveButton.disabled = true;
-            saveButton.innerHTML = `
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                Saving...
-            `;
+    //         saveButton.disabled = true;
+    //         saveButton.innerHTML = `
+    //             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    //             Saving...
+    //         `;
 
-            // --- Now, you can SEND this payload to your backend API ---
-            try {
+    //         // --- Now, you can SEND this payload to your backend API ---
+    //         try {
             
-                const response = await window.loomeApi.runApiRequest(22, payload);
+    //             const response = await window.loomeApi.runApiRequest(22, payload);
             
-                showToast('Data Source created successfully!');
+    //             showToast('Data Source created successfully!');
 
-            } catch (error) {
-                console.error("API call failed:", error);
-                showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-            } finally {
-                // --- UX IMPROVEMENT: Always reset the button state ---
-                // This runs whether the API call succeeded or failed.
-                saveButton.disabled = false;
-                saveButton.innerHTML = 'Save';
+    //         } catch (error) {
+    //             console.error("API call failed:", error);
+    //             showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+    //         } finally {
+    //             // --- UX IMPROVEMENT: Always reset the button state ---
+    //             // This runs whether the API call succeeded or failed.
+    //             saveButton.disabled = false;
+    //             saveButton.innerHTML = 'Save';
 
-                const closeButton = document.querySelector('#addDatasourceModal [data-bs-dismiss="modal"]');
-                // Programmatically click the button.
-                closeButton.click();
-            }
-        };
+                          
+    //         }
+    //     };
 
-        // --- 6. Add the event listener ---
-        // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
-        saveButton.addEventListener('click', handleSaveClick);
+    //     // --- 6. Add the event listener ---
+    //     // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
+    //     saveButton.addEventListener('click', handleSaveClick);
 
-    } else {
-        console.error("Could not find the modal or the save button to attach the event listener.");
-    }
+    // } else {
+    //     console.error("Could not find the modal or the save button to attach the event listener.");
+    // }
+    
+    // Wait for the HTML document to be fully loaded and parsed
+    document.addEventListener('DOMContentLoaded', () => {
+        // All of your original code goes inside here
+        const saveButton = document.getElementById('modal-save-add-datasrc-button');
+        const modalElement = document.getElementById('addDataSourceModal'); // Make sure your modal has this ID
+    
+        if (saveButton && modalElement) {
+            // This 'if' block will now execute successfully
+            console.log("Successfully found modal and save button. Attaching listener.");
+    
+            const modalInstance = new bootstrap.Modal(modalElement);
+    
+            const handleSaveClick = async () => {
+                const form = document.getElementById('addDataSourceForm');
+    
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return;
+                }
+    
+                const payload = getDataSourceFormData(form);
+                saveButton.disabled = true;
+                saveButton.innerHTML = `
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Saving...
+                `;
+    
+                try {
+                    const response = await window.loomeApi.runApiRequest(22, payload);
+                    showToast('Data Source created successfully!');
+                    modalInstance.hide(); // Close the modal on success
+                    form.reset();
+                    form.classList.remove('was-validated');
+                } catch (error) {
+                    console.error("API call failed:", error);
+                    showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = 'Save';
+                }
+            };
+    
+            saveButton.addEventListener('click', handleSaveClick);
+        } else {
+            // This will help you debug if one of the elements is still not found
+            console.error("Could not find the modal or the save button. Check IDs.");
+            console.log("saveButton:", saveButton); // Will print the element or null
+            console.log("modalElement:", modalElement); // Will print the element or null
+        }
+    });
 }
 
 /**
@@ -380,19 +430,6 @@ async function fetchApiData(apiId, params = {}, context = 'data') {
     }
 }
 
-/**
- * Fetches all field values for a specific data source.
- * @param {number} dataSourceID - The ID of the data source.
- * @returns {Promise<Array|null>} A promise resolving to an array of field values, or null on failure.
- */
-// async function getDataSourceFieldValueByDataSourceID(dataSourceID) {
-//     const DATASOURCEFIELDVALUE_API_ID = 18;
-//     const params = { "dataSourceID": dataSourceID };
-//     const context = `field values for data source ${dataSourceID}`;
-    
-//     // Call the generic helper
-//     return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
-// }
 
 
 /**
@@ -406,13 +443,17 @@ async function getAllFields(fieldID) {
     // Call the generic helper
     return fetchApiData(DATASOURCEFIELDVALUE_API_ID, {});
 }
+
 /**
- * Renders pagination controls.
- * (This function NO LONGER adds event listeners).
- */
+* Renders a compact and functional set of pagination controls.
+* Includes First, Previous, Next, Last buttons and a page input field.
+*/
 function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     const container = document.getElementById(containerId);
-    if (!container) return;
+    if (!container) {
+        console.error(`Pagination container with ID "${containerId}" not found.`);
+        return;
+    }
 
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     container.innerHTML = ''; // Clear old controls
@@ -421,37 +462,60 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
         return; // No need for pagination.
     }
 
-    // --- Previous Button ---
-    const prevDisabled = currentPage === 1;
+    // --- Determine button states ---
+    const isFirstPage = currentPage === 1;
+    const isLastPage = currentPage === totalPages;
+    const commonButtonClasses = "px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100";
+    const disabledClasses = "opacity-50 cursor-not-allowed";
+
+    // --- Build the HTML string ---
     let paginationHTML = `
-        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
-            Previous
-        </button>
-    `;
-
-    // --- Page Number Buttons ---
-    paginationHTML += '<div class="flex items-center gap-2">';
-    for (let i = 1; i <= totalPages; i++) {
-        const isActive = i === currentPage;
-        paginationHTML += `
-            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
-                ${i}
+        <div class="flex items-center gap-2">
+            <!-- First Page Button -->
+            <button data-page="1" 
+                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
+                    ${isFirstPage ? 'disabled' : ''}>
+                First
             </button>
-        `;
-    }
-    paginationHTML += '</div>';
+            <!-- Previous Page Button -->
+            <button data-page="${currentPage - 1}" 
+                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
+                    ${isFirstPage ? 'disabled' : ''}>
+                Previous
+            </button>
+        </div>
 
-    // --- Next Button ---
-    const nextDisabled = currentPage === totalPages;
-    paginationHTML += `
-        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
-            Next
-        </button>
+        <!-- Page number input and display -->
+        <div class="flex items-center gap-2 text-sm text-gray-700">
+            <span>Page</span>
+            <input type="number" 
+                   id="page-input" 
+                   class="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                   value="${currentPage}" 
+                   min="1" 
+                   max="${totalPages}" 
+                   aria-label="Current page">
+            <span>of ${totalPages}</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Next Page Button -->
+            <button data-page="${currentPage + 1}" 
+                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}" 
+                    ${isLastPage ? 'disabled' : ''}>
+                Next
+            </button>
+            <!-- Last Page Button -->
+            <button data-page="${totalPages}" 
+                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}" 
+                    ${isLastPage ? 'disabled' : ''}>
+                Last
+            </button>
+        </div>
     `;
 
     container.innerHTML = paginationHTML;
 }
-
 /**
  * Fetches data from the API for a specific page and search term, then updates the UI.
  * This is the central function for all data updates.
@@ -481,6 +545,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
         currentPage = parsedResponse.CurrentPage;
         rowsPerPage = parsedResponse.PageSize;
+        totalPages = Math.ceil(totalItems / rowsPerPage);
         
         // --- 3. Filter using searchTerm ---
         const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
@@ -931,25 +996,52 @@ async function renderPlatformAdminDataSourcePage() {
         
 
     // --- 2. Set up Event Listeners ---
+    const searchInput = document.getElementById('searchRequests');
+    const paginationContainer = document.getElementById('pagination-controls');
+
     // The search input now calls fetchAndRenderPage
     searchInput.addEventListener('input', () => {
-        // When a new search is performed, always go back to page 1
         fetchAndRenderPage(tableConfig, 1, searchInput.value);
     });
 
-    // The pagination container now calls fetchAndRenderPage
-    const paginationContainer = document.getElementById('pagination-controls');
+    // Your existing click listener for pagination buttons
     paginationContainer.addEventListener('click', (event) => {
         const button = event.target.closest('button[data-page]');
-        if (!button || button.disabled) {
-            return;
-        }
+        if (!button || button.disabled) return;
+        
         const newPage = parseInt(button.dataset.page, 10);
-        console.log('newPage')
-        console.log(newPage)
-        // Fetch the new page, preserving the current search term
         fetchAndRenderPage(tableConfig, newPage, searchInput.value);
     });
+
+    // --- ADD THIS NEW LISTENER for the page input box ---
+    paginationContainer.addEventListener('keydown', (event) => {
+        // Only act if the user pressed Enter and the target is our input
+        if (event.key === 'Enter' && event.target.id === 'page-input') {
+            const inputElement = event.target;
+            const newPage = parseInt(inputElement.value, 10);
+
+            // Validate the input
+            if (newPage >= 1 && newPage <= totalPages) {
+                fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+            } else {
+                // If invalid, show a message and reset the input to the current page
+                alert(`Please enter a page number between 1 and ${totalPages}.`);
+                inputElement.value = currentPage; 
+            }
+        }
+    });
+
+    // paginationContainer.addEventListener('click', (event) => {
+    //     const button = event.target.closest('button[data-page]');
+    //     if (!button || button.disabled) {
+    //         return;
+    //     }
+    //     const newPage = parseInt(button.dataset.page, 10);
+    //     console.log('newPage')
+    //     console.log(newPage)
+    //     // Fetch the new page, preserving the current search term
+    //     fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+    // });
 
     const addDataSrcButton = document.querySelector('#addDatasourceBtn');;
     if (addDataSrcButton) {
