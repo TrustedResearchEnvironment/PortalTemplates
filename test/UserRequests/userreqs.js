@@ -1,312 +1,766 @@
+// =================================================================
+//                      STATE & CONFIGURATION
+// =================================================================
+const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 4;
 
-/**
- * Renders a data table with Tailwind CSS styling.
- * This is a refactored version of the original function to match the new design.
- * @param {string} containerId - The ID of the element to render the table into.
- * @param {Array} data - The array of data objects to display.
- * @param {object} config - Configuration object, e.g., { showActions: true }.
- */
-function renderTable(containerId, data, config, selectedStatus) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = ''; // Clear previous content
+// We will store all fetched data here
+let allRequests = []; 
+let currentPage = 1;
+const rowsPerPage = 5; // You can control page size here
+const searchInput = document.getElementById('searchRequests');
 
-    // --- STYLE CHANGE: Main table classes updated to Tailwind ---
-    const table = document.createElement('table');
-    table.className = 'w-full divide-y divide-gray-200';
+// Mapping from Status ID to Status Name
+const statusIdToNameMap = { 1: 'Pending Approval', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
 
-    // --- STYLE CHANGE: Thead class updated ---
-    const thead = document.createElement('thead');
-    thead.className = 'bg-gray-50';
-    const headerRow = document.createElement('tr');
+// Configuration for each status tab
+const configMap = {
+    'Pending Approval': { showActions: true },
+    'Approved': { showActions: true },
+    'Rejected': { showActions: true },
+    'Finalised': { showActions: true },
+};
 
-    // Headers logic remains the same
-    const headers = ['Project', 'Name', 'Data Set', 'Requested On']; //'Status',
-    
-    if (selectedStatus == 'Pending Approval') {
-        headers.push('Approvers');
-    } else if (selectedStatus == 'Approved') {
-        headers.push('Approved by');
-        headers.push('Approved on');
-    } else if (selectedStatus == 'Rejected') {
-        headers.push('Rejected by');
-        headers.push('Rejected on');
-    } else if (selectedStatus == 'Finalised') {
-        headers.push('Approved on');
-        headers.push('Approved by')
-        headers.push('Finalised on');
-    }
-    if (config.showActions) {
-        headers.push('Actions');
-    }
-
-    headers.forEach(headerText => {
-        const th = document.createElement('th');
-        th.scope = 'col';
-        // --- STYLE CHANGE: TH classes updated to Tailwind ---
-        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer';
-
-        const columnKey = headerText.toLowerCase().replace(/ /g, '');
-        th.setAttribute('data-column', columnKey);
-
-        // --- STYLE CHANGE: Added a span for better sort icon styling ---
-        th.innerHTML = `${headerText} <span class="ml-1 text-gray-400"></span>`;
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // --- STYLE CHANGE: Tbody classes updated ---
-    const tbody = document.createElement('tbody');
-    tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        const colSpan = headers.length; // More reliable way to calculate colspan
-        // --- STYLE CHANGE: Added Tailwind classes to the "empty" cell ---
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
-    } else {
-        data.forEach(item => {
-            const row = document.createElement('tr');
-
-            // --- STYLE CHANGE: Map statuses to Tailwind badge classes ---
-            const statusClasses = {
-                'Pending Approval': 'bg-yellow-100 text-yellow-800',
-                'Approved': 'bg-green-100 text-green-800',
-                'Rejected': 'bg-red-100 text-red-800',
-                'Finalised': 'bg-blue-100 text-blue-800'
-            }[item.status] || 'bg-gray-100 text-gray-800';
-            
-            // --- STYLE CHANGE: Base classes for all table cells ---
-            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
-            const actionButtonClasses = 'p-1 text-gray-400 rounded-md hover:bg-gray-100 hover:text-gray-600 focus:outline-none';
-            
-            let statusSpecificCol = ''; // 'let' is preferred over 'var'
-            switch (item.status) {
-                case 'Pending Approval':
-                    statusSpecificCol = `<td class="${tdClasses}">${item.approvers}</td>`;
-                    break;
-                case 'Rejected':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.rejectedBy}</td>
-                        <td class="${tdClasses}">${item.dateRejected}</td>
-                    `;
-                    break;
-                case 'Approved':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                    `;
-                    break;
-                case 'Finalised':
-                    statusSpecificCol = `
-                        <td class="${tdClasses}">${item.currentlyApproved}</td>
-                        <td class="${tdClasses}">${item.dateApproved}</td>
-                        <td class="${tdClasses}">${item.dateFinalised}</td>
-                    `;
-                    break;
-                // Optional: A default case if the status is something unexpected
-                default:
-                    statusSpecificCol = '<td>-</td>'; // Or just leave it empty
-                    break;
-            }
-            
-            
-            // --- STYLE CHANGE: Updated the entire innerHTML template with Tailwind classes ---
-            // <td class="px-6 py-4 whitespace-nowrap">
-            //     <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClasses}">
-            //         ${item.status}
-            //     </span>
-            // </td>
-            const actionButtons = `
-                    <div class="btn-group pull-right">
-                        <button class="btn btn-accent" title="View Request" data-bs-toggle="modal" data-bs-target="#viewRequestModal">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-accent" title="Delete Request" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
-                            <i class="fa fa-thumbs-down" aria-hidden="true"></i>
-                        </button>
-                    </div>
-            `
-            row.innerHTML = `
-                <td class="${tdClasses}">${item.project}</td>
-                <td class="${tdClasses}">${item.name}</td>
-                
-                <td class="${tdClasses}">${item.dataSet}</td>
-                <td class="${tdClasses}">${item.dateRequested}</td>
-                
-                 ${statusSpecificCol}
-                
-                ${config.showActions ? `
-                    <td class="${tdClasses}">
-                        ${actionButtons}
-                    </td>`
-                : ''}
-            `;
-            //"px-6 py-4 whitespace-nowrap text-sm font-medium flex justify-center items-center"
-            tbody.appendChild(row);
-
-            // This event listener logic does not need to change, as it finds elements by class.
-            if (config.showActions) {
-                const viewReqButton = row.querySelector('.fa-eye')?.parentElement;
-                if (viewReqButton) {
-                    viewReqButton.addEventListener('click', () => {
-                        ViewRequest(item);
-                    });
-                }
-                const deleteRequestButton = row.querySelector('.fa-clone')?.parentElement;
-                if (deleteRequestButton) {
-                    deleteRequestButton.addEventListener('click', () => {
-                        DeleteRequest(item);
-                    });
-                }
-            }
-        });
-    }
-
-    table.appendChild(tbody);
-    container.appendChild(table);
-}
-
-
+// =================================================================
+//                      UTILITY & MODAL FUNCTIONS
+// =================================================================
 function ViewRequest(request) {
     // Get the modal's body element
     const modalBody = document.getElementById('viewRequestModalBody');
-
+    console.log("IN VIEW REQ")
     // Populate the modal body with the provided HTML content (your markup)
     modalBody.innerHTML = `
-    <!-- Body Section -->
-  
-        <div class="container-fluid">
-            <form>
-                <!-- Request Name Field -->
-                <div class="form-group">
-                    <label for="Name" class="control-label">Request Name</label>
-                    <input id="Name" class="form-control" placeholder=${request.name} disabled>
-                </div>
-
-                <!-- Project Field -->
-                <div class="form-group">
-                    <label for="ProjectID" class="control-label">Assist Project</label>
-                    <select id="ProjectID" class="form-select" disabled>
-                        <option value="-1">${request.project}</option>
-                        <option value="82">Project 1 Placeholder</option>
-                        <option value="84">Project 2 Placeholder</option>
-                        <option value="85">Project 3 Placeholder</option>
-                        <option value="86">Project 4 Placeholder</option>
-                    </select>
-                    <div class="validation-message"></div>
-                </div>
-
-                <!-- Scheduled Refresh Field -->
-                <div class="form-group">
-                    <label for="ScheduleRefresh" class="control-label">Scheduled Refresh</label>
-                    <select id="ScheduleRefresh" class="form-select" disabled>
-                        <option value="No Refresh">No Refresh</option>
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                    </select>
-                </div>
-
-                <!-- Filters Table Section -->
-                <div class="row">
-                    <label for="Filters" class="control-label">Filters for this Data Set</label>
-                    <div class="table-responsive">
-                        <table class="table table-condensed table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Column</th>
-                                    <th>Filter Type</th>
-                                    <th>Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Example Row Template -->
-                                <tr>
-                                    <td>[Column Name Placeholder]</td>
-                                    <td>
-                                        <select id="FilterType" class="form-control selectpicker disabled">
-                                            <option value="None">[None]</option>
-                                            <option value="=">[Equal To]</option>
-                                            <option value="&lt;&gt;">[Not Equal To]</option>
-                                            <option value="Between">[Between]</option>
-                                            <option value="&lt;">[Less Than]</option>
-                                            <option value="&lt;=">[Less Than or Equal]</option>
-                                            <option value="&gt;">[Greater Than]</option>
-                                            <option value="&gt;=">[Greater Than or Equal]</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <div class="row">
-                                            <input disabled id="Value1" class="form-control" placeholder="[Value Placeholder]">
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Add Additional Rows Dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">Save</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
+        <form>
+            <div class="form-group">
+            <label for="Name" class="control-label">Request Name</label>
+            <input id="Name" class="form-control" disabled="true" value="${request.name}">
         </div>
-    `;
-
-}
-
-function DeleteRequest(request) {
-    // Get the modal's body element
-    const modalBody = document.getElementById('deleteRequestModalBody');
-    // Assuming request.CreateDate is a valid date string like "2025-09-04 01:54:39.140"
-    const createdDate = new Date(request.CreateDate);
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = !isNaN(createdDate.getTime()) 
-        ? createdDate.toLocaleDateString('en-US', options) 
-        : 'N/A'; // Handle invalid dates gracefully
-
-    // Populate the modal body with the provided HTML content (your markup)
-    modalBody.innerHTML = `
-       <!-- 2. Modal Body -->
-                <!-- Warning Message -->
-                <div class="alert alert-danger" role="alert">
-                    <strong>Warning:</strong> Are you sure you want to delete this request? This action cannot be undone.
-                </div>
-
-                <p>You are about to permanently delete the following item:</p>
-
-                <!-- Details of the item to be deleted -->
+            <div class="form-group">
+                <label for="ProjectID" class="control-label">Assist Project</label>
+                <select id="ProjectID" disabled="true" class="form-control selectpicker valid">
+                    <option value="-1">Assist Project 1</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ScheduleRefresh" class="control-label">Scheduled Refresh</label>
+                <select id="ScheduleRefresh" disabled="true" class="form-control selectpicker valid">
+                    <option value="No Refresh">No Refresh</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="row">
+                <label for="ScheduleRefresh" class="control-label">Filter's for this Data Set</label>
                 <div class="table-responsive">
-                    <table class="table table-bordered table-sm">
+                    <table class="table table-condensed table-striped">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Data Set</th>
-                                <th>Created</th>
+                                <th>Column</th>
+                                <th>Filter Type</th>
+                                <th>Value</th>
                             </tr>
                         </thead>
-                        <tbody id="deleteRequestDetailsBody">
-                            <!-- Dynamic content will be injected here. Example row below. -->
+                        <tbody>
+                            <!-- Example of empty table body; data can be populated later -->
                             <tr>
-                                <td>${request.name}</td>
-                                <td>${request.status}</td>
-                                <td>${request.dataSet}</td>
-                                <td>${formattedDate}</td>
+                                <td colspan="3">No filters available.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-
-            <!-- 3. Modal Footer -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger">Confirm Delete</button>
             </div>
+        </form>
     `;
+
+}
+
+async function ViewDataSet(request) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // You can still update the modal if needed
+            const modalBody = document.getElementById('viewDatasetModalBody');
+            
+            // Fetch dataset details - replace this with your actual data fetching logic
+            // This could be an API call, database query, etc.
+            const datasetDetails = await fetchDatasetDetails(request.DataSetID);
+            
+            // If you still want to update the modal
+            if (modalBody) {
+                // Format the dataset details for the modal
+                let modalContent = `
+                    <div class="form-group">
+                        <label for="DataSetType" class="form-check-label">Data Source</label>
+                        <select disabled="true" class="form-control selectpicker valid">
+                            <option value="1" ${datasetDetails.DataSourceID === 1 ? 'selected' : ''}>BIS Data (pilot test)</option>
+                            <option value="4" ${datasetDetails.DataSourceID === 4 ? 'selected' : ''}>Barwon Health DB Source View 1</option>
+                            <option value="25" ${datasetDetails.DataSourceID === 25 ? 'selected' : ''}>Source Mock SQL Data for Testing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input id="Active" disabled="true" type="checkbox" class="form-check-input valid" ${datasetDetails.Active ? 'checked' : ''}>
+                            <label for="Active" class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    <br>
+                    <h6>Data Set Fields</h6>
+                    <div class="table-responsive">
+                        <table class="table table-condensed table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Field Name</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                // Add dataset fields to the modal
+                if (datasetDetails.Fields && datasetDetails.Fields.length > 0) {
+                    datasetDetails.Fields.forEach(field => {
+                        modalContent += `
+                            <tr>
+                                <td>${field.Name}</td>
+                                <td>${field.Type}</td>
+                                <td>${field.Description || ''}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    modalContent += `<tr><td colspan="3" class="text-center">No fields available</td></tr>`;
+                }
+                
+                modalContent += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                modalBody.innerHTML = modalContent;
+            }
+            
+            // Format the dataset details for the accordion
+            const formattedDetails = {
+                DataSetID: datasetDetails.DataSetID,
+                Name: datasetDetails.Name,
+                Description: datasetDetails.Description || 'No description available',
+                DataSource: getDataSourceName(datasetDetails.DataSourceID),
+                Active: datasetDetails.Active ? 'Yes' : 'No',
+                CreatedDate: formatDate(datasetDetails.CreatedDate),
+                LastModified: formatDate(datasetDetails.LastModified),
+                FieldCount: datasetDetails.Fields ? datasetDetails.Fields.length : 0,
+                Fields: formatFieldsForAccordion(datasetDetails.Fields)
+            };
+            
+            // Resolve the promise with the formatted details
+            resolve(formattedDetails);
+            
+        } catch (error) {
+            console.error('Error fetching dataset details:', error);
+            reject(error);
+        }
+    });
+}
+
+// Helper function to get data source name from ID
+function getDataSourceName(dataSourceID) {
+    const dataSources = {
+        1: 'BIS Data (pilot test)',
+        4: 'Barwon Health DB Source View 1',
+        25: 'Source Mock SQL Data for Testing'
+    };
+    return dataSources[dataSourceID] || `Unknown Source (${dataSourceID})`;
+}
+
+// Helper function to format fields for the accordion
+function formatFieldsForAccordion(fields) {
+    if (!fields || fields.length === 0) {
+        return 'No fields available';
+    }
+    
+    let fieldsHtml = '<div class="mt-2"><table class="w-full text-sm"><thead><tr><th class="text-left">Field</th><th class="text-left">Type</th></tr></thead><tbody>';
+    
+    fields.forEach(field => {
+        fieldsHtml += `<tr><td>${field.Name}</td><td>${field.Type}</td></tr>`;
+    });
+    
+    fieldsHtml += '</tbody></table></div>';
+    return fieldsHtml;
+}
+
+
+// =================================================================
+// Miguel
+function DeleteRequest(request) {
+    // Get the modal elements
+    const modalBody = document.getElementById('deleteRequestModalBody');
+    const modalTitle = document.getElementById('deleteRequestModalLabel');
+    
+    // Update the modal title
+    modalTitle.textContent = `Delete Request`;
+    
+    // Populate the modal body with the confirmation message
+    modalBody.innerHTML = `
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> 
+                You are about to delete the request:<br>
+                <strong>${request.Name}</strong>
+            </div>
+            <div class="form-group mt-3 d-flex justify-content-center">
+                <button id="confirmDeleteBtn" class="btn btn-danger px-3 py-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add event listener for the confirm delete button
+    setTimeout(() => {
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        if (confirmBtn) {
+            console.log('Adding click listener to confirm delete button');
+            confirmBtn.addEventListener('click', () => {
+                console.log('Delete button clicked for request:', request.RequestID);
+                // Call the API to delete the request
+                deleteRequestFromAPI(request.RequestID);
+            });
+        } else {
+            console.error('Confirm delete button not found');
+        }
+    }, 100);
+}
+
+async function deleteRequestFromAPI(requestId) {
+    let loadingToast = null;
+    
+    try {
+        console.log('Starting delete request process for ID:', requestId);
+        
+        // Show loading state
+        loadingToast = showToast('Deleting request...', 'info');
+        console.log('Loading toast shown:', loadingToast);
+        
+        const response = await window.loomeApi.runApiRequest(20, {
+            "id": requestId,
+            "upn": getCurrentUserUpn()
+        });
+        
+        // Log the response to console
+        console.log('Delete request API response:', response);
+        
+        // Hide the modal
+        try {
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteRequestModal'));
+            if (deleteModal) {
+                deleteModal.hide();
+                console.log('Delete modal hidden');
+            } else {
+                console.log('Delete modal not found or already hidden');
+            }
+        } catch (modalError) {
+            console.error('Error hiding modal:', modalError);
+        }
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden');
+        }
+        
+        // Show success message
+        const successToast = showToast('Request deleted successfully', 'success');
+        console.log('Success toast shown:', successToast);
+        
+        // Update all chip counts after deletion
+        console.log('Refreshing chip counts');
+        await refreshAllChipCounts();
+
+        // Refresh the UI
+        console.log('Refreshing UI');
+        setTimeout(() => {
+            renderUI();
+        }, 100);
+        
+    } catch (error) {
+        console.error("Error deleting request:", error);
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+            console.log('Loading toast hidden after error');
+        }
+        
+        // Show error message
+        const errorToast = showToast('Failed to delete request. Please try again.', 'error');
+        console.log('Error toast shown:', errorToast);
+    }
+}
+
+// Toast notification functions
+function showToast(message, type = 'info') {
+    console.log(`Showing toast: ${message} (${type})`);
+    
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    
+    // Add styling based on type
+    let backgroundColor, textColor;
+    switch(type) {
+        case 'success':
+            backgroundColor = '#4caf50';
+            textColor = 'white';
+            break;
+        case 'error':
+            backgroundColor = '#f44336';
+            textColor = 'white';
+            break;
+        case 'info':
+        default:
+            backgroundColor = '#2196F3';
+            textColor = 'white';
+    }
+    
+    // Apply styles directly
+    toast.style.cssText = `
+        margin-bottom: 10px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        color: ${textColor};
+        background-color: ${backgroundColor};
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        min-width: 250px;
+        max-width: 350px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    `;
+    
+    toast.innerHTML = `
+        <div style="flex-grow: 1;">${message}</div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Trigger reflow to ensure transition works
+    void toast.offsetWidth;
+    
+    // Make visible
+    toast.style.opacity = '1';
+    
+    // Auto-hide after 3 seconds for success messages
+    if (type === 'success') {
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 500); //Fade out transition for 500 milliseconds
+        }, 5000); // Display duration of 5 seconds
+    }
+    
+    console.log('Toast created and appended to container');
+    return toast;
+}
+
+function hideToast(toast) {
+    if (toast && toast.parentNode) {
+        console.log('Hiding toast');
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.remove();
+                console.log('Toast removed');
+            }
+        }, 300); // Wait for fade out
+    } else {
+        console.log('Toast not found or already removed');
+    }
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-top-right';
+    container.style.cssText = 'position: fixed; top: 12px; right: 12px; z-index: 9999;';
+    document.body.appendChild(container);
+    return container;
+}
+
+
+/**
+ * Fetches request details from the API
+ * @param {string|number} requestID - The ID of the request
+ * @returns {Promise<object>} - The request details
+ */
+async function fetchRequestDetails(requestID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(8, {
+            "RequestID": requestID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching request details for ID ${requestID}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Fetches dataset details from the API
+ * @param {string|number} datasetID - The ID of the dataset
+ * @returns {Promise<object>} - The dataset details
+ */
+async function fetchDatasetDetails(datasetID) {
+    try {
+        // Get current user's UPN
+        const upn = getCurrentUserUpn(); // You'll need to implement this function
+        
+        // Call the API
+        const response = await window.loomeApi.runApiRequest(6, {
+            "DataSetID": datasetID,
+            "upn": upn
+        });
+        
+        // Parse the response
+        return safeParseJson(response);
+    } catch (error) {
+        console.error(`Error fetching dataset details for ID ${datasetID}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Gets the current user's UPN
+ * @returns {string} - The user's UPN
+ */
+function getCurrentUserUpn() {
+    return "hardcoded miguel as approver";
+}
+
+
+// Global variable to store project data
+let projectsCache = null;
+
+/**
+ * Fetches all projects and caches them
+ * @returns {Promise<Object>} A mapping from project ID to project name
+ */
+async function getProjectsMapping() {
+    // Return cache if already loaded
+    if (projectsCache) {
+        return projectsCache;
+    }
+    
+    try {
+        // Get current user's UPN or use the hardcoded one
+        const upn = getCurrentUserUpn() || 'migueltestupn';
+        
+        // Fetch projects data
+        const response = await window.loomeApi.runApiRequest(9, { upn });
+        const data = safeParseJson(response);
+        
+        // Create a mapping from project ID to project name
+        const mapping = {};
+        if (data && data.Results && Array.isArray(data.Results)) {
+            data.Results.forEach(project => {
+                mapping[project.AssistProjectID] = {
+                    name: project.Name,
+                    description: project.Description
+                };
+            });
+        }
+        
+        // Cache the mapping
+        projectsCache = mapping;
+        return mapping;
+        
+    } catch (error) {
+        console.error("Error fetching projects:", error);
+        return {}; // Return empty object in case of error
+    }
+}
+
+
+/**
+ * Displays request details in the container
+ * @param {HTMLElement} container - The container element
+ * @param {object} details - The request details
+ */
+async function displayRequestDetails(container, details) {
+    // Check if we have valid details
+    if (!details || Object.keys(details).length === 0) {
+        container.innerHTML = '<p class="text-center text-red-500">No request details available</p>';
+        return;
+    }
+    
+    // Show loading state
+    container.innerHTML = '<p class="text-center">Loading project details...</p>';
+    
+    try {
+        // Get project mapping
+        const projectsMapping = await getProjectsMapping();
+        const projectInfo = projectsMapping[details.ProjectID] || { name: 'Unknown Project', description: '' };
+        
+        // Format the details for display
+        let html = '';
+        
+        // Add basic request information
+        html += `
+            <p><strong>Target Project Name:</strong> ${projectInfo.name}</p>
+        `;
+        
+        // Add project description if available
+        if (projectInfo.description) {
+            html += `<p><strong>Project Description:</strong> ${projectInfo.description}</p>`;
+        }
+        
+        // // Add status-specific fields
+        // if (details.Approvers) html += `<p><strong>Approvers:</strong> ${details.Approvers}</p>`;
+        // if (details.ApprovedBy) html += `<p><strong>Approved By:</strong> ${details.ApprovedBy}</p>`;
+        // if (details.ApprovedDate) html += `<p><strong>Approved Date:</strong> ${formatDate(details.ApprovedDate)}</p>`;
+        // if (details.RejectedBy) html += `<p><strong>Rejected By:</strong> ${details.RejectedBy}</p>`;
+        // if (details.RejectedDate) html += `<p><strong>Rejected Date:</strong> ${formatDate(details.RejectedDate)}</p>`;
+        // if (details.FinalisedDate) html += `<p><strong>Finalised Date:</strong> ${formatDate(details.FinalisedDate)}</p>`;
+        
+        // // Add any additional fields from the API response
+        // const standardFields = ['RequestID', 'ProjectID', 'Name', 'Description', 'CreateDate', 'Status', 
+        //                       'Approvers', 'ApprovedBy', 'ApprovedDate', 'RejectedBy', 
+        //                       'RejectedDate', 'FinalisedDate'];
+        
+        // for (const [key, value] of Object.entries(details)) {
+        //     if (!standardFields.includes(key) && value !== null && value !== undefined) {
+        //         html += `<p><strong>${key}:</strong> ${value}</p>`;
+        //     }
+        // }
+        
+        // Update the container
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error displaying request details:", error);
+        container.innerHTML = `
+            <p class="text-center text-red-500">Error loading project details</p>
+            <div class="mt-3">
+                <p><strong>Request ID:</strong> ${details.RequestID || 'N/A'}</p>
+                <p><strong>Name:</strong> ${details.Name || 'N/A'}</p>
+                <p><strong>Project ID:</strong> ${details.ProjectID || 'N/A'}</p>
+                <p><strong>Status:</strong> ${details.Status || 'Unknown'}</p>
+                <!-- Add other critical fields here -->
+            </div>
+        `;
+    }
+}
+
+/**
+ * Displays dataset details in the container
+ * @param {HTMLElement} container - The container element
+ * @param {object} details - The dataset details
+ */
+function displayDatasetDetails(container, details) {
+    // Check if we have valid details
+    if (!details || Object.keys(details).length === 0) {
+        container.innerHTML = '<p class="text-center text-red-500">No dataset details available</p>';
+        return;
+    }
+    
+    // Format the details for display
+    let html = '';
+    
+    // Add basic dataset information
+    html += `
+        <p><strong>Requested Dataset:</strong> ${details.Name || 'N/A'}</p>
+        <p><strong>Description:</strong> ${details.Description || 'N/A'}</p>
+        <p><strong>Data Source ID:</strong> ${details.DataSourceID || 'N/A'}</p>
+    `;
+    
+    // Add fields table if available
+    if (details.Fields && details.Fields.length > 0) {
+        html += `
+            <div class="mt-3">
+                <strong>Fields:</strong>
+                <div class="mt-2">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th class="text-left">Field</th>
+                                <th class="text-left">Type</th>
+                                <th class="text-left">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        details.Fields.forEach(field => {
+            html += `
+                <tr>
+                    <td>${field.Name || 'N/A'}</td>
+                    <td>${field.Type || 'N/A'}</td>
+                    <td>${field.Description || ''}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Update the container
+    container.innerHTML = html;
+}
+// =================================================================
+
+
+/**
+ * Displays combined request and dataset details in a single container
+ * @param {HTMLElement} container - The container element
+ * @param {object} requestDetails - The request details
+ * @param {object} datasetDetails - The dataset details
+ */
+async function displayCombinedDetails(container, requestDetails, datasetDetails) {
+    // Check if we have valid details
+    if ((!requestDetails || Object.keys(requestDetails).length === 0) && 
+        (!datasetDetails || Object.keys(datasetDetails).length === 0)) {
+        container.innerHTML = '<p class="text-center text-red-500">No details available</p>';
+        return;
+    }
+    
+    // Show loading state
+    container.innerHTML = '<p class="text-center">Loading details...</p>';
+    
+    try {
+        // Get project mapping for request details
+        const projectsMapping = await getProjectsMapping();
+        const projectInfo = requestDetails && requestDetails.ProjectID ? 
+            (projectsMapping[requestDetails.ProjectID] || { name: 'Unknown Project', description: '' }) : 
+            { name: 'Unknown Project', description: '' };
+        
+        // Start building HTML
+        let html = `
+            <div class="grid grid-cols-1 gap-5">
+                <!-- Request Information -->
+                <div>
+                    <div class="space-y-3">
+                       
+                        <!-- Dataset Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Requested Dataset</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Name || 'N/A'}</span>
+                        </div>
+
+                        ${datasetDetails.Description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Dataset Description</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.Description}</span>
+                        </div>` : ''}
+                        
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Data Source ID</span>
+                            <span class="text-sm text-gray-500">${datasetDetails.DataSource || datasetDetails.DataSourceID || 'N/A'}</span>
+                        </div>
+
+                        <!-- Project Information -->
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Target Project Name</span>
+                            <span class="text-sm text-gray-500">${projectInfo.name}</span>
+                        </div>
+                        
+                        ${projectInfo.description ? `
+                        <div class="grid grid-cols-1 gap-1">
+                            <span class="font-medium">Project Description</span>
+                            <span class="text-sm text-gray-500">${projectInfo.description}</span>
+                        </div>` : ''}
+
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Update the container
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error("Error displaying combined details:", error);
+        container.innerHTML = `
+            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                <p class="text-sm">${error.message || 'Unknown error'}</p>
+            </div>
+        `;
+    }
+}
+
+
+/**
+ * Safely parses a response that might be a JSON string or an object.
+ * @param {string | object} response The API response.
+ * @returns {object}
+ */
+function safeParseJson(response) {
+    return typeof response === 'string' ? JSON.parse(response) : response;
+}
+
+/**
+ * Renders pagination controls.
+ * (This function NO LONGER adds event listeners).
+ */
+function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    container.innerHTML = ''; // Clear old controls
+
+    if (totalPages <= 1) {
+        return; // No need for pagination.
+    }
+
+    // --- Previous Button ---
+    const prevDisabled = currentPage === 1;
+    let paginationHTML = `
+        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
+            Previous
+        </button>
+    `;
+
+    // --- Page Number Buttons ---
+    paginationHTML += '<div class="flex items-center gap-2">';
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = i === currentPage;
+        paginationHTML += `
+            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
+                ${i}
+            </button>
+        `;
+    }
+    paginationHTML += '</div>';
+
+    // --- Next Button ---
+    const nextDisabled = currentPage === totalPages;
+    paginationHTML += `
+        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
+            Next
+        </button>
+    `;
+
+    container.innerHTML = paginationHTML;
 }
 
 function formatDate(inputDate) {
@@ -337,158 +791,371 @@ function formatDate(inputDate) {
 }
 
 
-async function renderRequestsPage() {
-    // Define the single container ID for the table
-        const TABLE_CONTAINER_ID = 'requests-table-area';
-        
-    try {
-        // --- 1. Fetch and prepare ALL data (same as your existing code) ---
-        // const rawRequestData = [
-        //     {"RequestID":435,"ProjectID":82,"Name":"TestNEWDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 02:01:54.667","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 02:02:04.710","ApprovedDate":"2025-08-28 02:02:04.710","FinalisedDate":"2025-08-28 02:05:03.973","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 02:01:54.667"},
-        //     {"RequestID":436,"ProjectID":82,"Name":"REDCAP_TestOriginalDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 08:47:41.390","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 08:55:25.357","ApprovedDate":"2025-08-28 08:55:25.357","FinalisedDate":"2025-08-28 09:00:58.180","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 08:47:41.390"},
-        //     {"RequestID":437,"ProjectID":82,"Name":"REDCAP_TestNewDeIdentification","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 09:24:18.977","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 09:24:32.453","ApprovedDate":"2025-08-28 09:24:32.453","FinalisedDate":"2025-08-28 09:34:01.340","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 09:24:18.977"},
-        //     {"RequestID":433,"ProjectID":82,"Name":"TestOriginalDeIdentificationAlgo","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-08-28 00:44:10.913","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-08-28 01:02:12.887","ApprovedDate":"2025-08-28 01:02:12.887","FinalisedDate":"2025-08-28 01:15:00.760","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-08-28 00:44:10.913"},
-        //     {"RequestID":444,"ProjectID":86,"Name":"TestNewHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:25:35.957","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:29:56.843","ApprovedDate":"2025-09-01 04:29:56.843","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:25:35.957"},
-        //     {"RequestID":445,"ProjectID":86,"Name":"TestNewHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 04:26:20.337","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 04:30:01.230","ApprovedDate":"2025-09-01 04:30:01.230","FinalisedDate":"2025-09-01 04:42:16.860","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 04:26:20.337"},
-        //     {"RequestID":448,"ProjectID":86,"Name":"TestOLDHashingOnREDCap","StatusID":3,"DataSetID":1,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:04:14.883","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:27.590","ApprovedDate":"2025-09-01 05:04:27.590","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:04:14.883"},
-        //     {"RequestID":454,"ProjectID":86,"Name":"TestOriginalHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:47:59.493","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:48:11.730","ApprovedDate":"2025-09-02 02:48:11.730","FinalisedDate":"2025-09-02 02:50:15.767","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:47:59.493"},
-        //     {"RequestID":447,"ProjectID":86,"Name":"TestOLDHashingOnSQL","StatusID":3,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-01 05:03:52.937","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-01 05:04:31.200","ApprovedDate":"2025-09-01 05:04:31.200","FinalisedDate":"2025-09-01 05:09:19.817","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-01 05:03:52.937"},
-        //     {"RequestID":455,"ProjectID":82,"Name":"TestRiaRequest","StatusID":1,"DataSetID":2,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":null,"CreateDate":"2025-09-04 01:54:39.140","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-04 01:54:39.140","ApprovedDate":"2025-09-04 01:54:39.140","FinalisedDate":"2025-09-04 01:54:39.140","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-04 01:54:39.140"},
-        //     {"RequestID":452,"ProjectID":86,"Name":"TestNEWHashingOnFolder","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:40:42.983","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:42:35.113","ApprovedDate":"2025-09-02 02:42:35.113","FinalisedDate":"2025-09-02 02:44:02.573","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:40:42.983"},
-        //     {"RequestID":450,"ProjectID":82,"Name":"FOLDER_TestOriginalDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:08:04.800","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:08:15.070","ApprovedDate":"2025-09-02 02:08:15.070","FinalisedDate":"2025-09-02 02:13:31.327","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:08:04.800"},
-        //     {"RequestID":451,"ProjectID":82,"Name":"FOLDER_TestNEWDeIdentification","StatusID":3,"DataSetID":36,"Approvers":"ria.yangzon@bizdata.com.au","CurrentlyApproved":"ria.yangzon@bizdata.com.au;","CreateDate":"2025-09-02 02:29:14.497","CreateUser":"ria.yangzon@bizdata.com.au","ModifiedDate":"2025-09-02 02:29:27.717","ApprovedDate":"2025-09-02 02:29:27.717","FinalisedDate":"2025-09-02 02:31:39.597","ScheduledRefresh":"No Refresh","RequestMessage":null,"RejectedBy":null,"RejectedDate":"2025-09-02 02:29:14.497"},
-        //     // ADDED for demonstration to populate all tabs
-        //     {"RequestID":456,"ProjectID":85,"Name":"Marketing Analysis","StatusID":2,"DataSetID":10,"Approvers":"approver@test.com","CurrentlyApproved":"approver@test.com;","CreateDate":"2025-09-05 10:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-05 10:05:00.000","ApprovedDate":"2025-09-05 10:05:00.000","FinalisedDate":null,"ScheduledRefresh":"Weekly","RequestMessage":null,"RejectedBy":null,"RejectedDate":null},
-        //     {"RequestID":457,"ProjectID":85,"Name":"Budget Review","StatusID":4,"DataSetID":11,"Approvers":"approver@test.com","CurrentlyApproved":null,"CreateDate":"2025-09-06 11:00:00.000","CreateUser":"user@test.com","ModifiedDate":"2025-09-06 11:05:00.000","ApprovedDate":null,"FinalisedDate":null,"ScheduledRefresh":"No Refresh","RequestMessage":"Insufficient data","RejectedBy":"admin@test.com","RejectedDate":"2025-09-06 11:05:00.000"}
-        // ];
-        
-        const response = await window.loomeApi.runApiRequest(4);
-        console.log(response)
-        
-        const requestData = typeof response === 'string' ? JSON.parse(response) : response;
-        console.log(requestData)
-        
-        const statusMap = { 1: 'Pending Requests', 2: 'Approved', 3: 'Finalised', 4: 'Rejected' };
-        const allRequests = requestData.map(item => ({
-            ...item,
-            project: item.projectID,
-            name: item.name,
-            status: statusMap[item.statusID] || 'Unknown',
-            dataSet: item.dataSetID,
-            approvers: item.approvers,
-            dateRequested: formatDate(item.createDate),
-            dateApproved: formatDate(item.approvedDate),
-            dateRejected: formatDate(item.rejectedDate),
-            dateFinalised: formatDate(item.finalisedDate),
-            rejectedBy: item.rejectedBy,
-            currentlyApproved: item.currentlyApproved
-        }));
-        console.log(allRequests)
+// =================================================================
+//                      API & RENDERING FUNCTIONS
+// =================================================================
 
-        // --- 2. Centralized Configuration ---
-        // This maps a status to its specific configuration (like showActions).
-        const configMap = {
-            'Pending Approval': { showActions: true },
-            'Approved': { showActions: false },
-            'Rejected': { showActions: false },
-            'Finalised': { showActions: false },
-        };
-        
-        // --- 3. Update Counts and Set Up Listeners ---
-        const chipsContainer = document.getElementById('status-chips-container');
-        const chips = chipsContainer.querySelectorAll('.chip');
 
-        // Calculate and display the count for each status
-        chips.forEach(chip => {
-            const status = chip.dataset.status;
-            const count = allRequests.filter(req => req.status === status).length;
-            chip.querySelector('.chip-count').textContent = count;
-        });
-
-        // Add a click event listener to the container (event delegation)
-        const searchInput = document.getElementById('searchRequests');
-        chipsContainer.addEventListener('click', (event) => {
-            const clickedChip = event.target.closest('.chip');
-            if (!clickedChip) return; // Exit if the click was not on a chip
-
-            // Update the active state UI
-            chips.forEach(chip => chip.classList.remove('active'));
-            clickedChip.classList.add('active');
-
-            // Get the status to filter by from the chip's data attribute
-            const selectedStatus = clickedChip.dataset.status;
+/**
+ * Renders a data table with dynamic headers and actions.
+ */
+function renderTable(containerId, data, config, selectedStatus) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'w-full divide-y divide-gray-200';
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-50';
+    const headerRow = document.createElement('tr');
+    
+    // Add a column for the chevron
+    const chevronTh = document.createElement('th');
+    chevronTh.className = 'w-10 px-6 py-3';
+    chevronTh.innerHTML = ''; // Empty header for chevron column
+    headerRow.appendChild(chevronTh);
+    
+    // Define headers based on the selected status
+    const headers = ['Request ID', 'Request Name', 'Requested On'];
+    if (selectedStatus === 'Pending Approval') headers.push('Approvers');
+    else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
+    else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
+    else if (selectedStatus === 'Finalised') { headers.push('Approved on'); headers.push('Approved by'); headers.push('Finalised on'); }
+    
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
+    
+    if (data.length === 0) {
+        const colSpan = headers.length + 1; // +1 for chevron column
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No requests found.</td></tr>`;
+    } else {
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            row.className = 'cursor-pointer hover:bg-gray-100';
+            const tdClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
             
-            // Set Search Term value
-            const searchTerm = searchInput.value.toLowerCase();
-            console.log(searchTerm)
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
+            let statusSpecificCols = '';
+            switch (item.status) {
+                case 'Pending Approval': statusSpecificCols = `<td class="${tdClasses}">${item.Approvers || 'N/A'}</td>`; break;
+                case 'Rejected': statusSpecificCols = `<td class="${tdClasses}">${item.RejectedBy || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.RejectedDate)}</td>`; break;
+                case 'Approved': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td>`; break;
+                case 'Finalised': statusSpecificCols = `<td class="${tdClasses}">${item.CurrentlyApproved || 'N/A'}</td><td class="${tdClasses}">${formatDate(item.ApprovedDate)}</td><td class="${tdClasses}">${formatDate(item.FinalisedDate)}</td>`; break;
+            }
             
-            const filteredData = searchTerm ? 
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
+            // Add chevron as first column
+            row.innerHTML = `
+                <td class="${tdClasses} text-center">
+                    <svg class="chevron-icon h-5 w-5 text-gray-500 transform transition-transform duration-200 inline-block" 
+                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </td>
+                <td class="${tdClasses}">${item.RequestID}</td>
+                <td class="${tdClasses}">${item.Name}</td>
+                <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
+                ${statusSpecificCols}
+            `;
+            
+            // Add click event to toggle accordion
+            row.addEventListener('click', async () => {
+                // Toggle the accordion visibility
+                accordionRow.classList.toggle('hidden');
+                
+                // Toggle chevron rotation
+                const chevron = row.querySelector('.chevron-icon');
+                chevron.classList.toggle('rotate-180');
+                
+                // Only fetch data if the accordion is becoming visible
+                if (!accordionRow.classList.contains('hidden')) {
+                    const combinedDetailsContainer = accordionRow.querySelector(`#combined-details-${item.RequestID}`);
                     
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) : 
-                dataForTable; // If no search term, just use the status-filtered data
+                    // Show loading indicator
+                    combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
+                    
+                    try {
+                        console.log(`Fetching details for RequestID: ${item.RequestID}, DataSetID: ${item.DataSetID}`);
+                        
+                        // Try fetching request details first
+                        let requestDetails;
+                        try {
+                            console.log('Fetching request details...');
+                            requestDetails = await fetchRequestDetails(item.RequestID);
+                            console.log('Request details received:', requestDetails);
+                        } catch (requestError) {
+                            console.error('Error fetching request details:', requestError);
+                            requestDetails = null;
+                        }
+                        
+                        // Then try fetching dataset details
+                        let datasetDetails;
+                        try {
+                            console.log('Fetching dataset details...');
+                            datasetDetails = await fetchDatasetDetails(item.DataSetID);
+                            console.log('Dataset details received:', datasetDetails);
+                        } catch (datasetError) {
+                            console.error('Error fetching dataset details:', datasetError);
+                            datasetDetails = null;
+                        }
+                        
+                        // Check if we have at least one set of details
+                        if (!requestDetails && !datasetDetails) {
+                            throw new Error('Failed to fetch both request and dataset details');
+                        }
+                        
+                        // Display whatever details we have
+                        console.log('Displaying combined details');
+                        displayCombinedDetails(combinedDetailsContainer, requestDetails, datasetDetails);
+                        
+                    } catch (error) {
+                        console.error("Error loading details:", error);
+                        combinedDetailsContainer.innerHTML = `
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p class="text-center text-red-500 mb-2">Error loading details</p>
+                                <p class="text-sm">${error.message || 'Unknown error'}</p>
+                                <button class="mt-2 px-3 py-1 bg-white border border-gray-300 rounded text-sm retry-btn">
+                                    Retry
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Add retry button functionality
+                        combinedDetailsContainer.querySelector('.retry-btn')?.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            combinedDetailsContainer.innerHTML = '<p class="text-center">Loading details...</p>';
+                            try {
+                                const retryRequestDetails = await fetchRequestDetails(item.RequestID);
+                                const retryDatasetDetails = await fetchDatasetDetails(item.DataSetID);
+                                displayCombinedDetails(combinedDetailsContainer, retryRequestDetails, retryDatasetDetails);
+                            } catch (retryError) {
+                                combinedDetailsContainer.innerHTML = `
+                                    <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                                        <p class="text-red-600">Failed to load details</p>
+                                        <p class="text-sm text-red-500 mt-1">${retryError.message || 'Unknown error'}</p>
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // Create accordion row
+            const accordionRow = document.createElement('tr');
+            accordionRow.classList.add('hidden', 'accordion-row');
+            if (selectedStatus === 'Pending Approval') {
+                accordionRow.innerHTML = `
+                    <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                        <div class="bg-gray-50 p-4 m-2 rounded">
+                            <div class="grid grid-cols-1 gap-4">
+                                <div class="flex justify-end mb-1">
+                                    <button class="btn btn-danger action-delete px-3 py-1" data-bs-toggle="modal" data-bs-target="#deleteRequestModal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </div>
+                                
+                                <!-- Combined Information Card -->
+                                <div class="bg-white p-5 rounded-md shadow-sm">
+                                    <div id="combined-details-${item.RequestID}" class="combined-content">
+                                        <p class="text-center text-gray-500">Loading details...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+            } else {
+                accordionRow.innerHTML = `
+                    <td colspan="${headers.length + 1}" class="p-0"> <!-- +1 for chevron column -->
+                        <div class="bg-gray-50 p-4 m-2 rounded">
+                            <div class="grid grid-cols-1 gap-4">                            
+                                <!-- Combined Information Card -->
+                                <div class="bg-white p-5 rounded-md shadow-sm">
+                                    <div id="combined-details-${item.RequestID}" class="combined-content">
+                                        <p class="text-center text-gray-500">Loading details...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+            }
 
-
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
+            
+            // Add event listeners for the accordion
+            const loadDatasetBtn = accordionRow.querySelector('.load-dataset-details');
+            const deleteBtn = accordionRow.querySelector('.action-delete');
+            loadDatasetBtn?.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                // Your existing code for loading dataset details...
+            });
+            deleteBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                DeleteRequest(item);
+            });
+            tbody.appendChild(row);
+            tbody.appendChild(accordionRow);
         });
-
-        // --- 4. Initial Render ---
-        // Programmatically click the first chip to render the initial view.
-        // This is a clean way to avoid duplicating rendering logic.
-        document.querySelector('.chip[data-status="Pending Approval"]').click();
-        
-        searchInput.addEventListener('input', () => {
-            // Get the currently active chip
-            const activeChip = document.querySelector('.chip.active');
-            if (!activeChip) return; // Safety check
-            
-            // Get the status from the active chip
-            const selectedStatus = activeChip.dataset.status;
-            
-            // Get the search term
-            const searchTerm = searchInput.value.toLowerCase();
-            
-            // Filter the master data array
-            const dataForTable = allRequests.filter(req => req.status === selectedStatus);
-            
-            // Get the correct config for the selected status
-            const configForTable = configMap[selectedStatus];
-            
-            const filteredData = searchTerm ?
-                dataForTable.filter(item => {
-                    // Use String() to safely handle potential null or undefined values
-                    const project = String(item.project || '').toLowerCase();
-                    const name = String(item.name || '').toLowerCase();
-                    const dataset = String(item.dataSet || '').toLowerCase();
-                    return project.includes(searchTerm) ||
-                           name.includes(searchTerm) ||
-                           dataset.includes(searchTerm);
-                }) :
-                dataForTable; // If no search term, just use the status-filtered data
-            
-            // Re-render the single table with the filtered data
-            renderTable(TABLE_CONTAINER_ID, filteredData, configForTable);
-        });
-        
+    }
+    
+    table.appendChild(tbody);
+    container.appendChild(table);
+    
+    // Add this style to your CSS or inline here
+    const style = document.createElement('style');
+    style.textContent = `
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+        .transition-transform {
+            transition: transform 0.2s;
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 
-    } catch (error) {
-        console.error("Error setting up the page:", error);
-        document.getElementById(TABLE_CONTAINER_ID).innerHTML = `<p class="text-danger">An error occurred.</p>`;
+// =================================================================
+//                     PRIMARY RENDER FUNCTION
+// =================================================================
+
+
+async function getCounts(status) {
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": '',
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === status))
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response);
+
+    return parsedResponse.RowCount;
+}
+
+// Add this function to refresh all chip counts
+async function refreshAllChipCounts() {
+    const chipsContainer = document.getElementById('status-chips-container');
+    for (const chip of chipsContainer.querySelectorAll('.chip')) {
+        const status = chip.dataset.status;
+        const count = await getCounts(status);
+        chip.querySelector('.chip-count').textContent = count;
     }
 }
 
-renderRequestsPage()
+/**
+ * Main function to orchestrate all rendering based on the current state.
+ * It filters, paginates, and renders the table and controls.
+ */
+async function renderUI() {
+    const activeChip = document.querySelector('.chip.active');
+    if (!activeChip) return; // Don't render if no chip is active
+    
+    const selectedStatus = activeChip.dataset.status;
+    const searchTerm = searchInput.value.toLowerCase();
+
+    // --- 1. FETCH ALL DATA ONCE ---
+    // We call the API without pagination params, assuming it returns all records.
+    // If your API requires pagination, you'd need to fetch all pages in a loop here.
+    const apiParams = {
+        "page": currentPage,
+        "pageSize": rowsPerPage,
+        "search": searchTerm,
+        "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === selectedStatus))
+    }
+    
+    console.log(apiParams)
+    const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
+    const parsedResponse = safeParseJson(response)
+    const rawData = parsedResponse.Results;
+    const totalItems = parsedResponse.RowCount;
+    console.log(rawData)
+
+    // --- 2. PREPARE THE MASTER DATA ARRAY ---
+    // Transform the raw data just once into the format our UI needs.
+    allRequests = rawData.map(item => ({
+        ...item,
+        status: statusIdToNameMap[item.StatusID] || 'Unknown'
+    }));
+    console.log(allRequests)
+
+    // --- Render the components ---
+    const configForTable = configMap[selectedStatus];
+    renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
+    renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
+}
+
+// =================================================================
+//                      INITIALIZATION
+// =================================================================
+
+/**
+ * Main function to initialize the page, fetch all data, and set up listeners.
+ */
+async function renderMyRequestsPage() {
+    try {
+
+        // --- 3. UPDATE ALL CHIP COUNTS ONCE ---
+        // This is the logic you wanted. It calculates counts from the unfiltered master array.
+        const chipsContainer = document.getElementById('status-chips-container');
+        for (const chip of chipsContainer.querySelectorAll('.chip')) {
+            const status = chip.dataset.status;
+            console.log(status)
+            // Await the asynchronous getCounts function for each chip
+            const count = await getCounts(status);
+            chip.querySelector('.chip-count').textContent = count;
+        }
+
+        // --- 4. SETUP EVENT LISTENERS ---
+        
+        // Listener for status chip clicks
+        chipsContainer.addEventListener('click', (event) => {
+            const clickedChip = event.target.closest('.chip');
+            if (!clickedChip) return;
+
+            chipsContainer.querySelectorAll('.chip').forEach(chip => chip.classList.remove('active'));
+            clickedChip.classList.add('active');
+            
+            currentPage = 1; // Reset to page 1 when changing tabs
+            renderUI(); // Re-render everything
+        });
+
+        // Listener for the search input
+        searchInput.addEventListener('input', () => {
+            currentPage = 1; // Reset to page 1 when searching
+            renderUI(); // Re-render everything
+        });
+
+        // Listener for pagination buttons
+        document.getElementById('pagination-controls').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-page]');
+            if (!button || button.disabled) return;
+            
+            currentPage = parseInt(button.dataset.page, 10);
+            renderUI(); // Re-render everything
+        });
+
+        // --- 5. INITIAL PAGE RENDER ---
+        // Programmatically click the first chip to trigger the initial render.
+        document.querySelector('.chip[data-status="Pending Approval"]').click();
+
+    } catch (error) {
+        console.error("Error setting up the page:", error);
+        // ... your error handling ...
+    }
+}
+
+// Start the application
+renderMyRequestsPage();
