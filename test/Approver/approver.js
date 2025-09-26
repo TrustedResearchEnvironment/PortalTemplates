@@ -352,7 +352,7 @@ async function rejectRequestFromAPI(requestId) {
         // Show loading state
         loadingToast = showToast('Rejecting request...', 'info');
         
-        const response = await window.loomeApi.runApiRequest(24, {  // Assuming API 24 is for rejection
+        const response = await window.loomeApi.runApiRequest(24, {
             "id": requestId,
             "upn": getCurrentUserUpn(),
         });
@@ -360,6 +360,19 @@ async function rejectRequestFromAPI(requestId) {
         // Hide loading toast
         if (loadingToast) {
             hideToast(loadingToast);
+        }
+        
+        // Hide the modal
+        try {
+            const rejectModal = bootstrap.Modal.getInstance(document.getElementById('rejectRequestModal'));
+            if (rejectModal) {
+                rejectModal.hide();
+                console.log('Reject modal hidden');
+            } else {
+                console.log('Reject modal not found or already hidden');
+            }
+        } catch (modalError) {
+            console.error('Error hiding modal:', modalError);
         }
         
         // Show success message
