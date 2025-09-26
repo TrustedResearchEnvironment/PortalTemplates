@@ -2,7 +2,7 @@
 //                      STATE & CONFIGURATION
 // =================================================================
 const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_REQUEST_ID = 16;
+const API_REQUEST_ID = 15;
 
 // We will store all fetched data here
 let allRequests = []; 
@@ -928,11 +928,7 @@ async function getCounts(status) {
     const parsedResponse = safeParseJson(response);
     const rawData = parsedResponse.Results;
 
-    const filteredData = rawData.filter(item => {
-        return item.Approvers && item.Approvers.includes(AllowedToApprove);
-    });
-
-    return filteredData.length;
+    return rawData.length;
 }
 
 /**
@@ -969,15 +965,9 @@ async function renderUI() {
     console.log(rawData)
 
 
-
-    // Filter datasets where the Approvers field contains AllowedToApprove
-    const filteredData = rawData.filter(item => {
-        return item.Approvers && item.Approvers.includes(AllowedToApprove);
-    });
-
     // --- 2. PREPARE THE MASTER DATA ARRAY ---
     // Transform the raw data just once into the format our UI needs.
-    allRequests = filteredData.map(item => ({
+    allRequests = rawData.map(item => ({
         ...item,
         status: statusIdToNameMap[item.StatusID] || 'Unknown'
     }));
@@ -986,7 +976,7 @@ async function renderUI() {
     // --- Render the components ---
     const configForTable = configMap[selectedStatus];
     renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
-    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
+    renderPagination('pagination-controls', rawData.length, rowsPerPage, currentPage);
 }
 
 // =================================================================
