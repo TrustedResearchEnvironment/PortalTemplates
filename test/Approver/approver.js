@@ -213,9 +213,7 @@ function ApproveRequest(request) {
             </div>
             <div class="form-group mt-3 d-flex justify-content-center">
                 <button id="confirmApprovalBtn" class="btn btn-success px-3 py-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                    </svg>
+                    <i class="fa fa-thumbs-up mr-2"></i>
                     Approve
                 </button>
             </div>
@@ -320,36 +318,29 @@ function RejectRequest(request) {
     // Populate the modal body with the dynamic content
     modalBody.innerHTML = `
         <div class="col-md-12">
-            <form id="rejectRequestForm">
-                <div class="form-group">
-                    <label for="RequestMessage" class="control-label">Rejection Note</label>
-                    <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid" required></textarea>
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="btn btn-accent">Reject</button>
-                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </form>
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> 
+                Please confirm the Rejection of the request:<br>
+                <strong>${request.Name}</strong>
+            </div>
+            <div class="form-group mt-3 d-flex justify-content-center">
+                <button id="confirmRejectBtn" class="btn btn-danger px-3 py-1">
+                    <i class="fa fa-thumbs-down mr-2"></i>
+                    Reject
+                </button>
+            </div>
         </div>
     `;
-    
-    // Add form submission handler
-    const form = document.getElementById('rejectRequestForm');
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        try {
-            await rejectRequestFromAPI(request.RequestID);
-            
-            // Close the modal
-            const rejectModal = bootstrap.Modal.getInstance(document.getElementById('rejectRequestModal'));
-            if (rejectModal) {
-                rejectModal.hide();
-            }
-        } catch (error) {
-            console.error('Rejection failed:', error);
-        }
-    });
+
+    // Add event listener for the confirm reject button
+    const confirmBtn = document.getElementById('confirmRejectBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            console.log('Reject button clicked for request:', request.RequestID);
+            // Call the API to reject the request
+            rejectRequestFromAPI(request.RequestID);
+        });
+    }
 }
 
 async function rejectRequestFromAPI(requestId) {
@@ -824,17 +815,13 @@ function renderTable(containerId, data, config, selectedStatus) {
                     <div class="bg-gray-50 p-4 m-2 rounded">
                         <div class="grid grid-cols-1 gap-4">
                             <div class="flex justify-end mb-1">
-                                <div class="btn-group">
+                                <div class="btn-group">                                  
                                     <button class="btn btn-success action-approve px-3 py-1 mr-2" data-bs-toggle="modal" data-bs-target="#approveRequestModal">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                        </svg>
+                                        <i class="fa fa-thumbs-up mr-2"></i>
                                         Approve
                                     </button>
                                     <button class="btn btn-danger action-reject px-3 py-1" data-bs-toggle="modal" data-bs-target="#rejectRequestModal">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
+                                        <i class="fa fa-thumbs-down mr-2"></i>
                                         Reject
                                     </button>
                                 </div>
