@@ -275,10 +275,9 @@ async function approveRequestFromAPI(requestId) {
         const successToast = showToast('Success', 'success');
         console.log('Success toast shown:', successToast);
         
-        // Update all chip counts after deletion
-        console.log('Refreshing chip counts');
+        // Update chip counts
         await refreshAllChipCounts();
-
+        
         // Refresh the UI
         console.log('Refreshing UI');
         setTimeout(() => {
@@ -300,21 +299,31 @@ async function approveRequestFromAPI(requestId) {
     }
 }
 
+// New function to update chip counts
+async function refreshAllChipCounts() {
+    const chipsContainer = document.getElementById('status-chips-container');
+    for (const chip of chipsContainer.querySelectorAll('.chip')) {
+        const status = chip.dataset.status;
+        const count = await getCounts(status);
+        chip.querySelector('.chip-count').textContent = count;
+    }
+}
+
 function RejectRequest(request) {
     // Get the modal elements
     const modalBody = document.getElementById('rejectRequestModalBody');
     const modalTitle = document.getElementById('rejectRequestModalLabel');
-
+    
     // Update the modal title dynamically based on requestID
     modalTitle.textContent = `Reject Request: ${request.name}`;
-
+    
     // Populate the modal body with the dynamic content
     modalBody.innerHTML = `
         <div class="col-md-12">
-            <form>
+            <form id="rejectRequestForm">
                 <div class="form-group">
                     <label for="RequestMessage" class="control-label">Rejection Note</label>
-                    <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid"></textarea>
+                    <textarea id="RequestMessage" rows="5" placeholder="Note to the Researcher if rejected" class="form-control valid" required></textarea>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-accent">Reject</button>
@@ -323,6 +332,67 @@ function RejectRequest(request) {
             </form>
         </div>
     `;
+    
+    // Add form submission handler
+    const form = document.getElementById('rejectRequestForm');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        try {
+            await rejectRequestFromAPI(request.RequestID);
+            
+            // Close the modal
+            const rejectModal = bootstrap.Modal.getInstance(document.getElementById('rejectRequestModal'));
+            if (rejectModal) {
+                rejectModal.hide();
+            }
+        } catch (error) {
+            console.error('Rejection failed:', error);
+        }
+    });
+}
+
+async function rejectRequestFromAPI(requestId) {
+    let loadingToast = null;
+    
+    try {
+        console.log('Rejecting request ID:', requestId);
+        
+        // Show loading state
+        loadingToast = showToast('Rejecting request...', 'info');
+        
+        const response = await window.loomeApi.runApiRequest(24, {  // Assuming API 24 is for rejection
+            "id": requestId,
+            "upn": getCurrentUserUpn(),
+        });
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+        }
+        
+        // Show success message
+        const successToast = showToast('Request Rejected', 'success');
+        
+        // Update chip counts
+        await refreshAllChipCounts();
+        
+        // Refresh the UI
+        setTimeout(() => {
+            renderUI();
+        }, 100);
+        
+    } catch (error) {
+        console.error("Error rejecting request:", error);
+        
+        // Hide loading toast
+        if (loadingToast) {
+            hideToast(loadingToast);
+        }
+        
+        // Show error message
+        const errorToast = showToast('Please try again.', 'error');
+    }
 }
 
 
@@ -928,17 +998,13 @@ async function getCounts(status) {
     const parsedResponse = safeParseJson(response);
     const rawData = parsedResponse.Results;
 
-    return rawData.length;
+    return parsedResponse.RowCount;
 }
 
 /**
  * Main function to orchestrate all rendering based on the current state.
  * It filters, paginates, and renders the table and controls.
  */
-
-// this should be UPN
-// use /api/Request/List instead
-const AllowedToApprove = "o.dean@deakin.edu.au";
 
 async function renderUI() {
     const activeChip = document.querySelector('.chip.active');
@@ -976,7 +1042,7 @@ async function renderUI() {
     // --- Render the components ---
     const configForTable = configMap[selectedStatus];
     renderTable(TABLE_CONTAINER_ID, allRequests, configForTable, selectedStatus);
-    renderPagination('pagination-controls', rawData.length, rowsPerPage, currentPage);
+    renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
 }
 
 // =================================================================
