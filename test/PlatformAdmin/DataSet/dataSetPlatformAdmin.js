@@ -294,9 +294,6 @@ function renderTable(containerId, headers, data) {
                     <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 edit-dataset-btn" data-dataset-id="${item.DataSetID}">
                         Edit Dataset
                     </button>
-                    <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete" data-dataset-id="${item.DataSetID}" data-dataset-name="${item.Name}">
-                        Delete
-                    </button>
                 </div>
             </div>
         `;
@@ -326,18 +323,6 @@ function renderTable(containerId, headers, data) {
     table.appendChild(tbody);
     container.appendChild(table);
     
-    // Add event listeners for action buttons after the table is added to the DOM
-    const deleteButtons = container.querySelectorAll('.action-delete');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const datasetId = button.dataset.datasetId;
-            const datasetName = button.dataset.datasetName;
-            if (confirm(`Are you sure you want to delete dataset "${datasetName}"?`)) {
-                deleteDataset(datasetId);
-            }
-        });
-    });
     
     const editButtons = container.querySelectorAll('.edit-dataset-btn');
     editButtons.forEach(button => {
@@ -405,23 +390,12 @@ function renderDatasetDetails(container, details, item) {
                 <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     Edit Dataset
                 </button>
-                <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete">
-                    Delete
-                </button>
             </div>
         </div>
     `;
     
     container.innerHTML = detailsHTML;
-    
-    // Add event listener for delete button
-    const deleteBtn = container.querySelector('.action-delete');
-    deleteBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm(`Are you sure you want to delete dataset "${item.Name}"?`)) {
-            deleteDataset(item.DataSetID);
-        }
-    });
+
 }
 
 
@@ -452,18 +426,6 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
-// Function to delete a dataset
-async function deleteDataset(datasetId) {
-    try {
-        await window.loomeApi.runApiRequest('DeleteDataset', { datasetId });
-        alert('Dataset deleted successfully');
-        // Refresh the table
-        fetchAndRenderPage(tableConfig, currentPage, searchTerm, STATUS_FILTER);
-    } catch (error) {
-        console.error('Error deleting dataset:', error);
-        alert(`Error deleting dataset: ${error.message}`);
-    }
-}
 /**
  * Updates the UI and renders the correct table, optionally filtering the data.
  */
