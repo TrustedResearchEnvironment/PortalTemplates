@@ -219,114 +219,8 @@ function AddDataSource(typeNamesList, allFields) {
     // --- 6. ATTACH the event listener to the dropdown ---
     typeSelect.addEventListener('change', handleTypeChange);
 
-    // --- 7. Listener for Adding a Data Source
-    // First, get a reference to the modal and the save button
-    // const saveButton = document.getElementById('modal-save-add-datasrc-button');
-
-    // // Make sure both elements were found before adding a listener
-    // if (saveButton) {
-
-    //     // Define the function that will run when "Save" is clicked
-    //     const handleSaveClick = async () => {
-    //         // Find the form in the modal.
-    //         const form = document.getElementById('addDataSourceForm'); // Give your form an ID
-
-    //         // --- VALIDATION (from previous example) ---
-    //         if (!form.checkValidity()) {
-    //             form.classList.add('was-validated');
-    //             console.log("Form is invalid. Aborting save.");
-    //             return;
-    //         }
-
-    //         // --- GATHER DATA using our new function ---
-    //         const payload = getDataSourceFormData(form);
-
-    //         console.log("Data gathered from form:", payload);
-
-    //         saveButton.disabled = true;
-    //         saveButton.innerHTML = `
-    //             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-    //             Saving...
-    //         `;
-
-    //         // --- Now, you can SEND this payload to your backend API ---
-    //         try {
-            
-    //             const response = await window.loomeApi.runApiRequest(22, payload);
-            
-    //             showToast('Data Source created successfully!');
-
-    //         } catch (error) {
-    //             console.error("API call failed:", error);
-    //             showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-    //         } finally {
-    //             // --- UX IMPROVEMENT: Always reset the button state ---
-    //             // This runs whether the API call succeeded or failed.
-    //             saveButton.disabled = false;
-    //             saveButton.innerHTML = 'Save';
-
-                          
-    //         }
-    //     };
-
-    //     // --- 6. Add the event listener ---
-    //     // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
-    //     saveButton.addEventListener('click', handleSaveClick);
-
-    // } else {
-    //     console.error("Could not find the modal or the save button to attach the event listener.");
-    // }
     
-    // Wait for the HTML document to be fully loaded and parsed
-    document.addEventListener('DOMContentLoaded', () => {
-        // All of your original code goes inside here
-        const saveButton = document.getElementById('modal-save-add-datasrc-button');
-        const modalElement = document.getElementById('addDataSourceModal'); // Make sure your modal has this ID
     
-        if (saveButton && modalElement) {
-            // This 'if' block will now execute successfully
-            console.log("Successfully found modal and save button. Attaching listener.");
-    
-            const modalInstance = new bootstrap.Modal(modalElement);
-    
-            const handleSaveClick = async () => {
-                const form = document.getElementById('addDataSourceForm');
-    
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return;
-                }
-    
-                const payload = getDataSourceFormData(form);
-                saveButton.disabled = true;
-                saveButton.innerHTML = `
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    Saving...
-                `;
-    
-                try {
-                    const response = await window.loomeApi.runApiRequest(22, payload);
-                    showToast('Data Source created successfully!');
-                    modalInstance.hide(); // Close the modal on success
-                    form.reset();
-                    form.classList.remove('was-validated');
-                } catch (error) {
-                    console.error("API call failed:", error);
-                    showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-                } finally {
-                    saveButton.disabled = false;
-                    saveButton.innerHTML = 'Save';
-                }
-            };
-    
-            saveButton.addEventListener('click', handleSaveClick);
-        } else {
-            // This will help you debug if one of the elements is still not found
-            console.error("Could not find the modal or the save button. Check IDs.");
-            console.log("saveButton:", saveButton); // Will print the element or null
-            console.log("modalElement:", modalElement); // Will print the element or null
-        }
-    });
 }
 
 /**
@@ -1031,17 +925,6 @@ async function renderPlatformAdminDataSourcePage() {
         }
     });
 
-    // paginationContainer.addEventListener('click', (event) => {
-    //     const button = event.target.closest('button[data-page]');
-    //     if (!button || button.disabled) {
-    //         return;
-    //     }
-    //     const newPage = parseInt(button.dataset.page, 10);
-    //     console.log('newPage')
-    //     console.log(newPage)
-    //     // Fetch the new page, preserving the current search term
-    //     fetchAndRenderPage(tableConfig, newPage, searchInput.value);
-    // });
 
     const addDataSrcButton = document.querySelector('#addDatasourceBtn');;
     if (addDataSrcButton) {
@@ -1049,6 +932,106 @@ async function renderPlatformAdminDataSourcePage() {
             AddDataSource(typeNamesList, fields);
         });
     }
+    
+    // --- 7. Listener for Adding a Data Source
+    // First, get a reference to the modal and the save button
+    const saveButton = document.getElementById('modal-save-add-datasrc-button');
+    const addDataSrcElement = document.getElementById('addDatasourceModal');
+
+    // Make sure both elements were found before adding a listener
+    
+    // Define the function that will run when "Save" is clicked
+    // const handleSaveClick = async () => {
+    //     // Find the form in the modal.
+    //     const form = document.getElementById('addDataSourceForm'); // Give your form an ID
+
+    //     // --- VALIDATION (from previous example) ---
+    //     if (!form.checkValidity()) {
+    //         form.classList.add('was-validated');
+    //         console.log("Form is invalid. Aborting save.");
+    //         return;
+    //     }
+
+    //     // --- GATHER DATA using our new function ---
+    //     const payload = getDataSourceFormData(form);
+
+    //     console.log("Data gathered from form:", payload);
+
+    //     saveButton.disabled = true;
+    //     saveButton.innerHTML = `
+    //         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    //         Saving...
+    //     `;
+
+    //     // --- Now, you can SEND this payload to your backend API ---
+    //     try {
+        
+    //         const response = await window.loomeApi.runApiRequest(22, payload);
+    //         console.log("RESPONSE: ")
+    //         console.log(response)
+    //         showToast('Data Source created successfully!');
+            
+    //         addDataSrcModal.hide()
+    //     } catch (error) {
+    //         console.error("API call failed:", error);
+    //         showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+    //     } finally {
+    //         // --- UX IMPROVEMENT: Always reset the button state ---
+    //         // This runs whether the API call succeeded or failed.
+    //         saveButton.disabled = false;
+    //         saveButton.innerHTML = 'Save';
+
+                      
+    //     }
+    // };
+    const handleSaveClick = async () => {
+        // Get the modal instance at the time of clicking (not during page load)
+        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addDatasourceModal'));
+        
+        const form = document.getElementById('addDataSourceForm');
+        
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            console.log("Form is invalid. Aborting save.");
+            return;
+        }
+
+        const payload = getDataSourceFormData(form);
+        console.log("Data gathered from form:", payload);
+        
+        saveButton.disabled = true;
+        saveButton.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Saving...
+        `;
+
+        try {
+            
+            const response = await window.loomeApi.runApiRequest(22, payload);
+            console.log("RESPONSE: ", response)
+            
+            showToast('Data Source created successfully!');
+            
+            // This should now work!
+            modalInstance.hide();
+            
+            // Optional: Refresh the table to show the new item
+            await fetchAndRenderPage(tableConfig, 1, '');
+            
+        } catch (error) {
+            console.error("API call failed:", error);
+            showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+        } finally {
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save';
+        }
+    };
+
+    // --- 6. Add the event listener ---
+    // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
+    saveButton.addEventListener('click', handleSaveClick);
+
+    
 
     // --- 3. Initial Page Load ---
     // Make the first call to fetch page 1 with no search term.
