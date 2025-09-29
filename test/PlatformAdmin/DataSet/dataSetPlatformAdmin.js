@@ -1,5 +1,6 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 10;
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -67,11 +68,12 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         // This is a hypothetical structure. Adjust it to how your API expects them.
         const apiParams = {
             "page": page,
-            "pageSize": rowsPerPage
+            "pageSize": rowsPerPage,
+            "search": searchTerm
         };
         console.log(apiParams)
         // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(10, apiParams);
+        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
