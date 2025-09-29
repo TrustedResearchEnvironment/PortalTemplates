@@ -1,6 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
+let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -8,6 +9,9 @@ let currentPage = 1;
 let rowsPerPage = 5; // Default, will be updated by API response
 let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
+
+let showActive = true;
+let showInactive = false;
 
 /**
  * Renders pagination controls.
@@ -61,26 +65,31 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
  * @param {number} page The page number to fetch.
  * @param {string} searchTerm The search term to filter by.
  */
-async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
+async function fetchAndRenderPage(tableConfig, page, searchTerm = '', statusFilter) {
     try {
         // --- 1. Call the API with pagination parameters ---
         // NOTE: Your loomeApi.runApiRequest must support passing parameters.
         // This is a hypothetical structure. Adjust it to how your API expects them.
         const apiParams = {
+            "activeStatus": statusFilter,
             "page": page,
             "pageSize": rowsPerPage,
             "search": searchTerm
         };
         console.log(apiParams)
-        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
+
         const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
         console.log(parsedResponse)
 
+        
+
         // --- 2. Extract Data and Update State ---
-        const dataForPage = parsedResponse.Results;
+        dataForPage = parsedResponse.Results;
+
+        // const dataForPage = parsedResponse.Results.filter(item => item.IsActive === true);
         const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
         currentPage = parsedResponse.CurrentPage;
         rowsPerPage = parsedResponse.PageSize;
@@ -449,7 +458,7 @@ async function deleteDataset(datasetId) {
         await window.loomeApi.runApiRequest('DeleteDataset', { datasetId });
         alert('Dataset deleted successfully');
         // Refresh the table
-        fetchAndRenderPage(tableConfig, currentPage, searchTerm);
+        fetchAndRenderPage(tableConfig, currentPage, searchTerm, STATUS_FILTER);
     } catch (error) {
         console.error('Error deleting dataset:', error);
         alert(`Error deleting dataset: ${error.message}`);
@@ -517,7 +526,7 @@ async function renderPlatformAdminDataSetPage() {
     // The search input now calls fetchAndRenderPage
     searchInput.addEventListener('input', () => {
         // When a new search is performed, always go back to page 1
-        fetchAndRenderPage(tableConfig, 1, searchInput.value);
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
     });
 
     // The pagination container now calls fetchAndRenderPage
@@ -531,13 +540,74 @@ async function renderPlatformAdminDataSetPage() {
         console.log('newPage')
         console.log(newPage)
         // Fetch the new page, preserving the current search term
-        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+        fetchAndRenderPage(tableConfig, newPage, searchInput.value, STATUS_FILTER);
     });
+
+    // Add button event listeners
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
+
+    activeBtn.addEventListener('click', () => {
+        showActive = !showActive;
+        if (!showActive && !showInactive) {
+            showInactive = true;
+        }
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    inactiveBtn.addEventListener('click', () => {
+        showInactive = !showInactive;
+        if (!showActive && !showInactive) {
+            showActive = true;
+        }
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    // Initialize button states
+    updateFilterButtons();
 
     // --- 3. Initial Page Load ---
     // Make the first call to fetch page 1 with no search term.
-    await fetchAndRenderPage(tableConfig, 1, '');
+    await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
 }
 
 
 renderPlatformAdminDataSetPage()
+
+// Add this function after renderPlatformAdminDataSetPage
+function updateFilterButtons() {
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
+
+    // Update button styles based on state
+    if (showActive) {
+        activeBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        activeBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        activeBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        activeBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
+
+    if (showInactive) {
+        inactiveBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        inactiveBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        inactiveBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        inactiveBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
+
+    // Update STATUS_FILTER based on button states
+    if (showActive && showInactive) {
+        STATUS_FILTER = 3;
+    } else if (showActive) {
+        STATUS_FILTER = 1;
+    } else if (showInactive) {
+        STATUS_FILTER = 2;
+    } else {
+        // If somehow neither is selected, default to active
+        showActive = true;
+        STATUS_FILTER = 1;
+    }
+}
