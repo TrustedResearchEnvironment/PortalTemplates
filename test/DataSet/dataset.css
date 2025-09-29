@@ -756,3 +756,33 @@ video {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db; /* gray-300 */
+    background-color: white;
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500;
+    border-radius: 0.375rem; /* rounded-md */
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.pagination-btn:hover {
+    background-color: #f3f4f6; /* gray-100 */
+}
+
+.pagination-btn.active {
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+    border-color: #3b82f6; /* blue-500 */
+    z-index: 10;
+}
+
+.pagination-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

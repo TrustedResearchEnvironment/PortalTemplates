@@ -1,5 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
+const API_REQUEST_ID = 10;
+let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -7,6 +9,9 @@ let currentPage = 1;
 let rowsPerPage = 5; // Default, will be updated by API response
 let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
+
+let showActive = true;
+let showInactive = false;
 
 /**
  * Renders pagination controls.
@@ -60,25 +65,31 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
  * @param {number} page The page number to fetch.
  * @param {string} searchTerm The search term to filter by.
  */
-async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
+async function fetchAndRenderPage(tableConfig, page, searchTerm = '', statusFilter) {
     try {
         // --- 1. Call the API with pagination parameters ---
         // NOTE: Your loomeApi.runApiRequest must support passing parameters.
         // This is a hypothetical structure. Adjust it to how your API expects them.
         const apiParams = {
+            "activeStatus": statusFilter,
             "page": page,
-            "pageSize": rowsPerPage
+            "pageSize": rowsPerPage,
+            "search": searchTerm
         };
         console.log(apiParams)
-        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(10, apiParams);
+
+        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
         console.log(parsedResponse)
 
+        
+
         // --- 2. Extract Data and Update State ---
-        const dataForPage = parsedResponse.Results;
+        dataForPage = parsedResponse.Results;
+
+        // const dataForPage = parsedResponse.Results.filter(item => item.IsActive === true);
         const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
         currentPage = parsedResponse.CurrentPage;
         rowsPerPage = parsedResponse.PageSize;
@@ -122,92 +133,297 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 function renderTable(containerId, headers, data) {
     const container = document.getElementById(containerId);
     if (!container) {
-        console.error(`Container with ID "${containerId}" not found.`);
+        console.error(`Container with ID '${containerId}' not found`);
         return;
     }
-    container.innerHTML = ''; // Clear previous content
-
+    
+    container.innerHTML = '';
+    
+    // Check if data exists and is an array
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        container.innerHTML = '<div class="text-center py-4">No data available</div>';
+        return;
+    }
+    
     const table = document.createElement('table');
-    //table.className = 'min-w-full divide-y divide-gray-200';
     table.className = 'w-full divide-y divide-gray-200 table-fixed';
     
-    // --- 1. Build The Head ---
+    // Create table header
     const thead = document.createElement('thead');
     thead.className = 'bg-gray-50';
+    
     const headerRow = document.createElement('tr');
-    headers.forEach(headerConfig => {
+    
+    // Add an empty header cell for the expand/collapse button
+    const expandHeader = document.createElement('th');
+    expandHeader.className = 'w-10 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+    headerRow.appendChild(expandHeader);
+    
+    headers.forEach(header => {
         const th = document.createElement('th');
-        th.scope = 'col';
-        
-        // Start with base classes
-        let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
-        
-        // If a widthClass is defined in the config, add it.
-        if (headerConfig.widthClass) {
-            thClasses += ` ${headerConfig.widthClass}`;
+        // Add width classes if provided, otherwise use default width handling
+        let thClasses = 'px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        if (header.widthClass) {
+            thClasses += ` ${header.widthClass}`;
         }
         th.className = thClasses;
-        th.textContent = headerConfig.label;
+        th.textContent = header.label;
         headerRow.appendChild(th);
     });
+    
     thead.appendChild(headerRow);
     table.appendChild(thead);
-
-    // --- 2. Build The Body ---
+    
+    // Create table body
     const tbody = document.createElement('tbody');
     tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        const colSpan = headers.length || 1;
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
-    } else {
-        data.forEach(item => {
-            const row = document.createElement('tr');
-            headers.forEach(headerConfig => {
-                const td = document.createElement('td');
-                
-                // Start with the base classes for every cell.
-                let tdClasses = 'px-6 py-4 text-sm text-gray-800';
-
-                // Now, add the specific class from your config.
-                if (headerConfig.className) {
-                    tdClasses += ` ${headerConfig.className}`;
-                } else {
-                    // If no class is specified, default to break-words to prevent overflow.
-                    // This is a safe fallback.
-                    tdClasses += ' break-words';
-                }
-                td.className = tdClasses;
-                
-                let cellContent;
-
-                // If a custom render function exists, use it.
-                if (headerConfig.render) {
-                    // For 'actions', we pass the whole item. Otherwise, pass the specific value.
-                    const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
-                    cellContent = headerConfig.render(value);
-                } else {
-                    // Otherwise, just get the data using the key.
-                    const value = item[headerConfig.key];
-                    cellContent = value ?? 'N/A'; // Use 'N/A' for null or undefined values
-                }
-
-                // If content is HTML, set innerHTML. Otherwise, textContent is safer.
-                if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
-                    td.innerHTML = cellContent;
-                } else {
-                    td.textContent = cellContent;
-                }
-                
-                row.appendChild(td);
-            });
-            tbody.appendChild(row);
+    
+    data.forEach(item => {
+        // Create main row
+        const row = document.createElement('tr');
+        row.className = 'cursor-pointer hover:bg-gray-50';
+        
+        // Add expand/collapse button cell
+        const expandCell = document.createElement('td');
+        expandCell.className = 'px-3 py-4 whitespace-nowrap w-10';
+        
+        const chevronButton = document.createElement('button');
+        chevronButton.className = 'transition-transform duration-200 ease-in-out';
+        chevronButton.innerHTML = '<svg class="w-5 h-5 chevron-icon" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>';
+        
+        expandCell.appendChild(chevronButton);
+        row.appendChild(expandCell);
+        
+        // Add data cells
+        headers.forEach(header => {
+            const cell = document.createElement('td');
+            
+            // Start with base classes for cell
+            let tdClasses = 'px-3 py-4';
+            
+            // Now, add the specific class from your config.
+            if (header.className) {
+                tdClasses += ` ${header.className}`;
+            } else {
+                // If no class is specified, default to break-words to prevent overflow
+                tdClasses += ' break-words';
+            }
+            
+            // Add text truncation classes
+            tdClasses += ' truncate';
+            
+            cell.className = tdClasses;
+            
+            // Check if the property exists in the item
+            const value = item[header.key];
+            
+            // Use custom render function if provided, otherwise use the raw value
+            if (header.render && value !== undefined) {
+                cell.innerHTML = header.render(value);
+            } else {
+                cell.textContent = value !== undefined ? value : '';
+            }
+            
+            // Add title attribute for hover tooltip with full text
+            if (typeof value === 'string') {
+                cell.title = value;
+            }
+            
+            row.appendChild(cell);
         });
-    }
-
+        
+        // Create accordion row (initially hidden)
+        const accordionRow = document.createElement('tr');
+        accordionRow.classList.add('hidden', 'accordion-row');
+        
+        const accordionCell = document.createElement('td');
+        accordionCell.colSpan = headers.length + 1; // +1 for the expand button column
+        accordionCell.className = 'p-0';
+        
+        // Create details container
+        const detailsContainer = document.createElement('div');
+        detailsContainer.className = 'p-4 bg-gray-50';
+        
+        // Create a nicely formatted display of the dataset details
+        detailsContainer.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-3">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Dataset ID</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.DataSetID || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Name</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.Name || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Description</h3>
+                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Description || 'No description available'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Data Source ID</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.DataSourceID !== undefined ? item.DataSourceID : 'N/A'}</p>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Owner</h3>
+                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Owner || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Approvers</h3>
+                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Approvers || 'None'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Active</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.IsActive !== undefined ? (item.IsActive ? 'Yes' : 'No') : 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Last Modified</h3>
+                        <p class="mt-1 text-sm text-gray-900">${formatDate(item.ModifiedDate)}</p>
+                    </div>
+                </div>
+                
+                ${item.OptOutList ? `
+                <div class="col-span-1 md:col-span-2">
+                    <h3 class="text-sm font-medium text-gray-500">Opt-Out List</h3>
+                    <p class="mt-1 text-sm text-gray-900 whitespace-pre-line break-words">${item.OptOutList}</p>
+                </div>` : ''}
+                
+                <div class="col-span-1 md:col-span-2 flex justify-end space-x-2 mt-4">
+                    <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 edit-dataset-btn" data-dataset-id="${item.DataSetID}">
+                        Edit Dataset
+                    </button>
+                    <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete" data-dataset-id="${item.DataSetID}" data-dataset-name="${item.Name}">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        accordionCell.appendChild(detailsContainer);
+        accordionRow.appendChild(accordionCell);
+        
+        // Add event listeners for the buttons
+        detailsContainer.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent row toggle when clicking inside details
+        });
+        
+        // Add event listener to toggle accordion
+        row.addEventListener('click', () => {
+            // Toggle chevron rotation
+            chevronButton.querySelector('.chevron-icon').classList.toggle('rotate-180');
+            
+            // Toggle accordion visibility
+            accordionRow.classList.toggle('hidden');
+        });
+        
+        // Add rows to table body
+        tbody.appendChild(row);
+        tbody.appendChild(accordionRow);
+    });
+    
     table.appendChild(tbody);
     container.appendChild(table);
+    
+    // Add event listeners for action buttons after the table is added to the DOM
+    const deleteButtons = container.querySelectorAll('.action-delete');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const datasetId = button.dataset.datasetId;
+            const datasetName = button.dataset.datasetName;
+            if (confirm(`Are you sure you want to delete dataset "${datasetName}"?`)) {
+                deleteDataset(datasetId);
+            }
+        });
+    });
+    
+    const editButtons = container.querySelectorAll('.edit-dataset-btn');
+    editButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const datasetId = button.dataset.datasetId;
+            // Navigate to edit page or open edit modal
+            window.location.href = `/admin/dataset/edit/${datasetId}`;
+            // Or if using a modal:
+            // openEditModal(datasetId);
+        });
+    });
 }
+
+
+// Function to render dataset details
+function renderDatasetDetails(container, details, item) {
+    // Create a nicely formatted display of the dataset details
+    const detailsHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+            <div class="space-y-3">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Dataset ID</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.DataSetID}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Name</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.Name}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Description</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.Description || 'No description available'}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Data Source ID</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.DataSourceID}</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Owner</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.Owner}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Approvers</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.Approvers || 'None'}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Active</h3>
+                    <p class="mt-1 text-sm text-gray-900">${item.IsActive ? 'Yes' : 'No'}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500">Last Modified</h3>
+                    <p class="mt-1 text-sm text-gray-900">${formatDate(item.ModifiedDate)}</p>
+                </div>
+            </div>
+            
+            ${item.OptOutList ? `
+            <div class="col-span-1 md:col-span-2">
+                <h3 class="text-sm font-medium text-gray-500">Opt-Out List</h3>
+                <p class="mt-1 text-sm text-gray-900 whitespace-pre-line">${item.OptOutList}</p>
+            </div>` : ''}
+            
+            <div class="col-span-1 md:col-span-2 flex justify-end space-x-2">
+                <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Edit Dataset
+                </button>
+                <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete">
+                    Delete
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = detailsHTML;
+    
+    // Add event listener for delete button
+    const deleteBtn = container.querySelector('.action-delete');
+    deleteBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to delete dataset "${item.Name}"?`)) {
+            deleteDataset(item.DataSetID);
+        }
+    });
+}
+
 
 function formatDate(inputDate) {
     // Log what the function receives
@@ -236,6 +452,18 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
+// Function to delete a dataset
+async function deleteDataset(datasetId) {
+    try {
+        await window.loomeApi.runApiRequest('DeleteDataset', { datasetId });
+        alert('Dataset deleted successfully');
+        // Refresh the table
+        fetchAndRenderPage(tableConfig, currentPage, searchTerm, STATUS_FILTER);
+    } catch (error) {
+        console.error('Error deleting dataset:', error);
+        alert(`Error deleting dataset: ${error.message}`);
+    }
+}
 /**
  * Updates the UI and renders the correct table, optionally filtering the data.
  */
@@ -279,23 +507,17 @@ async function renderPlatformAdminDataSetPage() {
     const tableConfig = {
                 headers: [
                     { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Data Source ID", key: "DataSourceID", widthClass: "w-1/12 text-center" },
-                    { label: "Owner", key: "Owner", className: "break-words", widthClass: "w-2/12" },
+                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
+                    { label: "Owner", key: "Owner", className: "break-words", widthClass: "w-3/12" },
                     {
                         label: "Active",
                         key: "IsActive",
                         widthClass: "w-1/12",
                         render: (value) =>
-                            value === 1
+                            value === true
                                 ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
                                 : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>`
                     },
-                    {
-                        label: "Actions",
-                        key: "actions",
-                        render: (item) => `<button data-id="${item.DataSetID}" class="text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>`
-                    }
                 ]
         };
         
@@ -304,7 +526,7 @@ async function renderPlatformAdminDataSetPage() {
     // The search input now calls fetchAndRenderPage
     searchInput.addEventListener('input', () => {
         // When a new search is performed, always go back to page 1
-        fetchAndRenderPage(tableConfig, 1, searchInput.value);
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
     });
 
     // The pagination container now calls fetchAndRenderPage
@@ -318,13 +540,74 @@ async function renderPlatformAdminDataSetPage() {
         console.log('newPage')
         console.log(newPage)
         // Fetch the new page, preserving the current search term
-        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+        fetchAndRenderPage(tableConfig, newPage, searchInput.value, STATUS_FILTER);
     });
+
+    // Add button event listeners
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
+
+    activeBtn.addEventListener('click', () => {
+        showActive = !showActive;
+        if (!showActive && !showInactive) {
+            showInactive = true;
+        }
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    inactiveBtn.addEventListener('click', () => {
+        showInactive = !showInactive;
+        if (!showActive && !showInactive) {
+            showActive = true;
+        }
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    // Initialize button states
+    updateFilterButtons();
 
     // --- 3. Initial Page Load ---
     // Make the first call to fetch page 1 with no search term.
-    await fetchAndRenderPage(tableConfig, 1, '');
+    await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
 }
 
 
 renderPlatformAdminDataSetPage()
+
+// Add this function after renderPlatformAdminDataSetPage
+function updateFilterButtons() {
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
+
+    // Update button styles based on state
+    if (showActive) {
+        activeBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        activeBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        activeBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        activeBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
+
+    if (showInactive) {
+        inactiveBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        inactiveBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        inactiveBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        inactiveBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
+
+    // Update STATUS_FILTER based on button states
+    if (showActive && showInactive) {
+        STATUS_FILTER = 3;
+    } else if (showActive) {
+        STATUS_FILTER = 1;
+    } else if (showInactive) {
+        STATUS_FILTER = 2;
+    } else {
+        // If somehow neither is selected, default to active
+        showActive = true;
+        STATUS_FILTER = 1;
+    }
+}
