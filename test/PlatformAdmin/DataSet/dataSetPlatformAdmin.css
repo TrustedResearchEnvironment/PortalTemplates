@@ -816,3 +816,28 @@ table {
     border-collapse: collapse; /* Important for clean lines */
 }
 
+/* Text handling classes */
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.break-words {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Ensure fixed table layout */
+.table-fixed {
+    table-layout: fixed;
+}
+
+/* Chevron rotation for accordion */
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+.transition-transform {
+    transition: transform 0.2s ease-in-out;
+}
