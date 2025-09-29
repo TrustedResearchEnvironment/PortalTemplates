@@ -498,9 +498,8 @@ async function renderPlatformAdminDataSetPage() {
     const tableConfig = {
                 headers: [
                     { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Data Source ID", key: "DataSourceID", widthClass: "w-1/12 text-center" },
-                    { label: "Owner", key: "Owner", className: "break-words", widthClass: "w-2/12" },
+                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
+                    { label: "Owner", key: "Owner", className: "break-words", widthClass: "w-3/12" },
                     {
                         label: "Active",
                         key: "IsActive",
@@ -510,11 +509,6 @@ async function renderPlatformAdminDataSetPage() {
                                 ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
                                 : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>`
                     },
-                    {
-                        label: "Actions",
-                        key: "actions",
-                        render: (item) => `<button data-id="${item.DataSetID}" class="text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>`
-                    }
                 ]
         };
         
