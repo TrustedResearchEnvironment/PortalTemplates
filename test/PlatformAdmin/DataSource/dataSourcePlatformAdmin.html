@@ -1,652 +1,80 @@
-// Define the single container ID for the table
-const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_REQUEST_ID = 5
-// --- STATE MANAGEMENT ---
-// These variables need to be accessible by multiple functions.
-let currentPage = 1;
-let rowsPerPage = 5; // Default, will be updated by API response
-let tableConfig = {}; // Will hold your headers configuration
-const searchInput = document.getElementById('searchRequests');
-
-let dataSourceTypeMap = new Map();
-
-/**
- * Fetches ALL DataSourceTypes from the paginated API.
- * This is a self-contained function that returns the results.
- * @param {number} [pageSize=100] - The number of items per page.
- * @returns {Promise<Array>} A promise that resolves to an array of all data source types.
- */
-async function getAllDataSourceTypes(pageSize = 100) {
-    const DATASOURCETYPE_API_ID = 13;
-    let allResults = []; // Use a local variable to store results
-
-    try {
-        // --- 1. Initial request ---
-        const initialParams = { "page": 1, "pageSize": pageSize, "search": '' };
-        const initialResponse = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, initialParams);
-        const parsedInitial = safeParseJson(initialResponse);
-
-        if (!parsedInitial || parsedInitial.RowCount === 0) {
-            console.log("No data source types found.");
-            return []; // Return an empty array if there's no data
-        }
-
-        allResults = parsedInitial.Results;
-        const totalPages = parsedInitial.PageCount;
-
-        // If only one page, we're done
-        if (totalPages <= 1) {
-            return allResults;
-        }
-
-        // --- 2. Loop for remaining pages ---
-        for (let page = 2; page <= totalPages; page++) {
-            console.log(`Fetching page ${page} of ${totalPages}...`);
-            const params = { "page": page, "pageSize": pageSize, "search": '' };
-            // FIXED BUG: Use the correct API ID in the loop
-            const response = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, params);
-            const parsed = safeParseJson(response);
-            if (parsed && parsed.Results) {
-                allResults = allResults.concat(parsed.Results);
-            }
-        }
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>My Webcrumbs Plugin</title>
+        <!-- Your head content... -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <body>
+       
+        <!-- 1. UNIFIED & RESPONSIVE HEADER: This part will NOT scroll -->
+        <div class="px-6 py-4 border-b border-gray-200 
+                flex flex-col md:flex-row justify-between items-center gap-4">
         
-        console.log(`Successfully fetched a total of ${allResults.length} data source types.`);
-        return allResults;
-
-    } catch (error) {
-        console.error("An error occurred while fetching data source types:", error);
-        return []; // Return empty array on failure
-    }
-}
-
-/**
- * Fetches all data source types and creates a lookup map.
- * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
- *          key is the DataSourceTypeIID and the value is the Name.
- */
-async function createDataSourceTypeMap() {
-    // 1. Await the results from your fetching function
-    const allTypesArray = await getAllDataSourceTypes();
-
-    if (!allTypesArray || allTypesArray.length === 0) {
-        return new Map(); // Return an empty map if no data
-    }
-
-    // 2. Use reduce() to transform the array into a Map
-    const typeMap = allTypesArray.reduce((map, item) => {
-        // For each item in the array, add an entry to our map
-        // The key is item.DataSourceTypeIID, the value is item.Name
-        if (item.DataSourceTypeID && item.Name) {
-            map.set(item.DataSourceTypeID, item.Name);
-        }
-        return map; // Return the map for the next iteration
-    }, new Map()); // The 'new Map()' is the initial value for our accumulator
-
-    return typeMap;
-}
-
-/**
- * A generic helper function to make API requests using window.loomeApi.
- * It handles the try/catch block, API call, and JSON parsing.
- *
- * @param {number} apiId - The ID of the API endpoint to call.
- * @param {object} [params={}] - The parameters object to send with the request.
- * @param {string} [context='data'] - A descriptive string for logging errors, e.g., "data source types".
- * @returns {Promise<object|Array|null>} A promise that resolves to the parsed JSON response, or null on failure.
- */
-async function fetchApiData(apiId, params = {}, context = 'data') {
-    try {
-        const response = await window.loomeApi.runApiRequest(apiId, params);
-        const parsedResponse = safeParseJson(response);
+        <!-- Left Side: Title -->
+        <div>
+            <h4 id="dataSourceHeader" class="text-xl font-bold flex items-center">
+                Data Sources
+                <span id="dataSourceCount"
+                      class="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    <!-- Count goes here -->
+                </span>
+            </h4>
+        </div>
         
-        // It's good practice to check if the parsing itself failed
-        if (parsedResponse === null) {
-            console.error(`Failed to parse JSON response when fetching ${context}.`);
-            return null;
-        }
-        
-        return parsedResponse;
-    } catch (error) {
-        console.error(`An error occurred while fetching ${context}:`, error);
-        return null; // Return null to clearly indicate that the request failed
-    }
-}
-
-/**
- * Fetches all field values for a specific data source.
- * @param {number} dataSourceID - The ID of the data source.
- * @returns {Promise<Array|null>} A promise resolving to an array of field values, or null on failure.
- */
-async function getDataSourceFieldValueByDataSourceID(dataSourceID) {
-    const DATASOURCEFIELDVALUE_API_ID = 18;
-    const params = { "dataSourceID": dataSourceID };
-    const context = `field values for data source ${dataSourceID}`;
-    
-    // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
-}
-
-
-/**
- * Fetches a specific field value by its own ID.
- * @param {number} fieldID - The ID of the field.
- * @returns {Promise<object|null>} A promise resolving to a single field value object, or null on failure.
- */
-async function getFieldValueByFieldID(fieldID) {
-    const DATASOURCEFIELDVALUE_API_ID = 19;
-    const params = { "fieldID": fieldID };
-    const context = `field value for field ${fieldID}`;
-
-    // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, params, context);
-}
-/**
- * Renders pagination controls.
- * (This function NO LONGER adds event listeners).
- */
-function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    container.innerHTML = ''; // Clear old controls
-
-    if (totalPages <= 1) {
-        return; // No need for pagination.
-    }
-
-    // --- Previous Button ---
-    const prevDisabled = currentPage === 1;
-    let paginationHTML = `
-        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
-            Previous
-        </button>
-    `;
-
-    // --- Page Number Buttons ---
-    paginationHTML += '<div class="flex items-center gap-2">';
-    for (let i = 1; i <= totalPages; i++) {
-        const isActive = i === currentPage;
-        paginationHTML += `
-            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
-                ${i}
+        <!-- Right Side: Actions (Search & Button) -->
+        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <!-- Search Input -->
+            <div class="relative w-full sm:w-auto">
+                <input id="searchRequests" type="text" placeholder="Search data..." class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                <span class="material-symbols-outlined absolute right-3 top-2.5 text-gray-400">search</span>
+            </div>
+            <!-- Add Button -->
+            <button
+                id="addDatasourceBtn"
+                data-bs-toggle="modal"
+                data-bs-target="#addDatasourceModal"
+                class="w-full sm:w-auto px-6 py-2.5 bg-[#4EC4BC] hover:brightness-90 text-white font-medium rounded-lg transform transition-transform hover:scale-105 flex items-center justify-center gap-2"
+            >
+                <span class="material-symbols-outlined">add_link</span>
+                
+                Add a Data Source
             </button>
-        `;
-    }
-    paginationHTML += '</div>';
-
-    // --- Next Button ---
-    const nextDisabled = currentPage === totalPages;
-    paginationHTML += `
-        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
-            Next
-        </button>
-    `;
-
-    container.innerHTML = paginationHTML;
-}
-
-/**
- * Fetches data from the API for a specific page and search term, then updates the UI.
- * This is the central function for all data updates.
- * @param {number} page The page number to fetch.
- * @param {string} searchTerm The search term to filter by.
- */
-async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
-    try {
-        // --- 1. Call the API with pagination parameters ---
-        // NOTE: Your loomeApi.runApiRequest must support passing parameters.
-        // This is a hypothetical structure. Adjust it to how your API expects them.
-        const apiParams = {
-            "page": page,
-            "pageSize": rowsPerPage,
-            "search": searchTerm
-        };
-        console.log(apiParams)
-        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
-
+        </div>
+        </div>
         
-        const parsedResponse = safeParseJson(response);
-        console.log(parsedResponse)
-
-        // --- 2. Extract Data and Update State ---
-        const dataForPage = parsedResponse.Results;
-        const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
-        currentPage = parsedResponse.CurrentPage;
-        rowsPerPage = parsedResponse.PageSize;
-        
-        // --- 3. Filter using searchTerm ---
-        const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
-        const filteredData = lowerCaseSearchTerm
-            ? dataForPage.filter(item => 
-                Object.values(item).some(value =>
-                    String(value).toLowerCase().includes(lowerCaseSearchTerm)
-                )
-            )
-        : dataForPage;
-
-        // --- 4. Render the UI Components ---
-        // Render the table with only the data for the current page
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
-            renderAccordionContent: renderAccordionDetails 
-        });
-
-        // Render pagination using the TOTAL item count from the API
-        renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
-
-        // Update the total count display
-        const dataSourceCount = document.getElementById('dataSourceCount');
-        if(dataSourceCount) {
-            dataSourceCount.textContent = totalItems;
-        }
-
-    } catch (error) {
-        console.error("Failed to fetch or render page:", error);
-        const container = document.getElementById(TABLE_CONTAINER_ID);
-        container.innerHTML = `<div class="p-4 text-red-600">Error loading data: ${error.message}</div>`;
-    }
-}
-
-
-// --- 3. Define the Accordion Content Renderer ---
-const renderAccordionDetails = (item) => {
-    const dataSourceType = dataSourceTypeMap.get(item.DataSourceTypeID);
-    const dateModified = formatDate(item.ModifiedDate);
-    const dateRefreshed = formatDate(item.RefreshedDate);
-
-    return `
-    <div class="accordion-body bg-slate-50 m-6" data-id="${item.DataSourceID}">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-            <!-- LEFT COLUMN: Your existing detail fields -->
-            <div>
-                <table class="w-full text-sm">
-                    <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.Name}</span>
-                            <input type="text" value="${item.Name}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-                        </td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Description</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.Description || ''}</span>
-                            <textarea class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
-                        </td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
-                            <span class="view-state">${item.IsActive === 1 ? 'Yes' : 'No'}</span>
-                            <div class="edit-state hidden flex items-center">
-                                <input type="checkbox" ${item.IsActive === 1 ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-indigo-600">
-                                <label class="ml-2 block text-sm text-gray-900">Is Active</label>
-                            </div>
-                        </td></tr>
-                    </tbody>
-                </table>
+        <!-- 2. SCROLLABLE WRAPPER -->
+        <div class="flex-grow overflow-y-auto p-6">
+            <div id="requests-table-area">
+                 <!--The JavaScript will generate the table inside this div -->
             </div>
-            
-            <!-- RIGHT COLUMN: Static details + the placeholder -->
-            <div>
-                <table class="w-full text-sm mb-4">
-                     <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Type</td><td class="py-2 text-gray-900">${dataSourceType || 'N/A'}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Modified</td><td class="py-2 text-gray-900">${dateModified}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${dateRefreshed}</td></tr>
-                    </tbody>
-                </table>
-                <h4 class="text-sm font-semibold text-gray-600 mt-6 mb-2">Data Source Fields</h4>
-                
-                <!-- === PLACEHOLDER START === -->
-                <div id="dsf-container-${item.DataSourceID}" class="data-source-fields-container">
-                    <div class="text-center text-sm text-gray-500 p-4">Loading details...</div>
+            <!-- PAGINATION CONTROLS CONTAINER -->
+            <div id="pagination-controls" class="flex justify-between items-center mt-4 px-2">
+                <!-- The pagination buttons will be generated here -->
+            </div>
+        </div> <!-- End of the scrollable wrapper -->
+        
+        <!-- Modal Templates -->    
+        <div class="modal fade" id="addDatasourceModal" tabindex="-1" aria-labelledby="addDatasourceModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addDatasourceModalLabel">Add a Data Source</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="addDatasourceModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" id="modal-save-add-datasrc-button" class="btn btn-primary">Save</button>
+                    </div>
                 </div>
-                <!-- === PLACEHOLDER END === -->
             </div>
         </div>
-        
-        <!-- Action buttons remain the same -->
-        <div class="mt-6 text-right">
-            <div class="view-state">
-                <button class="btn-edit inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Edit</button>
-            </div>
-            <div class="edit-state hidden space-x-2">
-                <button class="btn-cancel inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancel</button>
-                <button class="btn-save inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">Save Changes</button>
-            </div>
-        </div>
-    </div>
-    `;
-};
-/**
- * Renders a generic data table based on a configuration object, with optional accordion rows.
- * @param {string} containerId - The ID of the element to render the table into.
- * @param {Array} headers - The array of header configuration objects.
- * @param {Array} data - The array of data objects to display.
- * @param {object} [config={}] - Optional configuration for advanced features.
- * @param {function(object): string} [config.renderAccordionContent] - A function that takes a data item and returns the HTML content for the accordion.
- */
-function renderTable(containerId, headers, data, config = {}) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.error(`Container with ID "${containerId}" not found.`);
-        return;
-    }
-    container.innerHTML = '';
-
-    const table = document.createElement('table');
-    table.className = 'w-full divide-y divide-gray-200';
-
-    // ... (The thead building logic is the same as before) ...
-    const thead = document.createElement('thead');
-    thead.className = 'bg-gray-50';
-    const headerRow = document.createElement('tr');
-    headers.forEach(headerConfig => {
-        const th = document.createElement('th');
-        th.scope = 'col';
-        let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ';
-        if (headerConfig.widthClass) {
-            thClasses += headerConfig.widthClass;
-        }
-        th.className = thClasses;
-        th.textContent = headerConfig.label;
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-
-    const tbody = document.createElement('tbody');
-    tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        const colSpan = headers.length || 1;
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
-    } else {
-        data.forEach((item, index) => {
-            const isAccordion = typeof config.renderAccordionContent === 'function';
-            const triggerRow = document.createElement('tr');
-            if (isAccordion) {
-                triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
-                const accordionId = `accordion-content-${item.id || index}`;
-                triggerRow.dataset.target = `#${accordionId}`;
-                
-                // This makes the ID available to our click event handler.
-            triggerRow.dataset.dataSourceId = item.DataSourceID;
-            }
-
-            // ... (The main row building logic is the same as before) ...
-             headers.forEach(headerConfig => {
-                const td = document.createElement('td');
-                let tdClasses = 'px-6 py-4 text-sm text-gray-800 ';
-                if (headerConfig.className) {
-                    tdClasses += headerConfig.className;
-                } else {
-                    tdClasses += 'whitespace-nowrap';
-                }
-                td.className = tdClasses;
-                let cellContent;
-                if (headerConfig.render) {
-                    const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
-                    cellContent = headerConfig.render(value);
-                } else {
-                    const value = item[headerConfig.key];
-                    cellContent = value ?? 'N/A';
-                }
-                if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
-                    td.innerHTML = cellContent;
-                } else {
-                    td.textContent = cellContent;
-                }
-                triggerRow.appendChild(td);
-            });
-
-
-            tbody.appendChild(triggerRow);
-
-            if (isAccordion) {
-                const contentRow = document.createElement('tr');
-                const accordionId = `accordion-content-${item.id || index}`;
-                contentRow.id = accordionId;
-                contentRow.className = 'accordion-content hidden';
-
-                const contentCell = document.createElement('td');
-                contentCell.colSpan = headers.length;
-                contentCell.innerHTML = config.renderAccordionContent(item);
-                
-                contentRow.appendChild(contentCell);
-                tbody.appendChild(contentRow);
-            }
-        });
-    }
-    table.appendChild(tbody);
-    container.appendChild(table);
-
-    // --- ENHANCED Event Listener ---
-    if (config.renderAccordionContent) {
-        tbody.addEventListener('click', function(event) {
-            const trigger = event.target.closest('.accordion-trigger');
-            const accordionBody = event.target.closest('.accordion-body');
-            
-            // --- Logic for Opening/Closing the Accordion ---
-            if (trigger && !accordionBody) {
-                event.preventDefault();
-                const targetId = trigger.dataset.target;
-                const contentRow = document.querySelector(targetId);
-                
-                if (contentRow) {
-                    const isOpening = contentRow.classList.contains('hidden');
-                    contentRow.classList.toggle('hidden');
-                    trigger.classList.toggle('expanded');
-                    const chevron = trigger.querySelector('.chevron-icon');
-                    if (chevron) chevron.classList.toggle('rotate-180');
-                    
-                    // === LAZY LOADING LOGIC START ===
-                    // If we are opening the row AND it has not been loaded yet
-                    if (isOpening && !contentRow.dataset.loaded) {
-                        (async () => {
-                            const dataSourceID = trigger.dataset.dataSourceId;
-                            const container = contentRow.querySelector(`#dsf-container-${dataSourceID}`);
-                            
-                            try {
-                                const fieldValue = await getDataSourceFieldValueByDataSourceID(dataSourceID);
-                                console.log(fieldValue)
-                                console.log(fieldValue.length)
-                                const fieldNames = await getFieldValueByFieldID(fieldValue.FieldID);
-                                console.log(fieldNames)
-                                let innerHtml = '';
-                                if (fieldValue && fieldNames) {
-                                    
-                                    innerHtml = `<table class="w-full text-sm bg-white rounded shadow-sm">
-                                            <thead class="bg-gray-100">
-                                                <tr>
-                                                    <th class="p-2 text-left font-medium text-gray-500 w-1/3">Name</th>
-                                                    <th class="p-2 text-left font-medium text-gray-500">Value</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td class="p-2 border-t">${fieldNames.Name || 'N/A'}</td>
-                                                    <td class="p-2 border-t">
-                                                        <span class="view-state">${fieldValue.Value || ''}</span>
-                                                        <input type="text" value="${fieldValue.Value || ''}" class="edit-state hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>`;
-                                } else {
-                                    innerHtml = `<div class="text-center text-sm text-gray-500 p-4">No data source fields found.</div>`;
-                                }
-                                
-                                container.innerHTML = innerHtml;
-                                contentRow.dataset.loaded = 'true'; // Mark as loaded!
-    
-                            } catch (error) {
-                                console.error("Failed to load data source fields:", error);
-                                container.innerHTML = `<div class="text-center text-sm text-red-500 p-4">Failed to load details.</div>`;
-                            }
-                        })();
-                    }
-                    // === LAZY LOADING LOGIC END ===
-            }
-            return;
-        }
-
-
-            // --- Logic for Buttons INSIDE the Accordion ---
-            const editButton = event.target.closest('.btn-edit');
-            const saveButton = event.target.closest('.btn-save');
-            const cancelButton = event.target.closest('.btn-cancel');
-
-            if (!editButton && !saveButton && !cancelButton) return;
-
-            event.stopPropagation(); // VERY IMPORTANT: Prevents the accordion from closing
-
-            const parentAccordion = event.target.closest('.accordion-body');
-            
-            // Function to toggle states
-            const toggleEditState = (isEditing) => {
-                const viewElements = parentAccordion.querySelectorAll('.view-state');
-                const editElements = parentAccordion.querySelectorAll('.edit-state');
-                
-                viewElements.forEach(el => el.classList.toggle('hidden', isEditing));
-                editElements.forEach(el => el.classList.toggle('hidden', !isEditing));
-            };
-
-            if (editButton) {
-                toggleEditState(true);
-            }
-
-            if (saveButton) {
-                // In a real app, you would get form data and send an AJAX request here.
-                alert('Save logic for ' + parentAccordion.dataset.id + ' would run here.');
-                // On success, switch back to view mode.
-                toggleEditState(false);
-            }
-
-            if (cancelButton) {
-                // Just switch back to view mode, optionally resetting form fields.
-                toggleEditState(false);
-            }
-        });
-    }
-}
-function formatDate(inputDate) {
-    // Log what the function receives
-    console.log(`formatDate received:`, inputDate, `(type: ${typeof inputDate})`);
-
-    if (!inputDate) {
-        // This will be triggered if inputDate is null, undefined, or an empty string ""
-        return 'N/A'; 
-    }
-
-    const date = new Date(inputDate);
-    
-    if (isNaN(date.getTime())) {
-        // This will be triggered if the date string is invalid, e.g., "hello world"
-        console.warn(`Could not parse invalid date:`, inputDate);
-        return 'N/A';
-    }
-    
-    const formattingOptions = {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    };
-    
-    // The only way this returns undefined is if the function exits before this line.
-    return date.toLocaleDateString('en-US', formattingOptions);
-}
-
-/**
- * Updates the UI and renders the correct table, optionally filtering the data.
- */
-function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
-
-    const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
-    const filteredData = lowerCaseSearchTerm
-        ? data.filter(item => 
-            Object.values(item).some(value =>
-                String(value).toLowerCase().includes(lowerCaseSearchTerm)
-            )
-        )
-        : data;
-
-    // --- 3. PAGINATION LOGIC (NEW!) ---
-    // Calculate the slice of data for the current page
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-
-    // --- 4. RENDER TABLE AND PAGINATION ---
-    // Render the table with ONLY the data for the current page
-    renderTable(tableContainerId, config.headers, paginatedData, {
-        renderAccordionContent: renderAccordionDetails 
-    });
-    
-    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
-}
-
-/**
- * Safely parses a response that might be a JSON string or an object.
- * @param {string | object} response The API response.
- * @returns {object}
- */
-function safeParseJson(response) {
-    return typeof response === 'string' ? JSON.parse(response) : response;
-}
-
-
-async function renderPlatformAdminDataSourcePage() {
-    // --- 1. Define the table configuration ---
-    // (Moved outside the try block so it's accessible to fetchAndRenderPage)
-    dataSourceTypeMap = await createDataSourceTypeMap();
-    
-    const tableConfig = {
-                headers: [
-                    { label: "Type", key: "DataSourceTypeID", className: "break-words", widthClass: "w-1/12", 
-                        render: (value) => dataSourceTypeMap.get(value)
-                        
-                    },
-                    { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
-                    { label: "Refreshed Date", key: "RefreshedDate", render: (value) => formatDate(value) },
-                    {
-                        label: "Active",
-                        key: "IsActive",
-                        render: (value) => value === 1 ? 'Yes' : 'No'
-                    },
-                    { key: 'Details', label: '', widthClass: 'w-12', 
-                      render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
-                    }
-                    
-                    
-                ]
-            };
-        
-
-    // --- 2. Set up Event Listeners ---
-    // The search input now calls fetchAndRenderPage
-    searchInput.addEventListener('input', () => {
-        // When a new search is performed, always go back to page 1
-        fetchAndRenderPage(tableConfig, 1, searchInput.value);
-    });
-
-    // The pagination container now calls fetchAndRenderPage
-    const paginationContainer = document.getElementById('pagination-controls');
-    paginationContainer.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-page]');
-        if (!button || button.disabled) {
-            return;
-        }
-        const newPage = parseInt(button.dataset.page, 10);
-        console.log('newPage')
-        console.log(newPage)
-        // Fetch the new page, preserving the current search term
-        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
-    });
-
-    // --- 3. Initial Page Load ---
-    // Make the first call to fetch page 1 with no search term.
-    await fetchAndRenderPage(tableConfig, 1, '');
-}
-
-
-renderPlatformAdminDataSourcePage()
+    </body>
+</html>
