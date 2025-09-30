@@ -1,6 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
+const API_UPDATE_DATASET_ID = 28;
 let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
@@ -12,6 +13,55 @@ const searchInput = document.getElementById('searchRequests');
 
 let showActive = true;
 let showInactive = false;
+
+/**
+ * Displays a temporary "toast" notification on the screen.
+ * @param {string} message - The message to display.
+ * @param {string} [type='success'] - The type of toast ('success', 'error', 'info').
+ * @param {number} [duration=3000] - How long the toast should be visible in milliseconds.
+ */
+function showToast(message, type = 'success', duration = 3000) {
+    // Create the toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.textContent = message;
+    
+    // Basic styling (add this to your CSS file for better results)
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    style.sheet.insertRule(`
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: sans-serif;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(-20px);
+        }
+    `);
+    style.sheet.insertRule('.toast-success { background-color: #28a745; }'); // Green
+    style.sheet.insertRule('.toast-error { background-color: #dc3545; }');   // Red
+    
+    // Append to body and trigger animation
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10); // A tiny delay to allow the CSS transition to work
+    
+    // Set a timer to remove the toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        // Remove the element from the DOM after the fade-out animation
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, duration);
+}
 
 /**
  * Renders pagination controls.
@@ -243,7 +293,17 @@ function renderTable(containerId, headers, data) {
         // Create details container
         const detailsContainer = document.createElement('div');
         detailsContainer.className = 'p-4 bg-gray-50';
-        
+        detailsContainer.dataset.id = item.DataSetID;
+        detailsContainer.dataset.dataSetColumns = item.DataSetColumns;
+        detailsContainer.dataset.dataSetFieldValues = item.DataSetFieldValues;
+        detailsContainer.dataset.dataSetFolders = item.DataSetFolders;
+        detailsContainer.dataset.dataSetMetaDataValues = item.DataSetMetaDataValues;
+        detailsContainer.dataset.datasourceId = item.DataSourceID;
+
+
+
+
+
         // Create a nicely formatted display of the dataset details
         detailsContainer.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -254,11 +314,17 @@ function renderTable(containerId, headers, data) {
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Name</h3>
-                        <p class="mt-1 text-sm text-gray-900">${item.Name || 'N/A'}</p>
+                        <div class="mt-1">
+                            <span class="view-state view-state-name text-sm text-gray-900">${item.Name || 'N/A'}</span>
+                            <input type="text" value="${item.Name || ''}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Description</h3>
-                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Description || 'No description available'}</p>
+                        <div class="mt-1">
+                            <span class="view-state view-state-description text-sm text-gray-900 break-words">${item.Description || 'No description available'}</span>
+                            <textarea class="edit-state edit-state-description hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Data Source ID</h3>
@@ -268,15 +334,27 @@ function renderTable(containerId, headers, data) {
                 <div class="space-y-3">
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Owner</h3>
-                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Owner || 'N/A'}</p>
+                        <div class="mt-1">
+                            <span class="view-state view-state-owner text-sm text-gray-900 break-words">${item.Owner || 'N/A'}</span>
+                            <input type="text" value="${item.Owner || ''}" class="edit-state edit-state-owner hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Approvers</h3>
-                        <p class="mt-1 text-sm text-gray-900 break-words">${item.Approvers || 'None'}</p>
+                        <div class="mt-1">
+                            <span class="view-state view-state-approvers text-sm text-gray-900 break-words">${item.Approvers || 'None'}</span>
+                            <input type="text" value="${item.Approvers || ''}" class="edit-state edit-state-approvers hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Active</h3>
-                        <p class="mt-1 text-sm text-gray-900">${item.IsActive !== undefined ? (item.IsActive ? 'Yes' : 'No') : 'N/A'}</p>
+                        <div class="mt-1">
+                            <span class="view-state view-state-isactive text-sm text-gray-900">${item.IsActive !== undefined ? (item.IsActive ? 'Yes' : 'No') : 'N/A'}</span>
+                            <div class="edit-state hidden flex items-center">
+                                <input type="checkbox" ${item.IsActive ? 'checked' : ''} class="edit-state-isactive h-4 w-4 rounded border-gray-300 text-indigo-600">
+                                <label class="ml-2 block text-sm text-gray-900">Is Active</label>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-gray-500">Last Modified</h3>
@@ -287,16 +365,26 @@ function renderTable(containerId, headers, data) {
                 ${item.OptOutList ? `
                 <div class="col-span-1 md:col-span-2">
                     <h3 class="text-sm font-medium text-gray-500">Opt-Out List</h3>
-                    <p class="mt-1 text-sm text-gray-900 whitespace-pre-line break-words">${item.OptOutList}</p>
+                    <div class="mt-1">
+                        <span class="view-state view-state-optoutlist text-sm text-gray-900 whitespace-pre-line break-words">${item.OptOutList}</span>
+                        <textarea class="edit-state edit-state-optoutlist hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.OptOutList || ''}</textarea>
+                    </div>
                 </div>` : ''}
                 
                 <div class="col-span-1 md:col-span-2 flex justify-end space-x-2 mt-4">
-                    <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 edit-dataset-btn" data-dataset-id="${item.DataSetID}">
-                        Edit Dataset
-                    </button>
-                    <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete" data-dataset-id="${item.DataSetID}" data-dataset-name="${item.Name}">
-                        Delete
-                    </button>
+                    <div class="view-state">
+                        <button class="btn-edit px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Edit Dataset
+                        </button>
+                    </div>
+                    <div class="edit-state hidden space-x-2">
+                        <button class="btn-cancel px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Cancel
+                        </button>
+                        <button class="btn-save px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Save Changes
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -304,9 +392,158 @@ function renderTable(containerId, headers, data) {
         accordionCell.appendChild(detailsContainer);
         accordionRow.appendChild(accordionCell);
         
-        // Add event listeners for the buttons
-        detailsContainer.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent row toggle when clicking inside details
+        // Add event listeners for edit/save/cancel buttons
+        detailsContainer.addEventListener('click', async (event) => {
+            const editButton = event.target.closest('.btn-edit');
+            const saveButton = event.target.closest('.btn-save');
+            const cancelButton = event.target.closest('.btn-cancel');
+            
+            if (!editButton && !saveButton && !cancelButton) return;
+            
+            event.stopPropagation();
+            
+            // Toggle between view and edit states
+            const toggleEditState = (isEditing) => {
+                detailsContainer.querySelectorAll('.view-state').forEach(el => el.classList.toggle('hidden', isEditing));
+                detailsContainer.querySelectorAll('.edit-state').forEach(el => el.classList.toggle('hidden', !isEditing));
+            };
+            
+            // Handle Edit button click
+            if (editButton) {
+                toggleEditState(true);
+            }
+            
+            // Handle Cancel button click
+            if (cancelButton) {
+                toggleEditState(false);
+            }
+            
+            // Handle Save button click
+            if (saveButton) {
+                const datasetId = detailsContainer.dataset.id;
+                const dataSetColumns = detailsContainer.dataset.dataSetColumns;
+                const dataSetFieldValues = detailsContainer.dataset.dataSetFieldValues;
+                const dataSetFolders = detailsContainer.dataset.dataSetFolders;
+                const dataSetMetaDataValues = detailsContainer.dataset.dataSetMetaDataValues;
+                const datasourceId = detailsContainer.dataset.datasourceId;
+                const saveBtn = saveButton;
+
+                console.log("DataSetID:", datasetId);
+                console.log("DataSetColumns:", dataSetColumns);
+                console.log("DataSetFieldValues:", dataSetFieldValues);
+                console.log("DataSetFolders:", dataSetFolders);
+                console.log("DataSetMetaDataValues:", dataSetMetaDataValues);
+                console.log("DataSourceID:", datasourceId);
+                
+                // Show saving state
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+                
+                try {
+                    // Gather data from form fields
+                    const updatedName = detailsContainer.querySelector('.edit-state-name').value;
+                    const updatedDescription = detailsContainer.querySelector('.edit-state-description').value;
+                    const updatedOwner = detailsContainer.querySelector('.edit-state-owner').value;
+                    const updatedApprovers = detailsContainer.querySelector('.edit-state-approvers').value;
+                    const updatedIsActive = detailsContainer.querySelector('.edit-state-isactive').checked;
+                    
+                    // Get opt-out column if it exists
+                    let updatedOptOutColumn = '';
+                    const optOutColumnElement = detailsContainer.querySelector('.edit-state-optoutcolumn');
+                    if (optOutColumnElement) {
+                        updatedOptOutColumn = optOutColumnElement.value;
+                    }
+
+                    // Get opt-out list if it exists
+                    let updatedOptOutList = '';
+                    const optOutListElement = detailsContainer.querySelector('.edit-state-optoutlist');
+                    if (optOutListElement) {
+                        updatedOptOutList = optOutListElement.value;
+                    }
+                    
+                    // Get opt-out message if it exists
+                    let updatedOptOutMessage = '';
+                    const optOutMessageElement = detailsContainer.querySelector('.edit-state-optoutmessage');
+                    if (optOutMessageElement) {
+                        updatedOptOutMessage = optOutMessageElement.value;
+                    }
+
+                    // Prepare update parameters
+                    const updateParams = {
+                        "name": updatedName,
+                        "description": updatedDescription,
+                        "owner": updatedOwner,
+                        "approver": updatedApprovers,
+                        "isActive": updatedIsActive,
+                        "optOutColumn": updatedOptOutColumn,
+                        "optOutList": updatedOptOutList,
+                        "optOutMessage": updatedOptOutMessage,
+                        "dataSetColumns": [],
+                        "dataSetFieldValues": [],
+                        "dataSetFolders": [],
+                        "dataSetMetaDataValues": [],
+                        "datasourceId": datasourceId,
+                        "id": datasetId
+                    };
+                    
+                    console.log("Raw update params:", updateParams);
+                    console.log("JSON stringified:", JSON.stringify(updateParams));
+
+                    // Call API to update dataset
+                    const updatedDataset = await window.loomeApi.runApiRequest(API_UPDATE_DATASET_ID, updateParams);
+                    
+                    // Handle successful update
+                    if (!updatedDataset) {
+                        throw new Error("API call succeeded but returned no data.");
+                    }
+                    
+                    showToast('Dataset updated successfully!');
+                    
+                    // Update the UI with new data
+                    detailsContainer.querySelector('.view-state-name').textContent = updatedDataset.Name || 'N/A';
+                    detailsContainer.querySelector('.view-state-description').textContent = updatedDataset.Description || 'No description available';
+                    detailsContainer.querySelector('.view-state-owner').textContent = updatedDataset.Owner || 'N/A';
+                    detailsContainer.querySelector('.view-state-approvers').textContent = updatedDataset.Approvers || 'None';
+                    detailsContainer.querySelector('.view-state-isactive').textContent = updatedDataset.IsActive ? 'Yes' : 'No';
+                    
+                    if (updatedDataset.OptOutList) {
+                        const optOutElement = detailsContainer.querySelector('.view-state-optoutlist');
+                        if (optOutElement) {
+                            optOutElement.textContent = updatedDataset.OptOutList;
+                        }
+                    }
+                    
+                    // Update the main row cells to reflect changes
+                    const mainRow = accordionRow.previousElementSibling;
+                    const nameCellIndex = headers.findIndex(h => h.key === 'Name') + 1; // +1 for expand button
+                    const descriptionCellIndex = headers.findIndex(h => h.key === 'Description') + 1;
+                    const ownerCellIndex = headers.findIndex(h => h.key === 'Owner') + 1;
+                    const activeCellIndex = headers.findIndex(h => h.key === 'IsActive') + 1;
+                    
+                    if (nameCellIndex > 0) mainRow.cells[nameCellIndex].textContent = updatedDataset.Name;
+                    if (descriptionCellIndex > 0) mainRow.cells[descriptionCellIndex].textContent = updatedDataset.Description;
+                    if (ownerCellIndex > 0) mainRow.cells[ownerCellIndex].textContent = updatedDataset.Owner;
+                    
+                    // For IsActive, we need to update the HTML since it uses a custom render function
+                    if (activeCellIndex > 0) {
+                        const activeCell = mainRow.cells[activeCellIndex];
+                        activeCell.innerHTML = updatedDataset.IsActive
+                            ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
+                            : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>`;
+                    }
+                    
+                    // Switch back to view mode
+                    toggleEditState(false);
+                    
+                } catch (error) {
+                    console.error('Failed to save:', error);
+                    showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+                } finally {
+                    // Reset button state
+                    saveBtn.textContent = 'Save Changes';
+                    saveBtn.disabled = false;
+                }
+            }
         });
         
         // Add event listener to toggle accordion
@@ -326,18 +563,6 @@ function renderTable(containerId, headers, data) {
     table.appendChild(tbody);
     container.appendChild(table);
     
-    // Add event listeners for action buttons after the table is added to the DOM
-    const deleteButtons = container.querySelectorAll('.action-delete');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const datasetId = button.dataset.datasetId;
-            const datasetName = button.dataset.datasetName;
-            if (confirm(`Are you sure you want to delete dataset "${datasetName}"?`)) {
-                deleteDataset(datasetId);
-            }
-        });
-    });
     
     const editButtons = container.querySelectorAll('.edit-dataset-btn');
     editButtons.forEach(button => {
@@ -405,23 +630,12 @@ function renderDatasetDetails(container, details, item) {
                 <button class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     Edit Dataset
                 </button>
-                <button class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 action-delete">
-                    Delete
-                </button>
             </div>
         </div>
     `;
     
     container.innerHTML = detailsHTML;
-    
-    // Add event listener for delete button
-    const deleteBtn = container.querySelector('.action-delete');
-    deleteBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm(`Are you sure you want to delete dataset "${item.Name}"?`)) {
-            deleteDataset(item.DataSetID);
-        }
-    });
+
 }
 
 
@@ -452,18 +666,6 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
-// Function to delete a dataset
-async function deleteDataset(datasetId) {
-    try {
-        await window.loomeApi.runApiRequest('DeleteDataset', { datasetId });
-        alert('Dataset deleted successfully');
-        // Refresh the table
-        fetchAndRenderPage(tableConfig, currentPage, searchTerm, STATUS_FILTER);
-    } catch (error) {
-        console.error('Error deleting dataset:', error);
-        alert(`Error deleting dataset: ${error.message}`);
-    }
-}
 /**
  * Updates the UI and renders the correct table, optionally filtering the data.
  */
