@@ -2,7 +2,7 @@
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
-const API_ADD_DATASET = 28
+const API_ADD_DATASET = 29
 let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
@@ -64,6 +64,40 @@ function showToast(message, type = 'success', duration = 3000) {
     }, duration);
 }
 
+// Add this validation helper function at the top with other utility functions
+function validateDataset(name, owner, approver, datasourceId) {
+    const errors = [];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Required field validation 
+    if (!name || name.trim() === '') {
+        errors.push('Dataset Name is required');
+    }
+    if (!owner || owner.trim() === '') {
+        errors.push('Owner Email is required'); 
+    }
+    if (!approver || approver.trim() === '') {
+        errors.push('Approver Email is required');
+    }
+    if (!datasourceId || datasourceId.trim() === '') {
+        errors.push('Data Source ID is required');
+    }
+
+    // Email validation
+    if (owner && !emailRegex.test(owner.trim())) {
+        errors.push('Owner must be a valid email address');
+    }
+    if (approver && !emailRegex.test(approver.trim())) {
+        errors.push('Approver must be a valid email address');
+    }
+
+    // Data Source ID validation
+    if (datasourceId && isNaN(parseInt(datasourceId))) {
+        errors.push('Data Source ID must be a number');
+    }
+
+    return errors;
+}
 /**
  * Renders pagination controls.
  * (This function NO LONGER adds event listeners).
@@ -768,70 +802,77 @@ async function renderPlatformAdminDataSetPage() {
         fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
     });
 
+    // Add button event listeners
     const saveNewDatasetBtn = document.getElementById('saveNewDatasetBtn');
     if (saveNewDatasetBtn) {
-        saveNewDatasetBtn.addEventListener('click', async () => {
+        saveNewDatasetBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const saveBtn = saveNewDatasetBtn;
+
             try {
-                // 1. Gather data from the form
+                // validation
                 const name = document.getElementById('newDatasetName').value;
-                const description = document.getElementById('newDatasetDescription').value;
                 const owner = document.getElementById('newDatasetOwner').value;
                 const approver = document.getElementById('newDatasetApprover').value;
-                const isActive = document.getElementById('newDatasetIsActive').checked;
-                const optOutColumn = document.getElementById('newDatasetOptOutColumn').value;
-                const optOutList = document.getElementById('newDatasetOptOutList').value;
-                const optOutMessage = document.getElementById('newDatasetOptOutMessage').value;
+                const datasourceId = document.getElementById('newDatasetDataSourceId').value;
 
-                // Simple validation
-                if (!name) {
-                    showToast('Dataset Name is required.', 'error');
+                const errors = validateDataset(name, owner, approver, datasourceId);
+                if (errors.length > 0) {
+                    showToast(errors.join('. '), 'error', 5000);
                     return;
                 }
 
-                // 2. Get the next available ID and construct the payload
-                const nextId = await getNextDatasetId();
+                // saving state
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+
+                // payload
                 const newDatasetPayload = {
-                    "id": nextId,
-                    "name": name,
-                    "description": description,
-                    "owner": owner,
-                    "approver": approver,
-                    "isActive": isActive,
-                    "optOutColumn": optOutColumn,
-                    "optOutList": optOutList,
-                    "optOutMessage": optOutMessage,
-                    "dataSetColumns": [],
-                    "dataSetFieldValues": [],
-                    "dataSetFolders": [],
-                    "dataSetMetaDataValues": [],
-                    "datasourceId": null
+                    name: name.trim(),
+                    description: document.getElementById('newDatasetDescription').value.trim(),
+                    owner: owner.trim(),
+                    approver: approver.trim(),
+                    isActive: document.getElementById('newDatasetIsActive').checked,
+                    optOutColumn: document.getElementById('newDatasetOptOutColumn').value.trim(),
+                    optOutList: document.getElementById('newDatasetOptOutList').value.trim(),
+                    optOutMessage: document.getElementById('newDatasetOptOutMessage').value.trim(),
+                    dataSetColumns: [],
+                    dataSetFieldValues: [],
+                    dataSetFolders: [],
+                    dataSetMetaDataValues: [],
+                    datasourceId: parseInt(datasourceId)
                 };
 
-                // 3. Call the API
+                console.log("Sending payload:", newDatasetPayload);
+
+                // API               
                 const response = await window.loomeApi.runApiRequest(API_ADD_DATASET, newDatasetPayload);
-                if (!response) {
-                    throw new Error("API call succeeded but returned no data.");
+                if (!response) throw new Error("Failed to add dataset - no response from server");
+
+                showToast('Dataset added successfully!');
+
+                // hide modal
+                const modalElement = document.getElementById('addDatasetModal');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modal.hide();
                 }
 
-                // 4. Handle success
-                showToast('Dataset added successfully!');
-                
-                // Hide the modal
-                const addModalEl = document.getElementById('addDatasetModal');
-                const addModalInstance = bootstrap.Modal.getInstance(addModalEl);
-                addModalInstance.hide();
-                document.getElementById('addDatasetForm').reset(); // Clear the form
+                // reset form
+                document.getElementById('addDatasetForm').reset();
 
-                // Refresh the table to show the new dataset
+                // refresh table
                 await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
 
             } catch (error) {
                 console.error('Failed to add dataset:', error);
-                showToast(`Error: ${error.message || 'Failed to add dataset.'}`, 'error');
+                showToast(`Error: ${error.message || 'Failed to save dataset'}`, 'error', 5000);
+            } finally {
+                saveBtn.textContent = 'Save Dataset';
+                saveBtn.disabled = false;
             }
         });
     }
-
     
     // Initialize button states
     updateFilterButtons();
@@ -840,11 +881,6 @@ async function renderPlatformAdminDataSetPage() {
     // Make the first call to fetch page 1 with no search term.
     await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
 
-    // // Add event listener for the Add Dataset button
-    // const addDatasetBtn = document.getElementById('addDatasetBtn');
-    // if (addDatasetBtn) {
-    //     addDatasetBtn.addEventListener('click', handleAddDataset);
-    // }
 }
 
 
@@ -917,45 +953,4 @@ async function getNextDatasetId() {
     }
 }
 
-/**
- * Handles adding a new dataset
- */
-// async function handleAddDataset() {
-//     try {
-//         // Get the next available dataset ID
-//         const nextId = await getNextDatasetId();
 
-//         // Default values for a new dataset
-//         const newDataset = {
-//             "name": "New Dataset",
-//             "description": "",
-//             "owner": "",
-//             "approver": "",
-//             "isActive": true,
-//             "optOutColumn": "",
-//             "optOutList": "",
-//             "optOutMessage": "",
-//             "dataSetColumns": [],
-//             "dataSetFieldValues": [],
-//             "dataSetFolders": [],
-//             "dataSetMetaDataValues": [],
-//             "datasourceId": null,
-//             "id": nextId
-//         };
-
-//         const response = await window.loomeApi.runApiRequest(API_ADD_DATASET, newDataset);
-        
-//         if (!response) {
-//             throw new Error("API call succeeded but returned no data.");
-//         }
-
-//         showToast('Dataset added successfully!');
-        
-//         // Refresh the table to show the new dataset
-//         await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
-
-//     } catch (error) {
-//         console.error('Failed to add dataset:', error);
-//         showToast(`Error: ${error.message || 'Failed to add dataset.'}`, 'error');
-//     }
-// }
