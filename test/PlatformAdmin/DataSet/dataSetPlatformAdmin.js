@@ -3,6 +3,7 @@ const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
 const API_ADD_DATASET = 29
+const API_GET_DATASOURCES = 5;
 let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
@@ -79,8 +80,8 @@ function validateDataset(name, owner, approver, datasourceId) {
     if (!approver || approver.trim() === '') {
         errors.push('Approver Email is required');
     }
-    if (!datasourceId || datasourceId.trim() === '') {
-        errors.push('Data Source ID is required');
+    if (!datasourceId || datasourceId === '') {
+        errors.push('Data Source is required');
     }
 
     // Email validation
@@ -89,11 +90,6 @@ function validateDataset(name, owner, approver, datasourceId) {
     }
     if (approver && !emailRegex.test(approver.trim())) {
         errors.push('Approver must be a valid email address');
-    }
-
-    // Data Source ID validation
-    if (datasourceId && isNaN(parseInt(datasourceId))) {
-        errors.push('Data Source ID must be a number');
     }
 
     return errors;
@@ -840,7 +836,7 @@ async function renderPlatformAdminDataSetPage() {
                     dataSetFieldValues: [],
                     dataSetFolders: [],
                     dataSetMetaDataValues: [],
-                    datasourceId: parseInt(datasourceId)
+                    datasourceId: document.getElementById('newDatasetDataSourceId').value,
                 };
 
                 console.log("Sending payload:", newDatasetPayload);
@@ -881,6 +877,8 @@ async function renderPlatformAdminDataSetPage() {
     // Make the first call to fetch page 1 with no search term.
     await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
 
+    // Populate data sources dropdown
+    await populateDataSourcesDropdown();
 }
 
 
@@ -952,5 +950,54 @@ async function getNextDatasetId() {
         throw new Error('Failed to determine next dataset ID');
     }
 }
+
+/**
+ * Fetches and populates the data sources dropdown
+ */
+async function populateDataSourcesDropdown() {
+    try {
+        const response = await window.loomeApi.runApiRequest(API_GET_DATASOURCES, {
+            "page": 1,
+            "pageSize": 1000, // Large enough to get all data sources
+            "search": ""
+        });
+
+        const parsedResponse = safeParseJson(response);
+        const dataSources = parsedResponse.Results;
+
+        const dropdown = document.getElementById('newDatasetDataSourceId');
+        
+        // Clear existing options except the first one
+        dropdown.innerHTML = '<option value="">Select a Data Source</option>';
+
+        // Sort data sources by name
+        dataSources.sort((a, b) => a.Name.localeCompare(b.Name));
+
+        // Add data sources to dropdown
+        dataSources.forEach(source => {
+            const option = document.createElement('option');
+            option.value = source.DataSourceID;
+            option.textContent = source.Name;
+            if (source.Description) {
+                option.title = source.Description; // Add tooltip with description
+            }
+            dropdown.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error('Failed to load data sources:', error);
+        showToast('Failed to load data sources', 'error');
+    }
+}
+
+// Add in the renderPlatformAdminDataSetPage function
+const addDatasetModal = document.getElementById('addDatasetModal');
+
+// Initialize dropdown when modal opens
+addDatasetModal.addEventListener('show.bs.modal', async () => {
+    await populateDataSourcesDropdown();
+    saveNewDatasetBtn.textContent = 'Save Dataset';
+    saveNewDatasetBtn.disabled = false;
+});
 
 

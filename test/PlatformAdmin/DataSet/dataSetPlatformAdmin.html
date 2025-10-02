@@ -110,10 +110,12 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="newDatasetDataSourceId" class="form-label">Data Source ID</label>
-                                <input type="number" step="1" min="0" class="form-control" id="newDatasetDataSourceId" required>
+                                <label for="newDatasetDataSourceId" class="form-label">Data Source</label>
+                                <select class="form-select form-select-md" id="newDatasetDataSourceId" required>
+                                    <option value="" disabled selected>Select a Data Source</option>
+                                </select>
                                 <div class="invalid-feedback">
-                                    Please enter a valid whole number (e.g., 101).
+                                    Please select a Data Source.
                                 </div>
                             </div>
 
