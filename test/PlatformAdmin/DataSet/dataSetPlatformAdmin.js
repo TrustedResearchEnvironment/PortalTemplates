@@ -2,6 +2,7 @@
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
+const API_ADD_DATASET = 28
 let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
@@ -767,12 +768,83 @@ async function renderPlatformAdminDataSetPage() {
         fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
     });
 
+    const saveNewDatasetBtn = document.getElementById('saveNewDatasetBtn');
+    if (saveNewDatasetBtn) {
+        saveNewDatasetBtn.addEventListener('click', async () => {
+            try {
+                // 1. Gather data from the form
+                const name = document.getElementById('newDatasetName').value;
+                const description = document.getElementById('newDatasetDescription').value;
+                const owner = document.getElementById('newDatasetOwner').value;
+                const approver = document.getElementById('newDatasetApprover').value;
+                const isActive = document.getElementById('newDatasetIsActive').checked;
+                const optOutColumn = document.getElementById('newDatasetOptOutColumn').value;
+                const optOutList = document.getElementById('newDatasetOptOutList').value;
+                const optOutMessage = document.getElementById('newDatasetOptOutMessage').value;
+
+                // Simple validation
+                if (!name) {
+                    showToast('Dataset Name is required.', 'error');
+                    return;
+                }
+
+                // 2. Get the next available ID and construct the payload
+                const nextId = await getNextDatasetId();
+                const newDatasetPayload = {
+                    "id": nextId,
+                    "name": name,
+                    "description": description,
+                    "owner": owner,
+                    "approver": approver,
+                    "isActive": isActive,
+                    "optOutColumn": optOutColumn,
+                    "optOutList": optOutList,
+                    "optOutMessage": optOutMessage,
+                    "dataSetColumns": [],
+                    "dataSetFieldValues": [],
+                    "dataSetFolders": [],
+                    "dataSetMetaDataValues": [],
+                    "datasourceId": null
+                };
+
+                // 3. Call the API
+                const response = await window.loomeApi.runApiRequest(API_ADD_DATASET, newDatasetPayload);
+                if (!response) {
+                    throw new Error("API call succeeded but returned no data.");
+                }
+
+                // 4. Handle success
+                showToast('Dataset added successfully!');
+                
+                // Hide the modal
+                const addModalEl = document.getElementById('addDatasetModal');
+                const addModalInstance = bootstrap.Modal.getInstance(addModalEl);
+                addModalInstance.hide();
+                document.getElementById('addDatasetForm').reset(); // Clear the form
+
+                // Refresh the table to show the new dataset
+                await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
+
+            } catch (error) {
+                console.error('Failed to add dataset:', error);
+                showToast(`Error: ${error.message || 'Failed to add dataset.'}`, 'error');
+            }
+        });
+    }
+
+    
     // Initialize button states
     updateFilterButtons();
 
     // --- 3. Initial Page Load ---
     // Make the first call to fetch page 1 with no search term.
     await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
+
+    // // Add event listener for the Add Dataset button
+    // const addDatasetBtn = document.getElementById('addDatasetBtn');
+    // if (addDatasetBtn) {
+    //     addDatasetBtn.addEventListener('click', handleAddDataset);
+    // }
 }
 
 
@@ -813,3 +885,77 @@ function updateFilterButtons() {
         STATUS_FILTER = 1;
     }
 }
+
+/**
+ * Gets the maximum dataset ID from the current data
+ * @param {Array} data Array of datasets
+ * @returns {number} The next available dataset ID
+ */
+async function getNextDatasetId() {
+    try {
+        // Call API to get all datasets
+        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, {
+            "activeStatus": 3, // Get both active and inactive datasets
+            "page": 1,
+            "pageSize": 1000, // Large enough to get all datasets
+            "search": ""
+        });
+
+        const parsedResponse = safeParseJson(response);
+        const datasets = parsedResponse.Results;
+
+        if (!datasets || !datasets.length) {
+            return 1; // Start with ID 1 if no datasets exist
+        }
+
+        // Find the maximum DataSetID
+        const maxId = Math.max(...datasets.map(dataset => dataset.DataSetID));
+        return maxId + 1;
+    } catch (error) {
+        console.error('Error getting next dataset ID:', error);
+        throw new Error('Failed to determine next dataset ID');
+    }
+}
+
+/**
+ * Handles adding a new dataset
+ */
+// async function handleAddDataset() {
+//     try {
+//         // Get the next available dataset ID
+//         const nextId = await getNextDatasetId();
+
+//         // Default values for a new dataset
+//         const newDataset = {
+//             "name": "New Dataset",
+//             "description": "",
+//             "owner": "",
+//             "approver": "",
+//             "isActive": true,
+//             "optOutColumn": "",
+//             "optOutList": "",
+//             "optOutMessage": "",
+//             "dataSetColumns": [],
+//             "dataSetFieldValues": [],
+//             "dataSetFolders": [],
+//             "dataSetMetaDataValues": [],
+//             "datasourceId": null,
+//             "id": nextId
+//         };
+
+//         const response = await window.loomeApi.runApiRequest(API_ADD_DATASET, newDataset);
+        
+//         if (!response) {
+//             throw new Error("API call succeeded but returned no data.");
+//         }
+
+//         showToast('Dataset added successfully!');
+        
+//         // Refresh the table to show the new dataset
+//         await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
+
+//     } catch (error) {
+//         console.error('Failed to add dataset:', error);
+//         showToast(`Error: ${error.message || 'Failed to add dataset.'}`, 'error');
+//     }
+// }
