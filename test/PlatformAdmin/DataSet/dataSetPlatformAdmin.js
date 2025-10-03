@@ -4,6 +4,8 @@ const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
 const API_ADD_DATASET = 29
 const API_GET_DATASOURCES = 5;
+const API_GET_DATASOURCEFIELDVALUES = 18;
+const API_GET_FIELDS = 19;
 let STATUS_FILTER = 1; // Default to showing only active items
 
 // --- STATE MANAGEMENT ---
@@ -997,31 +999,100 @@ async function populateDataSourcesDropdown() {
 }
 
 // Add this new function
-function updateDataSourceFields(selectedSource, dataSources) {
+async function updateDataSourceFields(selectedSource, dataSources) {
     const container = document.getElementById('dataSourceFieldContainer');
     container.innerHTML = ''; // Clear existing fields
     
-    // Find the selected data source
-    const dataSource = dataSources.find(ds => ds.DataSourceID.toString() === selectedSource);
-    
-    if (dataSource && dataSource.Fields) {
-        container.style.display = 'block';
-        
-        // Get the first key-value pair from Fields
-        const fieldKey = Object.keys(dataSource.Fields)[0];
-        
-        // Create the field
-        container.innerHTML = `
-            <label for="dataSourceField" class="form-label">${fieldKey}</label>
-            <input type="text" 
-                   class="form-control" 
-                   id="dataSourceField" 
-                   name="dataSourceField"
-                   value="${dataSource.Fields[fieldKey] || ''}"
-            >
-        `;
-    } else {
+    try {
+        // 1. Get field values for the selected data source
+        const fieldValuesResponse = await window.loomeApi.runApiRequest(API_GET_DATASOURCEFIELDVALUES, {
+            dataSourceId: selectedSource
+        });
+        const allFieldValues = safeParseJson(fieldValuesResponse);
+
+        // Filter field values for only this data source
+        const fieldValues = allFieldValues.filter(fv => 
+            fv.DataSourceID.toString() === selectedSource.toString()
+        );
+
+        // 2. Get all fields
+        const fieldsResponse = await window.loomeApi.runApiRequest(API_GET_FIELDS, {});
+        const fields = safeParseJson(fieldsResponse);
+
+        if (fieldValues.length > 0 && fields) {
+            container.style.display = 'block';
+            
+            // Get the field value entry
+            const fieldValue = fieldValues[0]; // Take the first one since we should only have one per data source
+            const field = fields.find(f => f.FieldID === fieldValue.FieldID);
+
+            if (field) {
+                // Create input with label using field name
+                container.innerHTML = `
+                    <label for="dataSourceField" class="form-label">${field.Name}</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="dataSourceField" 
+                           name="dataSourceField"
+                           value="${fieldValue.Value || ''}"
+                           placeholder="Enter ${field.Name}">
+                `;
+            }
+        } else {
+            container.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Failed to load field values:', error);
+        showToast('Failed to load field values', 'error');
         container.style.display = 'none';
+    }
+}
+
+// Update the dropdown change event listener in populateDataSourcesDropdown
+async function populateDataSourcesDropdown() {
+    try {
+        const response = await window.loomeApi.runApiRequest(API_GET_DATASOURCES, {
+            "page": 1,
+            "pageSize": 1000, // Large enough to get all data sources
+            "search": ""
+        });
+
+        const parsedResponse = safeParseJson(response);
+        const dataSources = parsedResponse.Results;
+
+        const dropdown = document.getElementById('newDatasetDataSourceId');
+        
+        // Clear existing options except the first one
+        dropdown.innerHTML = '<option value="">Select a Data Source</option>';
+
+        // Sort data sources by name
+        dataSources.sort((a, b) => a.Name.localeCompare(b.Name));
+
+        // Add data sources to dropdown
+        dataSources.forEach(source => {
+            const option = document.createElement('option');
+            option.value = source.DataSourceID;
+            option.textContent = source.Name;
+            if (source.Description) {
+                option.title = source.Description; // Add tooltip with description
+            }
+            dropdown.appendChild(option);
+        });
+
+        // Add change event listener
+        dropdown.addEventListener('change', async (e) => {
+            if (e.target.value) {
+                await updateDataSourceFields(e.target.value, dataSources);
+            } else {
+                const container = document.getElementById('dataSourceFieldContainer');
+                container.style.display = 'none';
+                container.innerHTML = '';
+            }
+        });
+
+    } catch (error) {
+        console.error('Failed to load data sources:', error);
+        showToast('Failed to load data sources', 'error');
     }
 }
 
