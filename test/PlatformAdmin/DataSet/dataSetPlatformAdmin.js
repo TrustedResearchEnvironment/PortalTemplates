@@ -837,6 +837,7 @@ async function renderPlatformAdminDataSetPage() {
                     dataSetFolders: [],
                     dataSetMetaDataValues: [],
                     datasourceId: document.getElementById('newDatasetDataSourceId').value,
+                    datasourceField: document.getElementById('dataSourceField')?.value || '',
                 };
 
                 console.log("Sending payload:", newDatasetPayload);
@@ -984,9 +985,43 @@ async function populateDataSourcesDropdown() {
             dropdown.appendChild(option);
         });
 
+        // Add change event listener
+        dropdown.addEventListener('change', (e) => {
+            updateDataSourceFields(e.target.value, dataSources);
+        });
+
     } catch (error) {
         console.error('Failed to load data sources:', error);
         showToast('Failed to load data sources', 'error');
+    }
+}
+
+// Add this new function
+function updateDataSourceFields(selectedSource, dataSources) {
+    const container = document.getElementById('dataSourceFieldContainer');
+    container.innerHTML = ''; // Clear existing fields
+    
+    // Find the selected data source
+    const dataSource = dataSources.find(ds => ds.DataSourceID.toString() === selectedSource);
+    
+    if (dataSource && dataSource.Fields) {
+        container.style.display = 'block';
+        
+        // Get the first key-value pair from Fields
+        const fieldKey = Object.keys(dataSource.Fields)[0];
+        
+        // Create the field
+        container.innerHTML = `
+            <label for="dataSourceField" class="form-label">${fieldKey}</label>
+            <input type="text" 
+                   class="form-control" 
+                   id="dataSourceField" 
+                   name="dataSourceField"
+                   value="${dataSource.Fields[fieldKey] || ''}"
+            >
+        `;
+    } else {
+        container.style.display = 'none';
     }
 }
 
