@@ -3,15 +3,17 @@ const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
 const API_ADD_DATASET = 29
-// --- MODIFICATION START ---
 // Added new constants for the database connection logic
 const DBCONNECTION_API_ID = 30; // API ID to fetch database connection details
 const DATABASE_CONNECTION_TYPE_ID = 1; // The ID for the "Database Connection" DataSourceType
-// --- MODIFICATION END ---
 const API_GET_DATASOURCES = 5;
 const API_GET_DATASOURCEFIELDVALUES = 18;
 const API_GET_FIELDS = 19;
 let STATUS_FILTER = 1; // Default to showing only active items
+// For DataSource Folder logic
+const DATASOURCEFOLDER_API_ID = 31; // API ID to fetch data source folder details
+const DATASOURCEFOLDER_TYPE_ID = 3; // The ID for the "DataSource Folders" DataSourceType
+
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -716,6 +718,37 @@ async function updateDataSourceFields(selectedSourceId, dataSourceTypeId) {
                 container.style.display = 'block';
             } else {
                 showToast('No tables found for this database connection.', 'info');
+            }
+        } else if (typeId === DATASOURCEFOLDER_TYPE_ID) {
+            // Logic for DataSource Folder types
+            // Fetch all folder sources, as the API returns an array.
+            const allFolderSources = safeParseJson(await window.loomeApi.runApiRequest(DATASOURCEFOLDER_API_ID, {}));
+
+            // Find the specific source that matches the user's selection.
+            const targetSource = allFolderSources.find(source => source.DataSourceId.toString() === selectedSourceId.toString());
+
+            // Check if the source was found and if it has any folders.
+            if (targetSource && targetSource.Folders && targetSource.Folders.length > 0) {
+                // Map the array of folder objects to an array of HTML <option> strings.
+                const optionsHTML = targetSource.Folders.map(folder => 
+                    `<option value="${folder.FolderName}">${folder.FolderName}</option>`
+                ).join(''); // Join the array of strings into a single HTML string.
+
+                // Populate the container with a dropdown <select> element.
+                container.innerHTML = `
+                    <label for="dataSourceFolderSelect" class="form-label">Folder Name</label>
+                    <select class="form-select" id="dataSourceFolderSelect" name="dataSourceFolderSelect">
+                        <option value="" disabled selected>Select a Folder</option>
+                        ${optionsHTML}
+                    </select>
+                `;
+                // Make the container visible.
+                container.style.display = 'block';
+            } else {
+                // If no folders are found for the selected source, inform the user and hide the container.
+                showToast('No folders found for this data source.', 'info');
+                container.innerHTML = '';
+                container.style.display = 'none';
             }
         } else {
             // Fallback logic for all other data source types
