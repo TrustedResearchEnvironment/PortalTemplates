@@ -1,15 +1,29 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_DATASOURCE_ID = 5
+const API_REQUEST_ID = 10;
+const API_UPDATE_DATASET_ID = 28;
+const API_ADD_DATASET = 29
+// Added new constants for the database connection logic
+const DBCONNECTION_API_ID = 30; // API ID to fetch database connection details
+const DATABASE_CONNECTION_TYPE_ID = 1; // The ID for the "Database Connection" DataSourceType
+const API_GET_DATASOURCES = 5;
+const API_GET_DATASOURCEFIELDVALUES = 18;
+const API_GET_FIELDS = 19;
+let STATUS_FILTER = 1; // Default to showing only active items
+// For DataSource Folder logic
+const DATASOURCEFOLDER_API_ID = 31; // API ID to fetch data source folder details
+const DATASOURCEFOLDER_TYPE_ID = 3; // The ID for the "DataSource Folders" DataSourceType
+
+
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
 let rowsPerPage = 5; // Default, will be updated by API response
-let totalPages = 1;
 let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
 
-let dataSourceTypeMap = new Map();
+let showActive = true;
+let showInactive = false;
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -22,8 +36,8 @@ function showToast(message, type = 'success', duration = 3000) {
     const toast = document.createElement('div');
     toast.className = `toast-notification toast-${type}`;
     toast.textContent = message;
-
-    // Basic styling (add this to your CSS file for better results)
+    
+    // Basic styling
     const style = document.createElement('style');
     document.head.appendChild(style);
     style.sheet.insertRule(`
@@ -43,14 +57,14 @@ function showToast(message, type = 'success', duration = 3000) {
     `);
     style.sheet.insertRule('.toast-success { background-color: #28a745; }'); // Green
     style.sheet.insertRule('.toast-error { background-color: #dc3545; }');   // Red
-
+    
     // Append to body and trigger animation
     document.body.appendChild(toast);
     setTimeout(() => {
         toast.style.opacity = '1';
         toast.style.transform = 'translateY(0)';
     }, 10); // A tiny delay to allow the CSS transition to work
-
+    
     // Set a timer to remove the toast
     setTimeout(() => {
         toast.style.opacity = '0';
@@ -60,294 +74,41 @@ function showToast(message, type = 'success', duration = 3000) {
     }, duration);
 }
 
-/**
- * Gathers all data from the "Add Data Source" modal form.
- * It handles both static fields and dynamically generated fields.
- *
- * @param {HTMLElement} formElement - The <form> element to read data from.
- * @returns {object | null} An object containing the structured form data, or null if the form is not found.
- */
-function getDataSourceFormData(formElement) {
-    if (!formElement) {
-        console.error("Form element not provided to getDataSourceFormData.");
-        return null;
+// Validation helper function at the top with other utility functions
+function validateDataset(name, owner, approver, datasourceId) {
+    const errors = [];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Required field validation 
+    if (!name || name.trim() === '') {
+        errors.push('Dataset Name is required');
+    }
+    if (!owner || owner.trim() === '') {
+        errors.push('Owner Email is required'); 
+    }
+    if (!approver || approver.trim() === '') {
+        errors.push('Approver Email is required');
+    }
+    if (!datasourceId || datasourceId === '') {
+        errors.push('Data Source is required');
     }
 
-    // --- 1. Get values from the STATIC fields ---
-    // We use .value for text inputs/textareas and .checked for checkboxes.
-    const name = formElement.querySelector('#dataSourceName').value;
-    const description = formElement.querySelector('#dataSourceDescription').value;
-    const isActive = formElement.querySelector('#dataSourceActive').checked;
-    
-    // For the <select>, we get the value of the selected <option>.
-    const dataSourceTypeID = formElement.querySelector('#dataSourceType').value;
-
-    // --- 2. Get values from the DYNAMICALLY generated fields ---
-    // Initialize an empty object to hold the key-value pairs.
-    const fields = {};
-
-    // Find the input with the class 'dynamic-field'.
-    const dynamicFieldInput = formElement.querySelector('.dynamic-field');
-    const fieldName = dynamicFieldInput.name;
-    const fieldValue = dynamicFieldInput.value;
-
-
-    // --- 3. Combine everything into a final payload object ---
-    // This structure is designed to match your Pydantic "Create" model.
-    const formData = {
-        "name": name,
-        "description": description,
-        "isActive": isActive,
-        "dataSourceTypeID": dataSourceTypeID,//parseInt(dataSourceTypeID, 10), // Convert the string value to an integer
-        "fieldName": fieldName,
-        "fieldValue": fieldValue
-    };
-
-    return formData;
-}
-
-function AddDataSource(typeNamesList, allFields) {
-    // Get the modal's body element
-    const modalBody = document.getElementById('addDatasourceModalBody');
-    console.log("IN add data source")
-
-    // This can now support multiple fields per type if needed.
-    const typeIdToFieldIdMap = {
-        1: [1], // 3], // Database type -> "Database Connection" and "Table Name"
-        2: [4],// 5], // REDCap API type -> "API URL" and "API Key"
-        3: [2]     // Folder type -> "UNC Path"
-    };
-
-    // Generate the HTML string for the <option> elements.
-    // We use map() to transform each name in the list into an <option> tag.
-    // The `index` is used to create a simple value (1, 2, 3, etc.).
-    const optionsHtml = typeNamesList.map((typeName, index) => {
-        // In a real app, you'd likely use an ID from your data source type object
-        // for the value, but index + 1 works for this example.
-        return `<option value="${index + 1}">${typeName}</option>`;
-    }).join(''); // .join('') concatenates all the strings in the array into one big string.
-
-
-    // Populate the modal body with the provided HTML content (your markup)
-    modalBody.innerHTML = `
-                <form id="addDataSourceForm">
-                  <div class="mb-3">
-                    <label for="dataSourceName" class="form-label">Name</label>
-                    <input type="text" class="form-control" id="dataSourceName" placeholder="Name for this Data Source" required>
-                  </div>
-                  
-                  <div class="mb-3">
-                    <label for="dataSourceDescription" class="form-label">Description</label>
-                    <textarea class="form-control" id="dataSourceDescription" rows="2" placeholder="Description of this Data Source"></textarea>
-                  </div>
-
-                  <div class="mb-3">
-                      <label for="dataSourceType" class="form-label">Data Source Type</label>
-                      <select class="form-select" id="dataSourceType" required>
-                          <option value="" selected disabled>Select a Type...</option>
-                          ${optionsHtml}
-                      </select>
-                  </div>
-
-                  <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" value="" id="dataSourceActive" checked>
-                    <label class="form-check-label" for="dataSourceActive">Active</label>
-                  </div>
-
-                  <hr>
-                  
-                  <h6 class="mb-3">Data Source Fields</h6>
-                  <div id="dataSourceFieldsContainer">
-                    <p class="text-muted">Please select a Data Source Type to see the required fields.</p>
-                  </div>
-                </form>
-              </div>
-              
-            
-            
-    `;
-
-    // --- 4. FIND the elements we need to work with ---
-    const typeSelect = modalBody.querySelector('#dataSourceType');
-    const fieldsContainer = modalBody.querySelector('#dataSourceFieldsContainer');
-
-    // --- 5. CREATE the event handler function ---
-    const handleTypeChange = (event) => {
-        const selectedTypeId = event.target.value;
-
-        // Get the list of required FieldIDs for this type from our map
-        const requiredFieldIds = typeIdToFieldIdMap[selectedTypeId] || [];
-
-        if (requiredFieldIds.length > 0) {
-            // Find the full field objects that match the required IDs
-            const fieldsToRender = allFields.filter(field => requiredFieldIds.includes(field.FieldID));
-            
-            // Generate the HTML for the table rows
-            const fieldRowsHtml = fieldsToRender.map(field => `
-                <tr>
-                    <td>${field.Name}</td>
-                    <td>
-                        <input type="text" 
-                               class="form-control form-control-sm dynamic-field" 
-                               data-field-id="${field.FieldID}"
-                               name="${field.Name}" 
-                               placeholder="Enter value for ${field.Name}">
-                    </td>
-                </tr>
-            `).join('');
-
-            // Inject the full table structure into the container
-            fieldsContainer.innerHTML = `
-                <table class="table table-sm table-bordered">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 40%;">Name</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${fieldRowsHtml}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            // If no fields are required, show the placeholder text
-            fieldsContainer.innerHTML = '<p class="text-muted">Please select a Data Source Type to see the required fields.</p>';
-        }
-    };
-
-    // --- 6. ATTACH the event listener to the dropdown ---
-    typeSelect.addEventListener('change', handleTypeChange);
-
-    
-    
-}
-
-/**
- * Fetches ALL DataSourceTypes from the paginated API.
- * This is a self-contained function that returns the results.
- * @param {number} [pageSize=100] - The number of items per page.
- * @returns {Promise<Array>} A promise that resolves to an array of all data source types.
- */
-async function getAllDataSourceTypes(pageSize = 100) {
-    const DATASOURCETYPE_API_ID = 13;
-    let allResults = []; // Use a local variable to store results
-
-    try {
-        // --- 1. Initial request ---
-        const initialParams = { "page": 1, "pageSize": pageSize, "search": '' };
-        const initialResponse = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, initialParams);
-        const parsedInitial = safeParseJson(initialResponse);
-
-        if (!parsedInitial || parsedInitial.RowCount === 0) {
-            console.log("No data source types found.");
-            return []; // Return an empty array if there's no data
-        }
-
-        allResults = parsedInitial.Results;
-        const totalPages = parsedInitial.PageCount;
-
-        // If only one page, we're done
-        if (totalPages <= 1) {
-            return allResults;
-        }
-
-        // --- 2. Loop for remaining pages ---
-        for (let page = 2; page <= totalPages; page++) {
-            console.log(`Fetching page ${page} of ${totalPages}...`);
-            const params = { "page": page, "pageSize": pageSize, "search": '' };
-            // FIXED BUG: Use the correct API ID in the loop
-            const response = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, params);
-            const parsed = safeParseJson(response);
-            if (parsed && parsed.Results) {
-                allResults = allResults.concat(parsed.Results);
-            }
-        }
-        
-        console.log(`Successfully fetched a total of ${allResults.length} data source types.`);
-        return allResults;
-
-    } catch (error) {
-        console.error("An error occurred while fetching data source types:", error);
-        return []; // Return empty array on failure
+    // Email validation
+    if (owner && !emailRegex.test(owner.trim())) {
+        errors.push('Owner must be a valid email address');
     }
-}
-
-/**
- * Fetches all data source types and creates a lookup map.
- * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
- *          key is the DataSourceTypeIID and the value is the Name.
- */
-async function createDataSourceTypeMap(allTypesArray) {
-
-    if (!allTypesArray || allTypesArray.length === 0) {
-        return new Map(); // Return an empty map if no data
+    if (approver && !emailRegex.test(approver.trim())) {
+        errors.push('Approver must be a valid email address');
     }
 
-    // 2. Use reduce() to transform the array into a Map
-    const typeMap = allTypesArray.reduce((map, item) => {
-        // For each item in the array, add an entry to our map
-        // The key is item.DataSourceTypeIID, the value is item.Name
-        if (item.DataSourceTypeID && item.Name) {
-            map.set(item.DataSourceTypeID, item.Name);
-        }
-        return map; // Return the map for the next iteration
-    }, new Map()); // The 'new Map()' is the initial value for our accumulator
-
-    return typeMap;
+    return errors;
 }
-
 /**
- * A generic helper function to make API requests using window.loomeApi.
- * It handles the try/catch block, API call, and JSON parsing.
- *
- * @param {number} apiId - The ID of the API endpoint to call.
- * @param {object} [params={}] - The parameters object to send with the request.
- * @param {string} [context='data'] - A descriptive string for logging errors, e.g., "data source types".
- * @returns {Promise<object|Array|null>} A promise that resolves to the parsed JSON response, or null on failure.
+ * Renders pagination controls.
  */
-async function fetchApiData(apiId, params = {}, context = 'data') {
-    try {
-        const response = await window.loomeApi.runApiRequest(apiId, params);
-        const parsedResponse = safeParseJson(response);
-        
-        // It's good practice to check if the parsing itself failed
-        if (parsedResponse === null) {
-            console.error(`Failed to parse JSON response when fetching ${context}.`);
-            return null;
-        }
-        
-        return parsedResponse;
-    } catch (error) {
-        console.error(`An error occurred while fetching ${context}:`, error);
-        return null; // Return null to clearly indicate that the request failed
-    }
-}
-
-
-
-/**
- * Fetches a specific field value by its own ID.
- * @param {number} fieldID - The ID of the field.
- * @returns {Promise<object|null>} A promise resolving to a single field value object, or null on failure.
- */
-async function getAllFields(fieldID) {
-    const DATASOURCEFIELDVALUE_API_ID = 19;
-
-    // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, {});
-}
-
-/**
-* Renders a compact and functional set of pagination controls.
-* Includes First, Previous, Next, Last buttons and a page input field.
-*/
 function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     const container = document.getElementById(containerId);
-    if (!container) {
-        console.error(`Pagination container with ID "${containerId}" not found.`);
-        return;
-    }
+    if (!container) return;
 
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     container.innerHTML = ''; // Clear old controls
@@ -356,90 +117,62 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
         return; // No need for pagination.
     }
 
-    // --- Determine button states ---
-    const isFirstPage = currentPage === 1;
-    const isLastPage = currentPage === totalPages;
-    const commonButtonClasses = "px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100";
-    const disabledClasses = "opacity-50 cursor-not-allowed";
-
-    // --- Build the HTML string ---
+    // --- Previous Button ---
+    const prevDisabled = currentPage === 1;
     let paginationHTML = `
-        <div class="flex items-center gap-2">
-            <!-- First Page Button -->
-            <button data-page="1" 
-                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
-                    ${isFirstPage ? 'disabled' : ''}>
-                First
-            </button>
-            <!-- Previous Page Button -->
-            <button data-page="${currentPage - 1}" 
-                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
-                    ${isFirstPage ? 'disabled' : ''}>
-                Previous
-            </button>
-        </div>
+        <button data-page="${currentPage - 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>
+            Previous
+        </button>
+    `;
 
-        <!-- Page number input and display -->
-        <div class="flex items-center gap-2 text-sm text-gray-700">
-            <span>Page</span>
-            <input type="number" 
-                   id="page-input" 
-                   class="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
-                   value="${currentPage}" 
-                   min="1" 
-                   max="${totalPages}" 
-                   aria-label="Current page">
-            <span>of ${totalPages}</span>
-        </div>
+    // --- Page Number Buttons ---
+    paginationHTML += '<div class="flex items-center gap-2">';
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = i === currentPage;
+        paginationHTML += `
+            <button data-page="${i}" class="px-4 py-2 text-sm font-medium ${isActive ? 'text-white bg-blue-600' : 'text-gray-700 bg-white'} border border-gray-300 rounded-lg hover:bg-gray-100">
+                ${i}
+            </button>
+        `;
+    }
+    paginationHTML += '</div>';
 
-        <div class="flex items-center gap-2">
-            <!-- Next Page Button -->
-            <button data-page="${currentPage + 1}" 
-                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}" 
-                    ${isLastPage ? 'disabled' : ''}>
-                Next
-            </button>
-            <!-- Last Page Button -->
-            <button data-page="${totalPages}" 
-                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}" 
-                    ${isLastPage ? 'disabled' : ''}>
-                Last
-            </button>
-        </div>
+    // --- Next Button ---
+    const nextDisabled = currentPage === totalPages;
+    paginationHTML += `
+        <button data-page="${currentPage + 1}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>
+            Next
+        </button>
     `;
 
     container.innerHTML = paginationHTML;
 }
+
 /**
  * Fetches data from the API for a specific page and search term, then updates the UI.
  * This is the central function for all data updates.
  * @param {number} page The page number to fetch.
  * @param {string} searchTerm The search term to filter by.
  */
-async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
+async function fetchAndRenderPage(tableConfig, page, searchTerm = '', statusFilter) {
     try {
         // --- 1. Call the API with pagination parameters ---
-        // NOTE: Your loomeApi.runApiRequest must support passing parameters.
-        // This is a hypothetical structure. Adjust it to how your API expects them.
         const apiParams = {
+            "activeStatus": statusFilter,
             "page": page,
             "pageSize": rowsPerPage,
             "search": searchTerm
         };
         console.log(apiParams)
-        // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(API_DATASOURCE_ID, apiParams);
 
-        
+        const response = await window.loomeApi.runApiRequest(API_REQUEST_ID, apiParams);
         const parsedResponse = safeParseJson(response);
-        console.log(parsedResponse)
-
+        
         // --- 2. Extract Data and Update State ---
         const dataForPage = parsedResponse.Results;
-        const totalItems = parsedResponse.RowCount; // The TOTAL count from the server!
+        const totalItems = parsedResponse.RowCount; 
         currentPage = parsedResponse.CurrentPage;
         rowsPerPage = parsedResponse.PageSize;
-        totalPages = Math.ceil(totalItems / rowsPerPage);
         
         // --- 3. Filter using searchTerm ---
         const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
@@ -452,18 +185,12 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         : dataForPage;
 
         // --- 4. Render the UI Components ---
-        // Render the table with only the data for the current page
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
-            renderAccordionContent: renderAccordionDetails 
-        });
-
-        // Render pagination using the TOTAL item count from the API
+        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData);
         renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
 
-        // Update the total count display
-        const dataSourceCount = document.getElementById('dataSourceCount');
-        if(dataSourceCount) {
-            dataSourceCount.textContent = totalItems;
+        const dataSetCount = document.getElementById('dataSetCount');
+        if(dataSetCount) {
+            dataSetCount.textContent = totalItems;
         }
 
     } catch (error) {
@@ -473,374 +200,326 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
     }
 }
 
-
-
-const renderAccordionDetails = (item) => {
-    const dataSourceType = dataSourceTypeMap.get(item.DataSourceTypeID);
-    const dateModified = formatDate(item.ModifiedDate);
-    const dateRefreshed = formatDate(item.RefreshedDate);
-
-    // --- NEW: Logic to build the fields table HTML ---
-    let fieldsTableHtml = '';
-    // Check if item.Fields exists and is not an empty object
-    if (item.Fields && Object.keys(item.Fields).length > 0) {
-        // Use Object.entries to iterate over key-value pairs
-        const fieldRows = Object.entries(item.Fields).map(([key, value]) => `
-            <tr>
-                <td class="p-2 border-t">${key}</td>
-                <td class="p-2 border-t">
-                    <span class="view-state view-state-field" data-field-name="${key}">${value || ''}</span>
-                    <input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
-                </td>
-            </tr>
-        `).join(''); // Join the array of HTML strings into one string
-
-        fieldsTableHtml = `
-            <table class="w-full text-sm bg-white rounded shadow-sm">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="p-2 text-left font-medium text-gray-500 w-1/3">Name</th>
-                        <th class="p-2 text-left font-medium text-gray-500">Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${fieldRows}
-                </tbody>
-            </table>
-        `;
-    } else {
-        fieldsTableHtml = `<div class="text-center text-sm text-gray-500 p-4">No data source fields found.</div>`;
+/**
+ * Renders a generic data table based on a configuration object.
+ * @param {string} containerId - The ID of the element to render the table into.
+ * @param {Array} headers - The array of header configuration objects.
+ * @param {Array} data - The array of data objects to display.
+ */
+function renderTable(containerId, headers, data) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container with ID '${containerId}' not found`);
+        return;
     }
-    // --- END of new logic ---
+    
+    container.innerHTML = '';
+    
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        container.innerHTML = '<div class="text-center py-4">No data available</div>';
+        return;
+    }
+    
+    const table = document.createElement('table');
+    table.className = 'w-full divide-y divide-gray-200 table-fixed';
+    
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-50';
+    
+    const headerRow = document.createElement('tr');
+    
+    const expandHeader = document.createElement('th');
+    expandHeader.className = 'w-10 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+    headerRow.appendChild(expandHeader);
+    
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        let thClasses = 'px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        if (header.widthClass) {
+            thClasses += ` ${header.widthClass}`;
+        }
+        th.className = thClasses;
+        th.textContent = header.label;
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
+    
+    data.forEach(item => {
+        const row = document.createElement('tr');
+        row.className = 'cursor-pointer hover:bg-gray-50';
+        
+        const expandCell = document.createElement('td');
+        expandCell.className = 'px-3 py-4 whitespace-nowrap w-10';
+        
+        const chevronButton = document.createElement('button');
+        chevronButton.className = 'transition-transform duration-200 ease-in-out';
+        chevronButton.innerHTML = '<svg class="w-5 h-5 chevron-icon" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>';
+        
+        expandCell.appendChild(chevronButton);
+        row.appendChild(expandCell);
+        
+        headers.forEach(header => {
+            const cell = document.createElement('td');
+            let tdClasses = 'px-3 py-4';
+            
+            if (header.className) {
+                tdClasses += ` ${header.className}`;
+            } else {
+                tdClasses += ' break-words';
+            }
+            
+            tdClasses += ' truncate';
+            cell.className = tdClasses;
+            
+            const value = item[header.key];
+            
+            if (header.render && value !== undefined) {
+                cell.innerHTML = header.render(value);
+            } else {
+                cell.textContent = value !== undefined ? value : '';
+            }
+            
+            if (typeof value === 'string') {
+                cell.title = value;
+            }
+            
+            row.appendChild(cell);
+        });
+        
+        const accordionRow = document.createElement('tr');
+        accordionRow.classList.add('hidden', 'accordion-row');
+        
+        const accordionCell = document.createElement('td');
+        accordionCell.colSpan = headers.length + 1;
+        accordionCell.className = 'p-0';
+        
+        const detailsContainer = document.createElement('div');
+        detailsContainer.className = 'p-4 bg-gray-50';
+        detailsContainer.dataset.id = item.DataSetID;
+        detailsContainer.dataset.dataSetColumns = item.DataSetColumns;
+        detailsContainer.dataset.dataSetFieldValues = item.DataSetFieldValues;
+        detailsContainer.dataset.dataSetFolders = item.DataSetFolders;
+        detailsContainer.dataset.dataSetMetaDataValues = item.DataSetMetaDataValues;
+        detailsContainer.dataset.datasourceId = item.DataSourceID;
 
-    return `
-    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceID}">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-            <!-- LEFT COLUMN: Remains the same -->
-            <div>
-                 <table class="w-full text-sm">
-                    <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
-                            <span class="view-state view-state-name">${item.Name}</span>
-                            <input type="text" value="${item.Name}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-                        </td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Description</td><td class="py-2 text-gray-900">
-                            <span class="view-state view-state-description">${item.Description || ''}</span>
+        detailsContainer.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-3">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Dataset ID</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.DataSetID || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Name</h3>
+                        <div class="mt-1">
+                            <span class="view-state view-state-name text-sm text-gray-900">${item.Name || 'N/A'}</span>
+                            <input type="text" value="${item.Name || ''}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Description</h3>
+                        <div class="mt-1">
+                            <span class="view-state view-state-description text-sm text-gray-900 break-words">${item.Description || 'No description available'}</span>
                             <textarea class="edit-state edit-state-description hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.Description || ''}</textarea>
-                        </td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
-                            <span class="view-state view-state-isactive">${item.IsActive ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Data Source ID</h3>
+                        <p class="mt-1 text-sm text-gray-900">${item.DataSourceID !== undefined ? item.DataSourceID : 'N/A'}</p>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Owner</h3>
+                        <div class="mt-1">
+                            <span class="view-state view-state-owner text-sm text-gray-900 break-words">${item.Owner || 'N/A'}</span>
+                            <input type="text" value="${item.Owner || ''}" class="edit-state edit-state-owner hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Approvers</h3>
+                        <div class="mt-1">
+                            <span class="view-state view-state-approvers text-sm text-gray-900 break-words">${item.Approvers || 'None'}</span>
+                            <input type="text" value="${item.Approvers || ''}" class="edit-state edit-state-approvers hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Active</h3>
+                        <div class="mt-1">
+                            <span class="view-state view-state-isactive text-sm text-gray-900">${item.IsActive !== undefined ? (item.IsActive ? 'Yes' : 'No') : 'N/A'}</span>
                             <div class="edit-state hidden flex items-center">
                                 <input type="checkbox" ${item.IsActive ? 'checked' : ''} class="edit-state-isactive h-4 w-4 rounded border-gray-300 text-indigo-600">
                                 <label class="ml-2 block text-sm text-gray-900">Is Active</label>
                             </div>
-                        </td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- RIGHT COLUMN -->
-            <div>
-                <table class="w-full text-sm mb-4">
-                     <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Type</td><td class="py-2 text-gray-900">${dataSourceType || 'N/A'}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Modified</td><td class="py-2 text-gray-900">${dateModified}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${dateRefreshed}</td></tr>
-                    </tbody>
-                </table>
-                <h4 class="text-sm font-semibold text-gray-600 mt-6 mb-2">Data Source Fields</h4>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Last Modified</h3>
+                        <p class="mt-1 text-sm text-gray-900">${formatDate(item.ModifiedDate)}</p>
+                    </div>
+                </div>
                 
-                <!-- The placeholder is GONE, replaced by the generated HTML -->
-                <div class="data-source-fields-container">
-                    ${fieldsTableHtml}
+                ${item.OptOutList ? `
+                <div class="col-span-1 md:col-span-2">
+                    <h3 class="text-sm font-medium text-gray-500">Opt-Out List</h3>
+                    <div class="mt-1">
+                        <span class="view-state view-state-optoutlist text-sm text-gray-900 whitespace-pre-line break-words">${item.OptOutList}</span>
+                        <textarea class="edit-state edit-state-optoutlist hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" rows="3">${item.OptOutList || ''}</textarea>
+                    </div>
+                </div>` : ''}
+                
+                <div class="col-span-1 md:col-span-2 flex justify-end space-x-2 mt-4">
+                    <div class="view-state">
+                        <button class="btn-edit px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Edit Dataset
+                        </button>
+                    </div>
+                    <div class="edit-state hidden space-x-2">
+                        <button class="btn-cancel px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Cancel
+                        </button>
+                        <button class="btn-save px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Save Changes
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        `;
         
-        <!-- Action buttons remain the same -->
-        <div class="mt-6 text-right">
-            <div class="view-state">
-                <button class="btn-edit inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Edit</button>
-            </div>
-            <div class="edit-state hidden space-x-2">
-                <button class="btn-cancel inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancel</button>
-                <button class="btn-save inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">Save Changes</button>
-            </div>
-        </div>
-    </div>
-    `;
-};
-
-
-// This is the simplified renderTable function.
-// All the async logic in the event listener has been removed.
-
-function renderTable(containerId, headers, data, config = {}) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.error(`Container with ID "${containerId}" not found.`);
-        return;
-    }
-    container.innerHTML = '';
-    const table = document.createElement('table');
-    table.className = 'w-full divide-y divide-gray-200';
-    
-    // ... (thead creation is the same) ...
-    const thead = document.createElement('thead');
-    thead.className = 'bg-gray-50';
-    const headerRow = document.createElement('tr');
-    headers.forEach(headerConfig => {
-        const th = document.createElement('th');
-        th.scope = 'col';
-        let thClasses = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ';
-        if (headerConfig.widthClass) {
-            thClasses += headerConfig.widthClass;
-        }
-        th.className = thClasses;
-        th.textContent = headerConfig.label;
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-
-    const tbody = document.createElement('tbody');
-    tbody.className = 'bg-white divide-y divide-gray-200';
-
-    if (data.length === 0) {
-        // ... (no data message is the same) ...
-        const colSpan = headers.length || 1;
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="px-6 py-4 text-center text-sm text-gray-500">No data found.</td></tr>`;
-
-    } else {
-        data.forEach((item, index) => {
-            const isAccordion = typeof config.renderAccordionContent === 'function';
-            const triggerRow = document.createElement('tr');
-            if (isAccordion) {
-                triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
-                // Use a more robust unique ID
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
-                triggerRow.dataset.target = `#${accordionId}`;
-            }
-            
-            // ... (main row creation is the same) ...
-            headers.forEach(headerConfig => {
-                const td = document.createElement('td');
-                let tdClasses = 'px-6 py-4 text-sm text-gray-800 ';
-                if (headerConfig.className) {
-                    tdClasses += headerConfig.className;
-                } else {
-                    tdClasses += 'whitespace-nowrap';
-                }
-                td.className = tdClasses;
-                let cellContent;
-                if (headerConfig.render) {
-                    const value = headerConfig.key === 'actions' ? item : item[headerConfig.key];
-                    cellContent = headerConfig.render(value);
-                } else {
-                    const value = item[headerConfig.key];
-                    cellContent = value ?? 'N/A';
-                }
-                if (typeof cellContent === 'string' && cellContent.startsWith('<')) {
-                    td.innerHTML = cellContent;
-                } else {
-                    td.textContent = cellContent;
-                }
-                triggerRow.appendChild(td);
-            });
-            tbody.appendChild(triggerRow);
-
-            if (isAccordion) {
-                const contentRow = document.createElement('tr');
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
-                contentRow.id = accordionId;
-                contentRow.className = 'accordion-content hidden';
-                
-                const contentCell = document.createElement('td');
-                contentCell.colSpan = headers.length;
-                // The render function is called here with the full item, including 'Fields'
-                contentCell.innerHTML = config.renderAccordionContent(item);
-                
-                contentRow.appendChild(contentCell);
-                tbody.appendChild(contentRow);
-            }
-        });
-    }
-    table.appendChild(tbody);
-    container.appendChild(table);
-
-    // --- SIMPLIFIED Event Listener ---
-    if (config.renderAccordionContent) {
-        tbody.addEventListener('click', async (event) => {
-            const trigger = event.target.closest('.accordion-trigger');
-            const accordionBody = event.target.closest('.accordion-body');
-            
-            // --- Logic for Opening/Closing the Accordion ---
-            if (trigger && !accordionBody) {
-                event.preventDefault();
-                const targetId = trigger.dataset.target;
-                const contentRow = document.querySelector(targetId);
-                if (contentRow) {
-                    contentRow.classList.toggle('hidden');
-                    trigger.classList.toggle('expanded');
-                    const chevron = trigger.querySelector('.chevron-icon');
-                    if (chevron) chevron.classList.toggle('rotate-180');
-                }
-                return;
-            }
-
-            // --- Logic for Edit/Save/Cancel Buttons (remains the same) ---
+        accordionCell.appendChild(detailsContainer);
+        accordionRow.appendChild(accordionCell);
+        
+        detailsContainer.addEventListener('click', async (event) => {
             const editButton = event.target.closest('.btn-edit');
             const saveButton = event.target.closest('.btn-save');
             const cancelButton = event.target.closest('.btn-cancel');
             
             if (!editButton && !saveButton && !cancelButton) return;
+            
             event.stopPropagation();
             
-            const parentAccordion = event.target.closest('.accordion-body');
             const toggleEditState = (isEditing) => {
-                parentAccordion.querySelectorAll('.view-state').forEach(el => el.classList.toggle('hidden', isEditing));
-                parentAccordion.querySelectorAll('.edit-state').forEach(el => el.classList.toggle('hidden', !isEditing));
+                detailsContainer.querySelectorAll('.view-state').forEach(el => el.classList.toggle('hidden', isEditing));
+                detailsContainer.querySelectorAll('.edit-state').forEach(el => el.classList.toggle('hidden', !isEditing));
             };
             
-            if (editButton) toggleEditState(true);
-
+            if (editButton) {
+                toggleEditState(true);
+            }
+            
+            if (cancelButton) {
+                toggleEditState(false);
+            }
+            
             if (saveButton) {
-                // Stop the click from propagating and closing the accordion
-                event.stopPropagation();
-                
-                // Get the button that was clicked and its parent accordion
+                const datasetId = detailsContainer.dataset.id;
+                const datasourceId = detailsContainer.dataset.datasourceId;
                 const saveBtn = saveButton;
-                const accordionBody = saveBtn.closest('.accordion-body');
-                const dataSourceId = accordionBody.dataset.id; // Using .dataset.id
-
-                // Show a "saving..." state for better UX
+                
                 saveBtn.textContent = 'Saving...';
                 saveBtn.disabled = true;
-
+                
                 try {
-                    // --- 1. Gather Data from the Form ---
-                    // Use document.querySelector to find elements within the accordionBody
-                    const updatedName = accordionBody.querySelector('.edit-state-name').value;
-                    const updatedDescription = accordionBody.querySelector('.edit-state-description').value;
-                    const updatedIsActive = accordionBody.querySelector('.edit-state-isactive').checked;
-
-                    // Gather all dynamic field values into a dictionary
-                    //const updatedFields = {};
-                    const dynamicFieldInput = accordionBody.querySelector('.edit-state-field');
-                    const fieldName = dynamicFieldInput.dataset.fieldName;
-                    const fieldValue = dynamicFieldInput.value;
-                    // accordionBody.querySelectorAll('.edit-state-field').forEach(input => {
-                    //     const fieldName = input.dataset.fieldName; // using .dataset
-                    //     const fieldValue = input.value;
-                    //     updatedFields[fieldName] = fieldValue;
-                    // });
-
-                    // --- 2. Send Request to the Endpoint using fetch ---
+                    const updatedName = detailsContainer.querySelector('.edit-state-name').value;
+                    const updatedDescription = detailsContainer.querySelector('.edit-state-description').value;
+                    const updatedOwner = detailsContainer.querySelector('.edit-state-owner').value;
+                    const updatedApprovers = detailsContainer.querySelector('.edit-state-approvers').value;
+                    const updatedIsActive = detailsContainer.querySelector('.edit-state-isactive').checked;
+                    
+                    let updatedOptOutList = '';
+                    const optOutListElement = detailsContainer.querySelector('.edit-state-optoutlist');
+                    if (optOutListElement) {
+                        updatedOptOutList = optOutListElement.value;
+                    }
+                    
                     const updateParams = {
-                        "data_source_id": dataSourceId ,
-                        "description":  updatedDescription,
-                        "isActive":  updatedIsActive,
-                        "name":  updatedName,
-                        "fieldName": fieldName,
-                        "fieldValue": fieldValue
+                        "name": updatedName,
+                        "description": updatedDescription,
+                        "owner": updatedOwner,
+                        "approver": updatedApprovers,
+                        "isActive": updatedIsActive,
+                        "optOutList": updatedOptOutList,
+                        "dataSetColumns": [],
+                        "dataSetFieldValues": [],
+                        "dataSetFolders": [],
+                        "dataSetMetaDataValues": [],
+                        "datasourceId": datasourceId,
+                        "id": datasetId
                     };
-                    const updatedDataSource = await window.loomeApi.runApiRequest(21, updateParams);
-
-                    // --- 3. Handle the Server's Response ---
-                    if (!updatedDataSource) {
-                        // Handle cases where the API might return an empty or null response on success
+                    
+                    const updatedDataset = await window.loomeApi.runApiRequest(API_UPDATE_DATASET_ID, updateParams);
+                    
+                    if (!updatedDataset) {
                         throw new Error("API call succeeded but returned no data.");
                     }
-                    console.log(updatedDataSource)
-                    showToast('Data Source edited successfully!');
-
-                    // --- 4. Update the UI with the New Data ---
-                    accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
-                    accordionBody.querySelector('.view-state-description').textContent = updatedDataSource.Description;
-                    accordionBody.querySelector('.view-state-isactive').textContent = updatedDataSource.IsActive ? 'Yes' : 'No';
-
-                    // Update the dynamic fields
-                    for (const [fieldName, fieldValue] of Object.entries(updatedDataSource.Fields)) {
-                        const fieldSpan = accordionBody.querySelector(`.view-state-field[data-field-name="${fieldName}"]`);
-                        if (fieldSpan) {
-                            fieldSpan.textContent = fieldValue;
+                    
+                    showToast('Dataset updated successfully!');
+                    
+                    detailsContainer.querySelector('.view-state-name').textContent = updatedDataset.Name || 'N/A';
+                    detailsContainer.querySelector('.view-state-description').textContent = updatedDataset.Description || 'No description available';
+                    detailsContainer.querySelector('.view-state-owner').textContent = updatedDataset.Owner || 'N/A';
+                    detailsContainer.querySelector('.view-state-approvers').textContent = updatedDataset.Approvers || 'None';
+                    detailsContainer.querySelector('.view-state-isactive').textContent = updatedDataset.IsActive ? 'Yes' : 'No';
+                    
+                    if (updatedDataset.OptOutList) {
+                        const optOutElement = detailsContainer.querySelector('.view-state-optoutlist');
+                        if (optOutElement) {
+                            optOutElement.textContent = updatedDataset.OptOutList;
                         }
                     }
-
-                    // Finally, switch back to view mode by calling your existing function
+                    
+                    const mainRow = accordionRow.previousElementSibling;
+                    const nameCellIndex = headers.findIndex(h => h.key === 'Name') + 1;
+                    const descriptionCellIndex = headers.findIndex(h => h.key === 'Description') + 1;
+                    const ownerCellIndex = headers.findIndex(h => h.key === 'Owner') + 1;
+                    const activeCellIndex = headers.findIndex(h => h.key === 'IsActive') + 1;
+                    
+                    if (nameCellIndex > 0) mainRow.cells[nameCellIndex].textContent = updatedDataset.Name;
+                    if (descriptionCellIndex > 0) mainRow.cells[descriptionCellIndex].textContent = updatedDataset.Description;
+                    if (ownerCellIndex > 0) mainRow.cells[ownerCellIndex].textContent = updatedDataset.Owner;
+                    
+                    if (activeCellIndex > 0) {
+                        const activeCell = mainRow.cells[activeCellIndex];
+                        activeCell.innerHTML = updatedDataset.IsActive
+                            ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
+                            : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>`;
+                    }
+                    
                     toggleEditState(false);
-
+                    
                 } catch (error) {
                     console.error('Failed to save:', error);
                     showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
                 } finally {
-                    // Reset the button back to its original state
                     saveBtn.textContent = 'Save Changes';
                     saveBtn.disabled = false;
                 }
             }
-
-            if (cancelButton) toggleEditState(false);
         });
-    }
+        
+        row.addEventListener('click', () => {
+            chevronButton.querySelector('.chevron-icon').classList.toggle('rotate-180');
+            accordionRow.classList.toggle('hidden');
+        });
+        
+        tbody.appendChild(row);
+        tbody.appendChild(accordionRow);
+    });
+    
+    table.appendChild(tbody);
+    container.appendChild(table);
 }
 
 function formatDate(inputDate) {
-    // Log what the function receives
-    console.log(`formatDate received:`, inputDate, `(type: ${typeof inputDate})`);
-
-    if (!inputDate) {
-        // This will be triggered if inputDate is null, undefined, or an empty string ""
-        return 'N/A'; 
-    }
-
+    if (!inputDate) return 'N/A';
     const date = new Date(inputDate);
-    
-    if (isNaN(date.getTime())) {
-        // This will be triggered if the date string is invalid, e.g., "hello world"
-        console.warn(`Could not parse invalid date:`, inputDate);
-        return 'N/A';
-    }
-    
-    const formattingOptions = {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    };
-    
-    // The only way this returns undefined is if the function exits before this line.
-    return date.toLocaleDateString('en-US', formattingOptions);
-}
-
-/**
- * Updates the UI and renders the correct table, optionally filtering the data.
- */
-function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
-
-    const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
-    const filteredData = lowerCaseSearchTerm
-        ? data.filter(item => 
-            Object.values(item).some(value =>
-                String(value).toLowerCase().includes(lowerCaseSearchTerm)
-            )
-        )
-        : data;
-
-    // --- 3. PAGINATION LOGIC (NEW!) ---
-    // Calculate the slice of data for the current page
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-
-    // --- 4. RENDER TABLE AND PAGINATION ---
-    // Render the table with ONLY the data for the current page
-    renderTable(tableContainerId, config.headers, paginatedData, {
-        renderAccordionContent: renderAccordionDetails 
-    });
-    
-    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 /**
@@ -852,191 +531,297 @@ function safeParseJson(response) {
     return typeof response === 'string' ? JSON.parse(response) : response;
 }
 
-
-async function renderPlatformAdminDataSourcePage() {
-    // --- 1. Define the table configuration ---
-    // (Moved outside the try block so it's accessible to fetchAndRenderPage)
-    // 1. Await the results from your fetching function
-    const allTypesArray = await getAllDataSourceTypes();
-    dataSourceTypeMap = await createDataSourceTypeMap(allTypesArray);
-
-    const typeNamesList = allTypesArray.map(item => item.Name);
-
-    const fields = await getAllFields();
-    console.log('Fields:');
-    console.log(fields);
-
+async function renderPlatformAdminDataSetPage() {
     const tableConfig = {
-                headers: [
-                    { label: "Type", key: "DataSourceTypeID", className: "break-words", widthClass: "w-1/12", 
-                        render: (value) => dataSourceTypeMap.get(value)
-                        
-                    },
-                    { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
-                    { label: "Refreshed Date", key: "RefreshedDate", render: (value) => formatDate(value) },
-                    {
-                        label: "Active",
-                        key: "IsActive",
-                        render: (value) => value ? 'Yes' : 'No'
-                    },
-                    { key: 'Details', label: '', widthClass: 'w-12', 
-                      render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
-                    }
-                    
-                    
-                ]
-            };
-        
+        headers: [
+            { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
+            { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
+            { label: "Owner", key: "Owner", className: "break-words", widthClass: "w-3/12" },
+            {
+                label: "Active",
+                key: "IsActive",
+                widthClass: "w-1/12",
+                render: (value) =>
+                    value === true
+                        ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
+                        : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Inactive</span>`
+            },
+        ]
+    };
 
-    // --- 2. Set up Event Listeners ---
-    const searchInput = document.getElementById('searchRequests');
-    const paginationContainer = document.getElementById('pagination-controls');
-
-    // The search input now calls fetchAndRenderPage
     searchInput.addEventListener('input', () => {
-        fetchAndRenderPage(tableConfig, 1, searchInput.value);
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
     });
 
-    // Your existing click listener for pagination buttons
+    const paginationContainer = document.getElementById('pagination-controls');
     paginationContainer.addEventListener('click', (event) => {
         const button = event.target.closest('button[data-page]');
         if (!button || button.disabled) return;
-        
         const newPage = parseInt(button.dataset.page, 10);
-        fetchAndRenderPage(tableConfig, newPage, searchInput.value);
+        fetchAndRenderPage(tableConfig, newPage, searchInput.value, STATUS_FILTER);
     });
 
-    // --- ADD THIS NEW LISTENER for the page input box ---
-    paginationContainer.addEventListener('keydown', (event) => {
-        // Only act if the user pressed Enter and the target is our input
-        if (event.key === 'Enter' && event.target.id === 'page-input') {
-            const inputElement = event.target;
-            const newPage = parseInt(inputElement.value, 10);
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
 
-            // Validate the input
-            if (newPage >= 1 && newPage <= totalPages) {
-                fetchAndRenderPage(tableConfig, newPage, searchInput.value);
-            } else {
-                // If invalid, show a message and reset the input to the current page
-                alert(`Please enter a page number between 1 and ${totalPages}.`);
-                inputElement.value = currentPage; 
+    activeBtn.addEventListener('click', () => {
+        showActive = !showActive;
+        if (!showActive && !showInactive) showInactive = true;
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    inactiveBtn.addEventListener('click', () => {
+        showInactive = !showInactive;
+        if (!showActive && !showInactive) showActive = true;
+        updateFilterButtons();
+        fetchAndRenderPage(tableConfig, 1, searchInput.value, STATUS_FILTER);
+    });
+
+    const saveNewDatasetBtn = document.getElementById('saveNewDatasetBtn');
+    if (saveNewDatasetBtn) {
+        saveNewDatasetBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const saveBtn = saveNewDatasetBtn;
+
+            try {
+                const name = document.getElementById('newDatasetName').value;
+                const owner = document.getElementById('newDatasetOwner').value;
+                const approver = document.getElementById('newDatasetApprover').value;
+                const datasourceId = document.getElementById('newDatasetDataSourceId').value;
+
+                const errors = validateDataset(name, owner, approver, datasourceId);
+                if (errors.length > 0) {
+                    showToast(errors.join('. '), 'error', 5000);
+                    return;
+                }
+
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+
+                // Dynamically get the value from either the table dropdown or the generic text field
+                const tableSelect = document.getElementById('dataSourceTableSelect');
+                const genericField = document.getElementById('dataSourceField');
+                let datasourceFieldValue = '';
+                if (tableSelect) {
+                    datasourceFieldValue = tableSelect.value;
+                } else if (genericField) {
+                    datasourceFieldValue = genericField.value;
+                }
+                
+                const newDatasetPayload = {
+                    name: name.trim(),
+                    description: document.getElementById('newDatasetDescription').value.trim(),
+                    owner: owner.trim(),
+                    approver: approver.trim(),
+                    isActive: document.getElementById('newDatasetIsActive').checked,
+                    dataSetColumns: [],
+                    dataSetFieldValues: [],
+                    dataSetFolders: [],
+                    dataSetMetaDataValues: [],
+                    datasourceId: datasourceId,
+                    datasourceField: datasourceFieldValue, // Use the dynamically retrieved value
+                };
+
+                const response = await window.loomeApi.runApiRequest(API_ADD_DATASET, newDatasetPayload);
+                if (!response) throw new Error("Failed to add dataset - no response from server");
+
+                showToast('Dataset added successfully!');
+
+                const modalElement = document.getElementById('addDatasetModal');
+                if (modalElement) bootstrap.Modal.getOrCreateInstance(modalElement).hide();
+
+                document.getElementById('addDatasetForm').reset();
+                await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
+
+            } catch (error) {
+                console.error('Failed to add dataset:', error);
+                showToast(`Error: ${error.message || 'Failed to save dataset'}`, 'error', 5000);
+            } finally {
+                saveBtn.textContent = 'Save Dataset';
+                saveBtn.disabled = false;
             }
-        }
-    });
-
-
-    const addDataSrcButton = document.querySelector('#addDatasourceBtn');;
-    if (addDataSrcButton) {
-        addDataSrcButton.addEventListener('click', () => {
-            AddDataSource(typeNamesList, fields);
         });
     }
     
-    // --- 7. Listener for Adding a Data Source
-    // First, get a reference to the modal and the save button
-    const saveButton = document.getElementById('modal-save-add-datasrc-button');
-    const addDataSrcElement = document.getElementById('addDatasourceModal');
+    updateFilterButtons();
+    await fetchAndRenderPage(tableConfig, 1, '', STATUS_FILTER);
+}
 
-    // Make sure both elements were found before adding a listener
-    
-    // Define the function that will run when "Save" is clicked
-    // const handleSaveClick = async () => {
-    //     // Find the form in the modal.
-    //     const form = document.getElementById('addDataSourceForm'); // Give your form an ID
+renderPlatformAdminDataSetPage()
 
-    //     // --- VALIDATION (from previous example) ---
-    //     if (!form.checkValidity()) {
-    //         form.classList.add('was-validated');
-    //         console.log("Form is invalid. Aborting save.");
-    //         return;
-    //     }
+function updateFilterButtons() {
+    const activeBtn = document.getElementById('showActiveBtn');
+    const inactiveBtn = document.getElementById('showInactiveBtn');
 
-    //     // --- GATHER DATA using our new function ---
-    //     const payload = getDataSourceFormData(form);
+    if (showActive) {
+        activeBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        activeBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        activeBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        activeBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
 
-    //     console.log("Data gathered from form:", payload);
+    if (showInactive) {
+        inactiveBtn.classList.remove('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+        inactiveBtn.classList.add('bg-[#4EC4BC]', 'text-white');
+    } else {
+        inactiveBtn.classList.remove('bg-[#4EC4BC]', 'text-white');
+        inactiveBtn.classList.add('bg-[#D9F1F0]', 'text-gray-700', 'border-gray-300');
+    }
 
-    //     saveButton.disabled = true;
-    //     saveButton.innerHTML = `
-    //         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-    //         Saving...
-    //     `;
+    if (showActive && showInactive) STATUS_FILTER = 3;
+    else if (showActive) STATUS_FILTER = 1;
+    else if (showInactive) STATUS_FILTER = 2;
+    else {
+        showActive = true;
+        STATUS_FILTER = 1;
+    }
+}
 
-    //     // --- Now, you can SEND this payload to your backend API ---
-    //     try {
-        
-    //         const response = await window.loomeApi.runApiRequest(22, payload);
-    //         console.log("RESPONSE: ")
-    //         console.log(response)
-    //         showToast('Data Source created successfully!');
-            
-    //         addDataSrcModal.hide()
-    //     } catch (error) {
-    //         console.error("API call failed:", error);
-    //         showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-    //     } finally {
-    //         // --- UX IMPROVEMENT: Always reset the button state ---
-    //         // This runs whether the API call succeeded or failed.
-    //         saveButton.disabled = false;
-    //         saveButton.innerHTML = 'Save';
+async function updateDataSourceFields(selectedSourceId, dataSourceTypeId) {
+    const container = document.getElementById('dataSourceFieldContainer');
+    container.innerHTML = ''; // Clear existing fields
+    container.style.display = 'none'; // Hide by default
 
-                      
-    //     }
-    // };
-    const handleSaveClick = async () => {
-        // Get the modal instance at the time of clicking (not during page load)
-        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addDatasourceModal'));
-        
-        const form = document.getElementById('addDataSourceForm');
-        
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
-            console.log("Form is invalid. Aborting save.");
-            return;
+    try {
+        const typeId = parseInt(dataSourceTypeId, 10);
+
+        // Logic for Database Connection types
+        if (typeId === DATABASE_CONNECTION_TYPE_ID) {
+            const allFieldValues = safeParseJson(await window.loomeApi.runApiRequest(API_GET_DATASOURCEFIELDVALUES, { dataSourceId: selectedSourceId }));
+            const fieldValueEntry = allFieldValues.find(fv => fv.DataSourceID.toString() === selectedSourceId.toString());
+
+            if (!fieldValueEntry || !fieldValueEntry.Value) {
+                return showToast('Could not find a Connection ID for this Data Source.', 'error');
+            }
+            const connectionId = parseInt(fieldValueEntry.Value, 10);
+            if (isNaN(connectionId)) {
+                return showToast('The Connection ID is not a valid number.', 'error');
+            }
+
+            const allDbConnections = safeParseJson(await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {}));
+            const targetConnection = allDbConnections.find(conn => conn.ConnectionId === connectionId);
+
+            if (targetConnection && targetConnection.Tables && targetConnection.Tables.length > 0) {
+                const optionsHTML = targetConnection.Tables.map(table => 
+                    `<option value="${table.TableName}">${table.TableName}</option>`
+                ).join('');
+
+                container.innerHTML = `
+                    <label for="dataSourceTableSelect" class="form-label">Table Name</label>
+                    <select class="form-select" id="dataSourceTableSelect" name="dataSourceTableSelect">
+                        <option value="" disabled selected>Select a Table</option>
+                        ${optionsHTML}
+                    </select>
+                `;
+                container.style.display = 'block';
+            } else {
+                showToast('No tables found for this database connection.', 'info');
+            }
+        } else if (typeId === DATASOURCEFOLDER_TYPE_ID) {
+            // Logic for DataSource Folder types
+            // Fetch all folder sources, as the API returns an array.
+            const allFolderSources = safeParseJson(await window.loomeApi.runApiRequest(DATASOURCEFOLDER_API_ID, {}));
+
+            // Find the specific source that matches the user's selection.
+            const targetSource = allFolderSources.find(source => source.DataSourceId.toString() === selectedSourceId.toString());
+
+            // Check if the source was found and if it has any folders.
+            if (targetSource && targetSource.Folders && targetSource.Folders.length > 0) {
+                // Map the array of folder objects to an array of HTML <option> strings.
+                const optionsHTML = targetSource.Folders.map(folder => 
+                    `<option value="${folder.FolderName}">${folder.FolderName}</option>`
+                ).join(''); // Join the array of strings into a single HTML string.
+
+                // Populate the container with a dropdown <select> element.
+                container.innerHTML = `
+                    <label for="dataSourceFolderSelect" class="form-label">Folder Name</label>
+                    <select class="form-select" id="dataSourceFolderSelect" name="dataSourceFolderSelect">
+                        <option value="" disabled selected>Select a Folder</option>
+                        ${optionsHTML}
+                    </select>
+                `;
+                // Make the container visible.
+                container.style.display = 'block';
+            } else {
+                // If no folders are found for the selected source, inform the user and hide the container.
+                showToast('No folders found for this data source.', 'info');
+                container.innerHTML = '';
+                container.style.display = 'none';
+            }
+        } else {
+            // Fallback logic for all other data source types
+            const allFieldValues = safeParseJson(await window.loomeApi.runApiRequest(API_GET_DATASOURCEFIELDVALUES, { dataSourceId: selectedSourceId }));
+            const fieldValues = allFieldValues.filter(fv => fv.DataSourceID.toString() === selectedSourceId.toString());
+            const fields = safeParseJson(await window.loomeApi.runApiRequest(API_GET_FIELDS, {}));
+
+            if (fieldValues.length > 0 && fields) {
+                const fieldValue = fieldValues[0];
+                const field = fields.find(f => f.FieldID === fieldValue.FieldID);
+
+                if (field) {
+                    container.innerHTML = `
+                        <label for="dataSourceField" class="form-label">${field.Name}</label>
+                        <input type="text" class="form-control" id="dataSourceField" name="dataSourceField"
+                               value="${fieldValue.Value || ''}" placeholder="Enter ${field.Name}">
+                    `;
+                    container.style.display = 'block';
+                }
+            }
         }
-
-        const payload = getDataSourceFormData(form);
-        console.log("Data gathered from form:", payload);
-        
-        saveButton.disabled = true;
-        saveButton.innerHTML = `
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            Saving...
-        `;
-
-        try {
-            
-            const response = await window.loomeApi.runApiRequest(22, payload);
-            console.log("RESPONSE: ", response)
-            
-            showToast('Data Source created successfully!');
-            
-            // This should now work!
-            modalInstance.hide();
-            
-            // Optional: Refresh the table to show the new item
-            await fetchAndRenderPage(tableConfig, 1, '');
-            
-        } catch (error) {
-            console.error("API call failed:", error);
-            showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-        } finally {
-            saveButton.disabled = false;
-            saveButton.innerHTML = 'Save';
-        }
-    };
-
-    // --- 6. Add the event listener ---
-    // This tells the browser: "When a 'click' happens on 'saveButton', run the 'handleSaveClick' function."
-    saveButton.addEventListener('click', handleSaveClick);
-
-    
-
-    // --- 3. Initial Page Load ---
-    // Make the first call to fetch page 1 with no search term.
-    await fetchAndRenderPage(tableConfig, 1, '');
+    } catch (error) {
+        console.error('Failed to update data source fields:', error);
+        showToast('Failed to load details for this data source.', 'error');
+    }
 }
 
 
-renderPlatformAdminDataSourcePage()
+async function populateDataSourcesDropdown() {
+    try {
+        const response = await window.loomeApi.runApiRequest(API_GET_DATASOURCES, { page: 1, pageSize: 1000, search: "" });
+        const dataSources = safeParseJson(response).Results;
+        const dropdown = document.getElementById('newDatasetDataSourceId');
+        
+        dropdown.innerHTML = '<option value="" disabled selected>Select a Data Source</option>';
+        dataSources.sort((a, b) => a.Name.localeCompare(b.Name));
+
+        dataSources.forEach(source => {
+            const option = document.createElement('option');
+            option.value = source.DataSourceID;
+            option.textContent = source.Name;
+            option.dataset.typeId = source.DataSourceTypeID; // Store type ID for later use
+            if (source.Description) option.title = source.Description;
+            dropdown.appendChild(option);
+        });
+
+        // Add a single, smart change event listener
+        dropdown.addEventListener('change', async (e) => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            if (selectedOption.value) {
+                // Pass both the ID and the Type ID to the handler function
+                await updateDataSourceFields(selectedOption.value, selectedOption.dataset.typeId);
+            } else {
+                const container = document.getElementById('dataSourceFieldContainer');
+                container.style.display = 'none';
+                container.innerHTML = '';
+            }
+        });
+
+    } catch (error) {
+        console.error('Failed to load data sources:', error);
+        showToast('Failed to load data sources', 'error');
+    }
+}
+
+
+const addDatasetModal = document.getElementById('addDatasetModal');
+const saveNewDatasetBtn = document.getElementById('saveNewDatasetBtn');
+
+addDatasetModal.addEventListener('show.bs.modal', async () => {
+    await populateDataSourcesDropdown();
+    if(saveNewDatasetBtn) {
+        saveNewDatasetBtn.textContent = 'Save Dataset';
+        saveNewDatasetBtn.disabled = false;
+    }
+});
