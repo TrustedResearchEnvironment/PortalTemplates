@@ -11,6 +11,7 @@ let tableConfig = {}; // Will hold your headers configuration
 const searchInput = document.getElementById('searchRequests');
 
 let dataSourceTypeMap = new Map();
+let dbConnectionMap = new Map();
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -59,6 +60,36 @@ function showToast(message, type = 'success', duration = 3000) {
         // Remove the element from the DOM after the fade-out animation
         toast.addEventListener('transitionend', () => toast.remove());
     }, duration);
+}
+
+/**
+ * Fetches all DB connections and creates a lookup map.
+ * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
+ * key is the ConnectionId and the value is the ConnectionName.
+ */
+async function createDbConnectionMap() {
+    try {
+        const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {});
+        const connections = safeParseJson(response);
+
+        if (!connections || connections.length === 0) {
+            return new Map(); // Return an empty map if no data
+        }
+
+        // Use reduce() to transform the array into a Map
+        const connectionMap = connections.reduce((map, item) => {
+            if (item.ConnectionId && item.ConnectionName) {
+                map.set(item.ConnectionId, item.ConnectionName);
+            }
+            return map;
+        }, new Map());
+
+        return connectionMap;
+
+    } catch (error) {
+        console.error("Failed to create DB connection map:", error);
+        return new Map(); // Return empty map on failure
+    }
 }
 
 /**
@@ -200,8 +231,8 @@ function AddDataSource(typeNamesList, allFields) {
                                             name="Database Connection">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${connections.map(conn => `
-                                            <option value="${conn.ConnectionID}" 
-                                                    data-connection-id="${conn.ConnectionID}">
+                                            <option value="${conn.ConnectionId}" 
+                                                    data-connection-id="${conn.ConnectionId}">
                                                 ${conn.ConnectionName}
                                             </option>
                                         `).join('')}
@@ -511,9 +542,16 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
             )
         : dataForPage;
 
+        const processedData = filteredData.map(item => ({
+            ...item,
+            displayRefreshedDate: item.isRefreshed === true 
+                ? formatDate(item.RefreshedDate) 
+                : "Not Refreshed Yet"
+        }));
+
         // --- 4. Render the UI Components ---
         // Render the table with only the data for the current page
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
+        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, processedData, {
             renderAccordionContent: renderAccordionDetails 
         });
 
@@ -538,22 +576,35 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 const renderAccordionDetails = (item) => {
     const dataSourceType = dataSourceTypeMap.get(item.DataSourceTypeID);
     const dateModified = formatDate(item.ModifiedDate);
-    const dateRefreshed = formatDate(item.RefreshedDate);
+    // const dateRefreshed = formatDate(item.RefreshedDate);
+
 
     // --- NEW: Logic to build the fields table HTML ---
     let fieldsTableHtml = '';
     // Check if item.Fields exists and is not an empty object
     if (item.Fields && Object.keys(item.Fields).length > 0) {
         // Use Object.entries to iterate over key-value pairs
-        const fieldRows = Object.entries(item.Fields).map(([key, value]) => `
-            <tr>
-                <td class="p-2 border-t">${key}</td>
-                <td class="p-2 border-t">
-                    <span class="view-state view-state-field" data-field-name="${key}">${value || ''}</span>
-                    <input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
-                </td>
-            </tr>
-        `).join(''); // Join the array of HTML strings into one string
+        const fieldRows = Object.entries(item.Fields).map(([key, value]) => {
+            let displayValue = value; // Default display value
+
+            // Check if the current field is Database Connection
+            if (key === 'Database Connection') {
+                // Look up the name from our map. Use parseInt because the ID might be a string.
+                // If not found, fall back to showing the original value (the ID).
+                displayValue = dbConnectionMap.get(parseInt(value)) || value;
+            }
+
+            return `
+                <tr>
+                    <td class="p-2 border-t">${key}</td>
+                    <td class="p-2 border-t">
+                        <span class="view-state view-state-field" data-field-name="${key}">${displayValue || ''}</span>
+                        
+                        <input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
+                    </td>
+                </tr>
+            `;
+        }).join(''); // Join the array of HTML strings into one string
 
         fieldsTableHtml = `
             <table class="w-full text-sm bg-white rounded shadow-sm">
@@ -606,7 +657,7 @@ const renderAccordionDetails = (item) => {
                      <tbody>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">Type</td><td class="py-2 text-gray-900">${dataSourceType || 'N/A'}</td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Modified</td><td class="py-2 text-gray-900">${dateModified}</td></tr>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${dateRefreshed}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500">Date Refreshed</td><td class="py-2 text-gray-900">${item.displayRefreshedDate}</td></tr>
                     </tbody>
                 </table>
                 <h4 class="text-sm font-semibold text-gray-600 mt-6 mb-2">Data Source Fields</h4>
@@ -919,6 +970,7 @@ async function renderPlatformAdminDataSourcePage() {
     // 1. Await the results from your fetching function
     const allTypesArray = await getAllDataSourceTypes();
     dataSourceTypeMap = await createDataSourceTypeMap(allTypesArray);
+    dbConnectionMap = await createDbConnectionMap();
 
     const typeNamesList = allTypesArray.map(item => item.Name);
 
@@ -934,7 +986,14 @@ async function renderPlatformAdminDataSourcePage() {
                     },
                     { label: "Name", key: "Name", className: "break-words", widthClass: "w-3/12" },
                     { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
-                    { label: "Refreshed Date", key: "RefreshedDate", render: (value) => formatDate(value) },
+                    // { label: "Refreshed Date", key: "RefreshedDate", render: (value) => formatDate(value) },
+                    { label: "Refreshed Date", key: "displayRefreshedDate"},
+                    // { 
+                    //     label: "Refreshed Date", 
+                    //     key: "RefreshedDate",
+                    //     // Check the 'isRefreshed' property from the entire 'row' object
+                    //     render: (value, row) => row.isRefreshed === 1 ? formatDate(value) : "Not Refreshed Yet"
+                    // },
                     {
                         label: "Active",
                         key: "IsActive",
