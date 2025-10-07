@@ -4,14 +4,14 @@ const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
 const API_ADD_DATASET = 29
 // Added new constants for the database connection logic
-const DBCONNECTION_API_ID = 30; // API ID to fetch database connection details
+const DBCONNECTION_API_ID = 31; // API ID to fetch database connection details
 const DATABASE_CONNECTION_TYPE_ID = 1; // The ID for the "Database Connection" DataSourceType
 const API_GET_DATASOURCES = 5;
 const API_GET_DATASOURCEFIELDVALUES = 18;
 const API_GET_FIELDS = 19;
 let STATUS_FILTER = 1; // Default to showing only active items
 // For DataSource Folder logic
-const DATASOURCEFOLDER_API_ID = 31; // API ID to fetch data source folder details
+const DATASOURCEFOLDER_API_ID = 32; // API ID to fetch data source folder details
 const DATASOURCEFOLDER_TYPE_ID = 3; // The ID for the "DataSource Folders" DataSourceType
 
 

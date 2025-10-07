@@ -1,7 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 5
-const DBCONNECTION_API_ID = 30
+const DBCONNECTION_API_ID = 31
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
@@ -99,7 +99,7 @@ function getDataSourceFormData(formElement) {
         "name": name,
         "description": description,
         "isActive": isActive,
-        "dataSourceTypeID": parseInt(dataSourceTypeID, 10), // Convert the string value to an integer
+        "dataSourceTypeID": dataSourceTypeID,//parseInt(dataSourceTypeID, 10), // Convert the string value to an integer
         "fieldName": fieldName,
         "fieldValue": fieldValue
     };
@@ -200,8 +200,8 @@ function AddDataSource(typeNamesList, allFields) {
                                             name="Database Connection">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${connections.map(conn => `
-                                            <option value="${conn.ConnectionId}" 
-                                                    data-connection-id="${conn.ConnectionId}">
+                                            <option value="${conn.ConnectionID}" 
+                                                    data-connection-id="${conn.ConnectionID}">
                                                 ${conn.ConnectionName}
                                             </option>
                                         `).join('')}
@@ -998,52 +998,6 @@ async function renderPlatformAdminDataSourcePage() {
     const saveButton = document.getElementById('modal-save-add-datasrc-button');
     const addDataSrcElement = document.getElementById('addDatasourceModal');
 
-    // Make sure both elements were found before adding a listener
-    
-    // Define the function that will run when "Save" is clicked
-    // const handleSaveClick = async () => {
-    //     // Find the form in the modal.
-    //     const form = document.getElementById('addDataSourceForm'); // Give your form an ID
-
-    //     // --- VALIDATION (from previous example) ---
-    //     if (!form.checkValidity()) {
-    //         form.classList.add('was-validated');
-    //         console.log("Form is invalid. Aborting save.");
-    //         return;
-    //     }
-
-    //     // --- GATHER DATA using our new function ---
-    //     const payload = getDataSourceFormData(form);
-
-    //     console.log("Data gathered from form:", payload);
-
-    //     saveButton.disabled = true;
-    //     saveButton.innerHTML = `
-    //         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-    //         Saving...
-    //     `;
-
-    //     // --- Now, you can SEND this payload to your backend API ---
-    //     try {
-        
-    //         const response = await window.loomeApi.runApiRequest(22, payload);
-    //         console.log("RESPONSE: ")
-    //         console.log(response)
-    //         showToast('Data Source created successfully!');
-            
-    //         addDataSrcModal.hide()
-    //     } catch (error) {
-    //         console.error("API call failed:", error);
-    //         showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-    //     } finally {
-    //         // --- UX IMPROVEMENT: Always reset the button state ---
-    //         // This runs whether the API call succeeded or failed.
-    //         saveButton.disabled = false;
-    //         saveButton.innerHTML = 'Save';
-
-                      
-    //     }
-    // };
     const handleSaveClick = async () => {
         // Get the modal instance at the time of clicking (not during page load)
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addDatasourceModal'));
