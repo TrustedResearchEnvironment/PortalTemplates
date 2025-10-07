@@ -1,4 +1,3 @@
-
 @import url(https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined);
 *,
 :after,vert
@@ -804,16 +803,23 @@ video {
 
 /* This is the container that will scroll */
 .table-container {
-    max-height: 600px;
     overflow-y: auto;
     border: 1px solid #e5e7eb; /* Optional: adds a nice border */
     border-radius: 8px; /* Optional: rounded corners */
 }
 
- /*Make sure the table fills the container */
-table {
-    width: 100%;
-    border-collapse: collapse; /* Important for clean lines */
+/* Update the page-container class */
+.page-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Update the content-wrapper class */
+.content-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
 }
 
 /* Text handling classes */

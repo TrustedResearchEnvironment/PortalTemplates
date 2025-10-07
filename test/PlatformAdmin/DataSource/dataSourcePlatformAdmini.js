@@ -1,6 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 5
+const DBCONNECTION_API_ID = 31
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
@@ -172,10 +173,69 @@ function AddDataSource(typeNamesList, allFields) {
     const fieldsContainer = modalBody.querySelector('#dataSourceFieldsContainer');
 
     // --- 5. CREATE the event handler function ---
-    const handleTypeChange = (event) => {
-        const selectedTypeId = event.target.value;
+    const handleTypeChange = async (event) => {
+        const selectedTypeId = parseInt(event.target.value);
+        const fieldsContainer = document.querySelector('#dataSourceFieldsContainer');
 
-        // Get the list of required FieldIDs for this type from our map
+        // Special handling for Database type (ID = 1)
+        if (selectedTypeId === 1) {
+            try {
+                const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
+                const connections = safeParseJson(response);
+                
+                // Store ConnectionId in a data attribute that we can access later
+                const dropdownHtml = `
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Database Connection</td>
+                                <td class="relative">
+                                    <select class="form-control form-control-sm dynamic-field appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full" 
+                                            name="Database Connection">
+                                        <option value="" class="text-gray-500">Select a connection...</option>
+                                        ${connections.map(conn => `
+                                            <option value="${conn.ConnectionID}" 
+                                                    data-connection-id="${conn.ConnectionID}">
+                                                ${conn.ConnectionName}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                
+                fieldsContainer.innerHTML = dropdownHtml;
+                
+                // Add change event listener to store the ConnectionId
+                const select = fieldsContainer.querySelector('select');
+                select.addEventListener('change', (e) => {
+                    const selectedOption = e.target.options[e.target.selectedIndex];
+                    const connectionId = selectedOption.dataset.connectionId;
+                    // Store the ConnectionId for later use
+                    window.selectedConnectionId = connectionId; // You can access this globally
+                });
+
+            } catch (error) {
+                console.error('Failed to fetch database connections:', error);
+                fieldsContainer.innerHTML = '<p class="text-danger">Error loading database connections</p>';
+            }
+            return;
+        }
+
+        // Original code for other types
         const requiredFieldIds = typeIdToFieldIdMap[selectedTypeId] || [];
 
         if (requiredFieldIds.length > 0) {
@@ -532,7 +592,7 @@ const renderAccordionDetails = (item) => {
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Active</td><td class="py-2 text-gray-900">
                             <span class="view-state view-state-isactive">${item.IsActive ? 'Yes' : 'No'}</span>
                             <div class="edit-state hidden flex items-center">
-                                <input type="checkbox" ${item.IsActive ? 'checked' : ''} class="edit-state-isactive h-4 w-4 rounded border-gray-300 text-indigo-600">
+                                <input class="edit-state-isactive h-4 w-4 rounded border-gray-300 text-indigo-600" type="checkbox" ${item.IsActive ? 'checked' : ''}>
                                 <label class="ml-2 block text-sm text-gray-900">Is Active</label>
                             </div>
                         </td></tr>
@@ -938,52 +998,6 @@ async function renderPlatformAdminDataSourcePage() {
     const saveButton = document.getElementById('modal-save-add-datasrc-button');
     const addDataSrcElement = document.getElementById('addDatasourceModal');
 
-    // Make sure both elements were found before adding a listener
-    
-    // Define the function that will run when "Save" is clicked
-    // const handleSaveClick = async () => {
-    //     // Find the form in the modal.
-    //     const form = document.getElementById('addDataSourceForm'); // Give your form an ID
-
-    //     // --- VALIDATION (from previous example) ---
-    //     if (!form.checkValidity()) {
-    //         form.classList.add('was-validated');
-    //         console.log("Form is invalid. Aborting save.");
-    //         return;
-    //     }
-
-    //     // --- GATHER DATA using our new function ---
-    //     const payload = getDataSourceFormData(form);
-
-    //     console.log("Data gathered from form:", payload);
-
-    //     saveButton.disabled = true;
-    //     saveButton.innerHTML = `
-    //         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-    //         Saving...
-    //     `;
-
-    //     // --- Now, you can SEND this payload to your backend API ---
-    //     try {
-        
-    //         const response = await window.loomeApi.runApiRequest(22, payload);
-    //         console.log("RESPONSE: ")
-    //         console.log(response)
-    //         showToast('Data Source created successfully!');
-            
-    //         addDataSrcModal.hide()
-    //     } catch (error) {
-    //         console.error("API call failed:", error);
-    //         showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-    //     } finally {
-    //         // --- UX IMPROVEMENT: Always reset the button state ---
-    //         // This runs whether the API call succeeded or failed.
-    //         saveButton.disabled = false;
-    //         saveButton.innerHTML = 'Save';
-
-                      
-    //     }
-    // };
     const handleSaveClick = async () => {
         // Get the modal instance at the time of clicking (not during page load)
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addDatasourceModal'));
