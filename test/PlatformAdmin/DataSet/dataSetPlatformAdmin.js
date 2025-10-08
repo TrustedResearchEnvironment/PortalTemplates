@@ -4,7 +4,7 @@ const API_REQUEST_ID = 10;
 const API_UPDATE_DATASET_ID = 28;
 const API_ADD_DATASET = 29
 // Added new constants for the database connection logic
-const DBCONNECTION_API_ID = 31; // API ID to fetch database connection details
+const DATASOURCETABLE_API_ID = 31; // API ID to fetch database connection details
 const DATABASE_CONNECTION_TYPE_ID = 1; // The ID for the "Database Connection" DataSourceType
 const API_GET_DATASOURCES = 5;
 const API_GET_DATASOURCEFIELDVALUES = 18;
@@ -700,7 +700,7 @@ async function updateDataSourceFields(selectedSourceId, dataSourceTypeId) {
                 return showToast('The Connection ID is not a valid number.', 'error');
             }
 
-            const allDbConnections = safeParseJson(await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {}));
+            const allDbConnections = safeParseJson(await window.loomeApi.runApiRequest(DATASOURCETABLE_API_ID, {}));
             const targetConnection = allDbConnections.find(conn => conn.ConnectionId === connectionId);
 
             if (targetConnection && targetConnection.Tables && targetConnection.Tables.length > 0) {

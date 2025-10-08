@@ -1,7 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 5
-const DBCONNECTION_API_ID = 31
+const DBCONNECTION_API_ID = 33
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
@@ -78,8 +78,8 @@ async function createDbConnectionMap() {
 
         // Use reduce() to transform the array into a Map
         const connectionMap = connections.reduce((map, item) => {
-            if (item.ConnectionId && item.ConnectionName) {
-                map.set(item.ConnectionId, item.ConnectionName);
+            if (item.ConnectionID && item.ConnectionName) {
+                map.set(item.ConnectionID, item.ConnectionName);
             }
             return map;
         }, new Map());
@@ -211,6 +211,7 @@ function AddDataSource(typeNamesList, allFields) {
         // Special handling for Database type (ID = 1)
         if (selectedTypeId === 1) {
             try {
+                // MIGUEL TO BE UPDATED
                 const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
                 const connections = safeParseJson(response);
                 
@@ -231,8 +232,8 @@ function AddDataSource(typeNamesList, allFields) {
                                             name="Database Connection">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${connections.map(conn => `
-                                            <option value="${conn.ConnectionId}" 
-                                                    data-connection-id="${conn.ConnectionId}">
+                                            <option value="${conn.ConnectionID}" 
+                                                    data-connection-id="${conn.ConnectionID}">
                                                 ${conn.ConnectionName}
                                             </option>
                                         `).join('')}
