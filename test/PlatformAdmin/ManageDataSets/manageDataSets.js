@@ -2,6 +2,61 @@ const pageSize = 5;
 let dataSourceTypeMap = new Map();
 
 
+async function fetchDataSetColumns(data_set_id) {
+    const DATASETCOLUMNS_API_ID = 38;
+    const initialParams = { "data_set_id": data_set_id }; 
+   
+    return getFromAPI(DATASETCOLUMNS_API_ID, initialParams)
+}
+
+/**
+ * Populates the column table's tbody with either data rows or a placeholder message.
+ * @param {Array<Object>|null} columnsData - Data from your API, or null/empty array if no data.
+ */
+function displayColumnsTable(columnsData) {
+    const tableBody = document.getElementById('dataSetColsBody');
+
+    // --- THIS IS THE KEY LOGIC ---
+
+    // 1. Check if there is data to display.
+    if (!columnsData || columnsData.length === 0) {
+        // --- NO DATA ---
+        // Create a single row with one cell that spans all 7 columns.
+        const placeholderHtml = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No columns found. Select a Data Source to populate this table.
+                </td>
+            </tr>
+        `;
+        tableBody.innerHTML = placeholderHtml;
+    } else {
+        // --- DATA EXISTS ---
+        // Build and insert the data rows as before.
+        const rowsHtml = columnsData.map(col => `
+            <tr data-id="${col.Id}">
+                <td>${col.ColumnName}</td>
+                <td class="editable-cell" data-field="logicalName">${col.LogicalName}</td>
+                <td class="editable-cell" data-field="businessDescription">${col.BusinessDescription}</td>
+                <td class="editable-cell" data-field="exampleValue">${col.ExampleValue}</td>
+                <td class="checkbox-cell">
+                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="redact" ${col.Redact ? 'checked' : ''}>
+                </td>
+                <td class="checkbox-cell">
+                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="deIdentify" ${col.Tokenise ? 'checked' : ''}>
+                </td>
+                <td class="checkbox-cell">
+                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="isFilter" ${col.IsFilter ? 'checked' : ''}>
+                </td>
+            </tr>
+        `).join('');
+
+        tableBody.innerHTML = rowsHtml;
+    }
+}
+
+
+
 // Data Set Field Table Rendering Functions
 
 /**
@@ -91,26 +146,39 @@ async function fetchDataSetFieldValue(data_set_id) {
     const DATASETFIELDVALUE_API_ID = 36;
     const initialParams = { "data_set_id": data_set_id }; 
    
-    const result = await getFromAPI(DATASETFIELDVALUE_API_ID, initialParams) 
-    console.log("Fetched DataSet Field Value:", result);
+    const resultsArray = await getFromAPI(DATASETFIELDVALUE_API_ID, initialParams);
+    console.log("Fetched DataSet Field Value (as array):", resultsArray);
+    if (!resultsArray || resultsArray.length === 0) {
+        console.warn("API returned no data for data_set_id:", data_set_id);
+        return { id: null, name: null }; // Return a default value
+    }
 
+    // --- KEY CHANGE: Get the first object from the array ---
+    const result = resultsArray[0];
+    console.log("Fetched DataSet Field Value 1:", result);
+    console.log("Result FieldID:", result.FieldID);
     // If Field Value is a Table Name, the result is the ID of the table
     // Get the actual table name from another endpoint
     // Case 1: The value is a table ID, so we need to fetch the name
-    if (result.FieldID === 3) { 
+    if (result.FieldID == 3) { 
+        console.log("FieldID indicates a table reference. Fetching table name...");
         const DATASOURCETABLEBYID_API_ID = 37;
-        const tableId = result.Value; // This is the ID we need
+        const tableIdAsString = result.Value; // The value is a string, e.g., "9"
+
+        // --- CONVERT TO INTEGER HERE ---
+        const tableId = parseInt(tableIdAsString, 10);
         
-        const tableInfo = await getFromApi(DATASOURCETABLEBYID_API_ID, { "TableId": tableId });
-        
+        const tableInfo = await getFromAPI(DATASOURCETABLEBYID_API_ID, { "table_id": tableId });
+        console.log("Fetched Table Info:", tableId, tableInfo[0]);
         // Return an object with BOTH the ID and the fetched name
         return {
             id: tableId,
-            name: tableInfo.TableName
+            name: tableInfo[0].TableName
         };
 
     // Case 2: The value is just a simple value, not a reference to another table
     } else {
+        console.log("FieldID indicates a direct value. Using value as-is.");
         // Return an object with the same shape for consistency.
         // The ID can be null as it doesn't apply, and the 'name' is the value itself.
         return {
@@ -138,7 +206,7 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
         const optionsHtml = tables.map(table => `<option value="${table.Id}">${table.TableName}</option>`).join('');
         // Await the result from your function
         const fetchedData = await fetchDataSetFieldValue(dataSetID);
-        
+        console.log("Fetched DataSet Field Value 2:", fetchedData);
         let tableId = fetchedData.id;;
         let tableName = fetchedData.name;;
 
@@ -149,7 +217,7 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
             <tr>
                 <td>Table Name <input type="text" hidden="true"></td>
                 <td width="70%">
-                    <select class="form-control selectpicker">
+                    <select id="tableNameSelector" class="form-control selectpicker">
                         <option value="-1">Select a Table</option>
                         ${optionsHtml}
                     </select>
@@ -162,8 +230,8 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
                 <tr>
                     <td>Table Name <input type="text" hidden="true"></td>
                     <td width="70%">
-                        <select class="form-control selectpicker">
-                            <option value="${tableId}" selected>${tableName}</option>
+                        <select id="tableNameSelector" class="form-control selectpicker">
+                            <option value="${tableId}" title="${tableName}" selected>${tableName}</option>
                             ${optionsHtml}
                         </select>
                         <div class="validation-message"></div>
@@ -471,6 +539,37 @@ function populateDataSourceOptions(selectElement, data, valueField, textField) {
     });
 }
 
+/**
+ * Fetches and displays columns for a given DATA SET ID.
+ * This aligns with the API requirement: fetchDataSetColumns(data_set_id).
+ * @param {string | number | null} dataSetId - The ID of the Data Set to fetch columns for.
+ */
+async function updateColumnsForTable(dataSetId) {
+    console.log("Updating columns for Data Set ID:", dataSetId);
+    // Guard clause: If there's no valid dataSetId (e.g., "new" or null),
+    // clear the table and exit.
+    if (!dataSetId || dataSetId === "new") {
+        console.log("No existing data set selected. Clearing columns table.");
+        displayColumnsTable(null);
+        return; 
+    }
+
+    try {
+        console.log(`Fetching columns for Data Set ID: ${dataSetId}...`);
+        
+        // This is the API call you confirmed is correct.
+        const columnsData = await fetchDataSetColumns(dataSetId);
+        
+        // Pass the retrieved data to your display function.
+        displayColumnsTable(columnsData);
+
+    } catch (error) {
+        console.error(`Error fetching or displaying columns for Data Set ID ${dataSetId}:`, error);
+        
+        // On error, ensure the table is cleared to show the placeholder.
+        displayColumnsTable(null); 
+    }
+}
 
 async function renderManageDataSourcePage() {
     
@@ -486,6 +585,7 @@ async function renderManageDataSourcePage() {
     const activeCheckbox = document.getElementById('dataSetActive');
     const owner = document.getElementById('dataSetOwner');
     const approver = document.getElementById('dataSetApprover');
+    const dataSetFieldsTable = document.getElementById('dataSetFieldsTable');
     
     /**
      * Clears the form fields to their default state for creating a new entry.
@@ -516,31 +616,32 @@ async function renderManageDataSourcePage() {
         console.log("Form populated with:", dataSet, dataSource);
     }
     
-    /**
-     * Main handler that decides whether to clear or populate the form AND tables
-     * based on the dropdown selection.
-     * @param {Array<object>} allDataSets The complete list of data sets.
-     * @param {Array<object>} allDataSources The complete list of data sources.
-     */
-    function updateFormForSelection(allDataSets, allDataSources) {
+    // This is inside your renderManageDataSourcePage function
+    async function updateFormForSelection(allDataSets, allDataSources) {
         const selectedId = selectionDropdown.value;
 
         if (selectedId === 'new') {
-            clearForm(); // Assume clearForm also clears/hides the fields table
+            clearForm();
+            // When creating a new set, there are no columns to show. Clear the table.
+            displayColumnsTable(null); 
         } else {
             const selectedDataSet = allDataSets.find(ds => ds.DataSetID == selectedId);
-            if (!selectedDataSet) return; // Safety check
-
+            if (!selectedDataSet) return;
             const dataSource = allDataSources.find(dsrc => dsrc.DataSourceID == selectedDataSet.DataSourceID);
-            if (!dataSource) return; // Safety check
+            if (!dataSource) return;
 
-            // 1. Populate the main form fields (Name, Owner, etc.) AND the dataSource dropdown
+            // 1. Populate the main form fields
             populateForm(selectedDataSet, dataSource);
 
-            // 2. *** THE FIX IS HERE ***
-            // Now that the form is populated, manually call the function to update the fields table.
-            // Pass it the 'dataSource' object we just found.
-            updateDataSetFieldsTable(dataSource); 
+            // 2. Update the dynamic metadata tables on the left
+            updateDataSetFieldsTable(dataSource, selectedId); 
+            updateMetaDataTable(dataSource, selectedId);
+            
+            // --- FIX IS HERE ---
+            // 3. Now that a valid, existing data set is selected,
+            //    immediately call the function to update the columns table.
+            //    We pass 'selectedId' because it IS the dataSetId we need.
+            await updateColumnsForTable(selectedId);
         }
     }
    
@@ -562,6 +663,9 @@ async function renderManageDataSourcePage() {
             populateExistingDataSets(optgroup, allDataSets);
             populateDataSourceOptions(dataSourceDrpDwn, allDataSources, 'DataSourceID', 'Name');
             
+            // Create the Empty Columns Table
+            updateFormForSelection(allDataSets, allDataSources);
+
             // 4. Add the event listener to handle changes
             selectionDropdown.addEventListener('change', () => {
                 // When the selection changes, call our main handler function.
@@ -569,19 +673,104 @@ async function renderManageDataSourcePage() {
                 
             });
 
-            // This listener now ONLY handles the case where a user MANUALLY
-            // changes the data source, perhaps to override the default for a data set.
-            dataSourceDrpDwn.addEventListener('change', () => {
-                // Find the currently selected data source object from the list
+            // --- Listener 1: Data Source Dropdown ---
+            // When the data source changes, the table selection is no longer valid, so we CLEAR the columns.
+            // This listener correctly updates columns when the Data Source changes.
+            dataSourceDrpDwn.addEventListener('change', async () => {
                 const selectedDataSourceId = dataSourceDrpDwn.value;
                 const selectedDataSource = allDataSources.find(src => src.DataSourceID == selectedDataSourceId);
-                
                 const selectedDataSetID = selectionDropdown.value;
+
                 if (selectedDataSource) {
-                    // Call the update function with the user's chosen data source
+                    // Update the metadata on the left first
                     updateDataSetFieldsTable(selectedDataSource, selectedDataSetID);
                     updateMetaDataTable(selectedDataSource, selectedDataSetID);
+                    
+                    // Now, refresh the columns using the current Data Set ID
+                    await updateColumnsForTable(selectedDataSetID);
+                } else {
+                    // If no source is selected, clear the columns
+                    displayColumnsTable(null);
                 }
+            });
+
+            // =================================================================
+            //  EDITABLE TABLE LOGIC
+            // =================================================================
+
+            // Get a reference to the body of the columns table.
+            const dataSetColsBody = document.getElementById('dataSetColsBody');
+
+            // --- Listener 1: For TEXT cell editing (on double-click) ---
+            dataSetColsBody.addEventListener('dblclick', (event) => {
+                const cell = event.target;
+                // Only allow editing on cells with the 'editable-cell' class
+                if (!cell.classList.contains('editable-cell')) {
+                    return;
+                }
+                // Prevent creating an input if one already exists
+                if (cell.querySelector('input')) {
+                    return;
+                }
+
+                const originalText = cell.textContent.trim();
+                
+                // Create an input element
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control form-control-sm'; // Use small form control for a better fit
+                input.value = originalText;
+                
+                // Replace cell content with the input
+                cell.innerHTML = '';
+                cell.appendChild(input);
+                input.focus();
+
+                // Handler for when the input loses focus (blur) or Enter is pressed
+                const saveChanges = () => {
+                    const newValue = input.value.trim();
+                    cell.innerHTML = newValue; // Revert cell to text
+
+                    // --- THIS IS WHERE YOU SAVE THE TEXT CHANGE TO THE SERVER ---
+                    const row = cell.closest('tr');
+                    const id = row.dataset.id;
+                    const field = cell.dataset.field;
+                    console.log(`Saving Text... ID: ${id}, Field: ${field}, New Value: '${newValue}'`);
+                    
+                    // Example API call:
+                    // updateColumnField(id, { [field]: newValue });
+                };
+
+                input.addEventListener('blur', saveChanges);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur(); // Trigger the blur event to save
+                    } else if (e.key === 'Escape') {
+                        cell.innerHTML = originalText; // Cancel the edit
+                    }
+                });
+            });
+
+
+            // --- Listener 2: For CHECKBOX cell editing (on change) ---
+            // We use 'change' instead of 'click' as it's more semantically correct for form inputs.
+            dataSetColsBody.addEventListener('change', (event) => {
+                const checkbox = event.target;
+                // Only act on our specific editable checkboxes
+                if (!checkbox.classList.contains('editable-checkbox')) {
+                    return;
+                }
+
+                const isChecked = checkbox.checked;
+                
+                // --- THIS IS WHERE YOU SAVE THE CHECKBOX CHANGE TO THE SERVER ---
+                const row = checkbox.closest('tr');
+                const id = row.dataset.id;
+                const field = checkbox.dataset.field;
+                console.log(`Saving Checkbox... ID: ${id}, Field: ${field}, New Value: ${isChecked}`);
+
+                // Example API call:
+                // updateColumnField(id, { [field]: isChecked });
             });
 
            
