@@ -2,6 +2,55 @@ const pageSize = 5;
 let dataSourceTypeMap = new Map();
 
 
+/**
+ * Displays a temporary "toast" notification on the screen.
+ * @param {string} message - The message to display.
+ * @param {string} [type='success'] - The type of toast ('success', 'error', 'info').
+ * @param {number} [duration=3000] - How long the toast should be visible in milliseconds.
+ */
+function showToast(message, type = 'success', duration = 3000) {
+    // Create the toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.textContent = message;
+    
+    // Basic styling
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    style.sheet.insertRule(`
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: sans-serif;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(-20px);
+        }
+    `);
+    style.sheet.insertRule('.toast-success { background-color: #28a745; }'); // Green
+    style.sheet.insertRule('.toast-error { background-color: #dc3545; }');   // Red
+    
+    // Append to body and trigger animation
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10); // A tiny delay to allow the CSS transition to work
+    
+    // Set a timer to remove the toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        // Remove the element from the DOM after the fade-out animation
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, duration);
+}
+
 async function fetchDataSetColumns(data_set_id) {
     const DATASETCOLUMNS_API_ID = 38;
     const initialParams = { "data_set_id": data_set_id }; 
@@ -10,49 +59,47 @@ async function fetchDataSetColumns(data_set_id) {
 }
 
 /**
- * Populates the column table's tbody with either data rows or a placeholder message.
- * @param {Array<Object>|null} columnsData - Data from your API, or null/empty array if no data.
+ * Populates the column table's tbody with data.
+ * It now expects a single, consistent array of column objects.
+ * @param {Array<Object>|null} columnsData - An array of column objects or null to show a placeholder.
  */
 function displayColumnsTable(columnsData) {
     const tableBody = document.getElementById('dataSetColsBody');
 
-    // --- THIS IS THE KEY LOGIC ---
-
-    // 1. Check if there is data to display.
+    // Handles null, undefined, or empty array by showing the placeholder
     if (!columnsData || columnsData.length === 0) {
-        // --- NO DATA ---
-        // Create a single row with one cell that spans all 7 columns.
         const placeholderHtml = `
             <tr>
                 <td colspan="7" class="text-center text-muted">
-                    No columns found. Select a Data Source to populate this table.
+                    No columns to display. Select a Data Source and Table.
                 </td>
-            </tr>
-        `;
+            </tr>`;
         tableBody.innerHTML = placeholderHtml;
-    } else {
-        // --- DATA EXISTS ---
-        // Build and insert the data rows as before.
-        const rowsHtml = columnsData.map(col => `
-            <tr data-id="${col.Id}">
-                <td>${col.ColumnName}</td>
-                <td class="editable-cell" data-field="logicalName">${col.LogicalName}</td>
-                <td class="editable-cell" data-field="businessDescription">${col.BusinessDescription}</td>
-                <td class="editable-cell" data-field="exampleValue">${col.ExampleValue}</td>
-                <td class="checkbox-cell">
-                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="redact" ${col.Redact ? 'checked' : ''}>
-                </td>
-                <td class="checkbox-cell">
-                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="deIdentify" ${col.Tokenise ? 'checked' : ''}>
-                </td>
-                <td class="checkbox-cell">
-                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="isFilter" ${col.IsFilter ? 'checked' : ''}>
-                </td>
-            </tr>
-        `).join('');
-
-        tableBody.innerHTML = rowsHtml;
+        return;
     }
+
+    // --- DATA EXISTS ---
+    // This single block of code now handles both new and existing data sets,
+    // because the data has been pre-formatted by updateColumnsForTable.
+    const rowsHtml = columnsData.map(col => `
+        <tr data-id="${col.Id || ''}">
+            <td>${col.ColumnName || ''}</td>
+            <td class="editable-cell" data-field="LogicalColumnName">${col.LogicalColumnName || ''}</td>
+            <td class="editable-cell" data-field="businessDescription">${col.BusinessDescription || ''}</td>
+            <td class="editable-cell" data-field="exampleValue">${col.ExampleValue || ''}</td>
+            <td class="checkbox-cell">
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="redact" ${col.Redact ? 'checked' : ''}>
+            </td>
+            <td class="checkbox-cell">
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="deIdentify" ${col.Tokenise ? 'checked' : ''}>
+            </td>
+            <td class="checkbox-cell">
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="isFilter" ${col.IsFilter ? 'checked' : ''}>
+            </td>
+        </tr>
+    `).join('');
+
+    tableBody.innerHTML = rowsHtml;
 }
 
 
@@ -134,6 +181,14 @@ function renderRedcapApiKeyRowDataSetFields(tbody) {
     });
 }
 
+async function fetchLoomeDataSourceTablesByTableId(tableId) {
+    const DATASOURCETABLEBYID_API_ID = 37;
+    const initialParams = { "table_id": tableId }; 
+   
+    return getFromAPI(DATASOURCETABLEBYID_API_ID, initialParams)
+}
+
+
 async function fetchDataSetFieldValue(data_set_id) {
 
     if (data_set_id === "new") {
@@ -162,13 +217,12 @@ async function fetchDataSetFieldValue(data_set_id) {
     // Case 1: The value is a table ID, so we need to fetch the name
     if (result.FieldID == 3) { 
         console.log("FieldID indicates a table reference. Fetching table name...");
-        const DATASOURCETABLEBYID_API_ID = 37;
         const tableIdAsString = result.Value; // The value is a string, e.g., "9"
 
         // --- CONVERT TO INTEGER HERE ---
         const tableId = parseInt(tableIdAsString, 10);
         
-        const tableInfo = await getFromAPI(DATASOURCETABLEBYID_API_ID, { "table_id": tableId });
+        const tableInfo = await fetchLoomeDataSourceTablesByTableId(tableId);
         console.log("Fetched Table Info:", tableId, tableInfo[0]);
         // Return an object with BOTH the ID and the fetched name
         return {
@@ -540,36 +594,249 @@ function populateDataSourceOptions(selectElement, data, valueField, textField) {
 }
 
 /**
- * Fetches and displays columns for a given DATA SET ID.
- * This aligns with the API requirement: fetchDataSetColumns(data_set_id).
- * @param {string | number | null} dataSetId - The ID of the Data Set to fetch columns for.
+ * The single, smart function to update the columns table.
+ * It handles the logic for both new and existing data sets.
+ * It should be called WITHOUT arguments from event listeners.
  */
-async function updateColumnsForTable(dataSetId) {
-    console.log("Updating columns for Data Set ID:", dataSetId);
-    // Guard clause: If there's no valid dataSetId (e.g., "new" or null),
-    // clear the table and exit.
-    if (!dataSetId || dataSetId === "new") {
-        console.log("No existing data set selected. Clearing columns table.");
-        displayColumnsTable(null);
-        return; 
+async function updateColumnsForTable() {
+    const dataSetId = document.getElementById('dataSetSelection').value;
+
+    // --- SCENARIO 1: Editing an EXISTING Data Set ---
+    if (dataSetId && dataSetId !== 'new') {
+        try {
+            console.log(`Fetching columns for existing Data Set ID: ${dataSetId}...`);
+            const columnsData = await fetchDataSetColumns(dataSetId);
+            // The data from this API is already in the correct format.
+            displayColumnsTable(columnsData);
+        } catch (error) {
+            console.error(`Error fetching columns for Data Set ID ${dataSetId}:`, error);
+            displayColumnsTable(null);
+        }
+        return; // We're done with this path
     }
 
-    try {
-        console.log(`Fetching columns for Data Set ID: ${dataSetId}...`);
-        
-        // This is the API call you confirmed is correct.
-        const columnsData = await fetchDataSetColumns(dataSetId);
-        
-        // Pass the retrieved data to your display function.
-        displayColumnsTable(columnsData);
+    // --- SCENARIO 2: Creating a NEW Data Set ---
+    if (dataSetId === 'new') {
+        const tableNameSelector = document.getElementById('tableNameSelector');
 
-    } catch (error) {
-        console.error(`Error fetching or displaying columns for Data Set ID ${dataSetId}:`, error);
+        // Check if the table selector exists and has a valid table chosen
+        if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+            const tableId = tableNameSelector.value;
+            try {
+                console.log(`Fetching schema for new Data Set from Table ID: ${tableId}...`);
+                const tableDataArray = await fetchLoomeDataSourceTablesByTableId(tableId);
+
+                if (tableDataArray && tableDataArray.length > 0) {
+                    const columnListString = tableDataArray[0].ColumnList;
+                    const columnNames = columnListString.split(",").map(name => name.trim());
+
+                    // *** THIS IS THE CRITICAL TRANSFORMATION STEP ***
+                    // Convert the simple array of strings into the standard array of objects
+                    // that displayColumnsTable expects.
+                    const formattedColumns = columnNames.map(name => ({
+                        Id: null, // No ID for new columns yet
+                        ColumnName: name,
+                        LogicalColumnName: '', // Default to empty
+                        BusinessDescription: '',
+                        ExampleValue: '',
+                        Redact: false, // Default to unchecked
+                        Tokenise: false,
+                        IsFilter: false
+                    }));
+                    
+                    displayColumnsTable(formattedColumns);
+                } else {
+                    displayColumnsTable(null); // No table data found
+                }
+            } catch (error) {
+                console.error(`Error fetching schema for Table ID ${tableId}:`, error);
+                displayColumnsTable(null);
+            }
+        } else {
+            // If it's a new data set but no table is selected, show the placeholder.
+            displayColumnsTable(null);
+        }
+        return; // We're done with this path
+    }
+
+    // --- FALLBACK ---
+    // If neither condition is met, ensure the table is clear.
+    displayColumnsTable(null);
+}
+
+/**
+ * Gathers all data from the form fields and tables into a structured object.
+ * @returns {object} An object containing mainDetails and columns arrays.
+ */
+function gatherFormData() {
+    // --- Part A: Gather Main Form Details ---
+    const mainDetails = {
+        name: document.getElementById('dataSetName').value,
+        description: document.getElementById('dataSetDescription').value,
+        datasourceId: parseInt(document.getElementById('dataSource').value, 10),
+        owner: document.getElementById('dataSetOwner').value,
+        approvers: document.getElementById('dataSetApprover').value,
+        isActive: document.getElementById('dataSetActive').checked
+    };
+
+    // --- Part B: Gather Dynamic Metadata (from dataSetFieldsTable and metaDataTable) ---
+    // This is a generic way to scrape key-value metadata.
+    const metaData= [];
+    const dataSetFieldValues = [];
+    const fieldsTableBody = document.getElementById('dataSetFieldsTable').querySelector('tbody');
+    const metaTableBody = document.getElementById('metaDataTable').querySelector('tbody');
+
+    // Helper to scrape a metadata and data set fields table
+    const scrapeMetaTable = (tbody) => {
+        tbody.querySelectorAll('tr').forEach(row => {
+            const keyInput = row.querySelector('td:first-child input[type="hidden"]');
+            const valueInput = row.querySelector('td:last-child input, td:last-child select');
+            if (keyInput && valueInput) {
+                metaData.push({ //MetaDataID being 1 is only for those with "Tag" as the Metadata
+                    MetaDataID: 1, //parseInt(keyInput.value, 10),
+                    Value: valueInput.value
+                });
+            }
+        });
+    };
+
+    const scrapeFieldsTable = (tbody) => {
+        // --- PATH 1: Check for the specific SQL Table Name selector first ---
+        const tableNameSelector = tbody.querySelector('#tableNameSelector');
+        if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== "-1") {
+            // The FieldID for "Table Name" is 3. THIS ONLY APPLIES FOR SQL DATA SOURCES.
+            dataSetFieldValues.push({
+                FieldID: 3, // Hardcode the ID since we know what we found
+                Value: tableNameSelector.value
+            });
+            return; // We're done with this table, so we can exit.
+        }
+
+        // // --- PATH 2: Check for other known fields, like the REDCap API Key ---
+        // const redcapInput = tbody.querySelector('#redcapapi');
+        // if (redcapInput && redcapInput.value) {
+        //     // The FieldID for "REDCap API Key" is 1 (or whatever it is in your DB).
+        //     dataSetFieldValues.push({
+        //         FieldID: 1, // Hardcode the ID
+        //         Value: redcapInput.value
+        //     });
+        //     return;
+        // }
         
-        // On error, ensure the table is cleared to show the placeholder.
-        displayColumnsTable(null); 
+        // // --- PATH 3 (FALLBACK): A generic scraper for any other rows ---
+        // // This can handle other simple key/value pairs if needed.
+        // tbody.querySelectorAll('tr').forEach(row => {
+        //     // Skip rows we've already handled
+        //     if (row.querySelector('#tableNameSelector') || row.querySelector('#redcapapi')) {
+        //         return;
+        //     }
+
+        //     const keyInput = row.querySelector('td:first-child input[type="hidden"]');
+        //     const valueInput = row.querySelector('td:last-child input, td:last-child select');
+
+        //     if (keyInput && valueInput && valueInput.value) {
+        //         dataSetFieldValues.push({
+        //             FieldID: parseInt(keyInput.value, 10),
+        //             Value: valueInput.value
+        //         });
+        //     }
+        // });
+    };
+    
+    // Scrape both tables if they exist
+    if (fieldsTableBody) scrapeFieldsTable(fieldsTableBody);
+    if (metaTableBody) scrapeMetaTable(metaTableBody);
+
+    // --- Part C: Gather Editable Columns Table Data ---
+    const columns = [];
+    const colsTableBody = document.getElementById('dataSetColsBody');
+    colsTableBody.querySelectorAll('tr').forEach(row => {
+        // Skip the placeholder row if it exists
+        if (row.querySelector('td[colspan]')) {
+            return;
+        }
+
+        const columnData = {
+            // Use dataset.id for existing, or null for new
+            //Id: row.dataset.id ? parseInt(row.dataset.id, 10) : null,
+            ColumnName: row.cells[0].textContent.trim(),
+            LogicalColumnName: row.cells[1].textContent.trim(),
+            BusinessDescription: row.cells[2].textContent.trim(),
+            ExampleValue: row.cells[3].textContent.trim(),
+            Redact: row.querySelector('[data-field="redact"]').checked,
+            Tokenise: row.querySelector('[data-field="deIdentify"]').checked,
+            IsFilter: row.querySelector('[data-field="isFilter"]').checked
+        };
+        columns.push(columnData);
+    });
+
+    return {
+        ...mainDetails,
+        dataSetMetaDataValues: metaData, // You'll need an endpoint for this too
+        dataSetFieldValues: dataSetFieldValues, // And this
+        dataSetColumns: columns,
+        dataSetFolders: [] // Placeholder for future folder support
+    };
+}
+
+// --- API FUNCTIONS ---
+// This calls a API that does the create for DataSet, DataSetColumns, DataSetMetaDataValues, and DataSetFieldValues
+async function createDataSet(data) {
+    const payload = {
+        ...data, // Spread all properties from the original object
+        optOutMessage: "{{OptOutMessage}}",
+        optOutList: "{{OptOutList}}",
+        optOutColumn: "{{OptOutColumn}}"
+    };
+
+    console.log("Sending this payload to the API:", payload);
+
+    const CREATE_DATASET_API_ID = 29;
+    try {
+        // Send the new 'payload' object to the API instead of the original 'data'
+        const response = await window.loomeApi.runApiRequest(CREATE_DATASET_API_ID, payload);
+        if (!response) throw new Error("Failed to add dataset - no response from server");
+        showToast('Dataset added successfully!');
+        return response;
+    } catch (error) {
+        console.error("Error creating dataset:", error);
+        throw error;
     }
 }
+
+async function updateDataSet(id, data) {
+    const UPDATE_DATASET_API_ID = 28;
+
+    const payload = {
+        ...data, // Spread all properties from the original object
+        optOutMessage: "",
+        optOutList: "",
+        optOutColumn: ""
+    };
+
+    console.log("Sending this payload to the API:", payload);
+
+    try {
+        // Send the new 'payload' object to the API instead of the original 'data'
+        const response = await window.loomeApi.runApiRequest(UPDATE_DATASET_API_ID, payload);
+        if (!response) throw new Error("Failed to update dataset - no response from server");
+        showToast('Dataset updated successfully!');
+        return response;
+    } catch (error) {
+        console.error("Error updating dataset:", error);
+        throw error;
+    }
+}
+
+// async function addOrUpdateColumns(dataSetId, columnsData) {
+//     const ADD_OR_UPDATE_COLUMNS_API_ID = 39;
+// }
+
+// // You would also need an endpoint for saving the metadata.
+// async function addOrUpdateMetadata(dataSetId, metadata) {
+//     console.log(`API CALL: POST /api/datasets/${dataSetId}/metadata`, metadata);
+//     return { success: true };
+// }
 
 async function renderManageDataSourcePage() {
     
@@ -667,32 +934,40 @@ async function renderManageDataSourcePage() {
             updateFormForSelection(allDataSets, allDataSources);
 
             // 4. Add the event listener to handle changes
-            selectionDropdown.addEventListener('change', () => {
-                // When the selection changes, call our main handler function.
-                updateFormForSelection(allDataSets, allDataSources);
-                
+            // Listener for TOP-LEVEL data set selection
+            selectionDropdown.addEventListener('change', async () => {
+                await updateFormForSelection(allDataSets, allDataSources); // This updates the form on the left
+                await updateColumnsForTable(); // This now updates the columns on the right
             });
 
-            // --- Listener 1: Data Source Dropdown ---
-            // When the data source changes, the table selection is no longer valid, so we CLEAR the columns.
-            // This listener correctly updates columns when the Data Source changes.
+            // Listener for DATA SOURCE dropdown
             dataSourceDrpDwn.addEventListener('change', async () => {
                 const selectedDataSourceId = dataSourceDrpDwn.value;
                 const selectedDataSource = allDataSources.find(src => src.DataSourceID == selectedDataSourceId);
                 const selectedDataSetID = selectionDropdown.value;
 
                 if (selectedDataSource) {
-                    // Update the metadata on the left first
-                    updateDataSetFieldsTable(selectedDataSource, selectedDataSetID);
-                    updateMetaDataTable(selectedDataSource, selectedDataSetID);
+                    // --- THIS IS THE MISSING PART ---
+                    // First, update the metadata sections in the left column.
+                    await updateDataSetFieldsTable(selectedDataSource, selectedDataSetID);
+                    await updateMetaDataTable(selectedDataSource, selectedDataSetID);
                     
-                    // Now, refresh the columns using the current Data Set ID
-                    await updateColumnsForTable(selectedDataSetID);
+                    // THEN, refresh the columns based on the new context.
+                    await updateColumnsForTable();
                 } else {
-                    // If no source is selected, clear the columns
+                    // If no source is selected, clear everything.
                     displayColumnsTable(null);
+                    // You might also want to clear the metadata tables here.
+                }
+});
+
+            // Listener for TABLE NAME dropdown
+            dataSetFieldsTable.addEventListener('change', async (event) => {
+                if (event.target.id === 'tableNameSelector') {
+                    await updateColumnsForTable();
                 }
             });
+
 
             // =================================================================
             //  EDITABLE TABLE LOGIC
@@ -773,10 +1048,78 @@ async function renderManageDataSourcePage() {
                 // updateColumnField(id, { [field]: isChecked });
             });
 
-           
-    
-            // 5. Call the function once on load to set the initial state (cleared form)
-            updateFormForSelection(allDataSets, allDataSources);
+            // =================================================================
+            //  SUBMIT DATASET DETAILS LOGIC
+            // =================================================================
+
+            const manageDataSetForm = document.getElementById('manageDataSetForm');
+            const submitButton = manageDataSetForm.querySelector('button[type="submit"]');
+
+            /**
+             * The main submit handler for the entire form.
+             */
+            manageDataSetForm.addEventListener('submit', async (event) => {
+                // 1. Prevent the browser from reloading the page
+                event.preventDefault();
+
+                // 2. Provide immediate user feedback and prevent double-clicks
+                const originalButtonText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.textContent = 'Saving...';
+
+                try {
+                    // 3. Gather all data from the form into a structured object
+                    const formData = gatherFormData();
+                    console.log("Form Data to Submit:", formData);
+                    // --- Client-side validation (optional but recommended) ---
+                    if (!formData.name) {
+                        alert('Data Set Name is required.');
+                        throw new Error('Validation failed: Name is required.');
+                    }
+
+                    // 4. Determine if this is a CREATE or UPDATE operation
+                    const dataSetId = document.getElementById('dataSetSelection').value;
+
+                    if (dataSetId === 'new') {
+                        // --- CREATE (POST) LOGIC ---
+                        
+                        // a. Create the main data set record first
+                        console.log("Creating new Data Set with payload:", formData);
+                        const newDataSet = await createDataSet(formData); // Assume this returns the new object with its ID
+                        const newDataSetId = newDataSet.DataSetID;
+
+                        // b. Now, save the associated columns
+                        // console.log("Adding columns for new Data Set ID:", newDataSetId, formData.columns);
+                        // await addOrUpdateColumns(newDataSetId, formData.columns);
+                        
+                        alert('Data Set created successfully!');
+                        // Optional: Reload the page or update the dropdown with the new item
+                        window.location.reload(); 
+
+                    } else {
+                        // --- UPDATE (PUT/PATCH) LOGIC ---
+                        console.log(`Updating Data Set ID ${dataSetId} with payload:`, formData);
+                        
+                        // a. Update the main data set record;
+                        await updateDataSet(dataSetId, formData);
+
+                        // b. Save/update the associated columns
+                        // console.log(`Updating columns for Data Set ID ${dataSetId}:`, formData.columns);
+                        // await addOrUpdateColumns(dataSetId, formData.columns);
+
+                        alert('Data Set updated successfully!');
+                    }
+
+                } catch (error) {
+                    console.error('An error occurred during submission:', error);
+                    alert('Failed to save the Data Set. Please check the console for details.');
+                } finally {
+                    // 5. ALWAYS re-enable the button and restore its text
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalButtonText;
+                }
+            });
+
     
         } catch (error) {
             console.error("Failed to fetch data sets:", error);
