@@ -256,8 +256,7 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
         // This function should fetch the list of tables for the given data source connection.
         const tables = await fetchSqlTables(dataSource.DataSourceID); 
         console.log("Fetched tables:", tables);
-        // Create the dropdown HTML with the fetched tables
-        const optionsHtml = tables.map(table => `<option value="${table.Id}">${table.TableName}</option>`).join('');
+    
         // Await the result from your function
         const fetchedData = await fetchDataSetFieldValue(dataSetID);
         console.log("Fetched DataSet Field Value 2:", fetchedData);
@@ -267,11 +266,14 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
         let rowHtml = '';
 
         if (dataSetID === "new" || !tableId) {
+            // Create the dropdown HTML with the fetched tables
+            const optionsHtml = tables.map(table => `<option value="${table.Id}">${table.TableName}</option>`).join('');      
+
             rowHtml = `
             <tr>
                 <td>Table Name <input type="text" hidden="true"></td>
                 <td width="70%">
-                    <select id="tableNameSelector" class="form-control selectpicker">
+                    <select id="tableNameSelector" class="form-control selectpicker bg-white">
                         <option value="-1">Select a Table</option>
                         ${optionsHtml}
                     </select>
@@ -280,11 +282,19 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
             </tr>`;
 
         } else {
+
+            const filteredTables = tables.filter(table => table.Id != tableId);
+
+            // Now, create the options HTML from the *filtered* array.
+            const optionsHtml = filteredTables
+                .map(table => `<option value="${table.Id}" title="${table.TableName}">${table.TableName}</option>`)
+                .join('');
+
             rowHtml = `
                 <tr>
                     <td>Table Name <input type="text" hidden="true"></td>
                     <td width="70%">
-                        <select id="tableNameSelector" class="form-control selectpicker">
+                        <select id="tableNameSelector" class="form-control selectpicker bg-white">
                             <option value="${tableId}" title="${tableName}" selected>${tableName}</option>
                             ${optionsHtml}
                         </select>
@@ -367,25 +377,67 @@ async function updateDataSetFieldsTable(dataSource, dataSetID) {
 // MetaData Table Rendering Functions
 
 /**
- * Renders a single static row with a text input field for a "Tag".
+ * Fetches the metadata value for a given DataSetID and renders it in an input field.
  * This is used for the SQL Database data source type.
  * @param {HTMLElement} tbody - The tbody element of the metadata table.
- * @param {object} dataSource - (Unused) Kept for consistent function signature.
- * @param {number|null} dataSetID - (Unused) Kept for consistent function signature.
+ * @param {number|null} dataSetID - The ID of the data set to fetch metadata for.
  */
-function renderSqlTableSelectorMetaData(tbody, dataSource, dataSetID) {
-    // This is the static HTML provided in the requirement.
-    const rowHtml = `
+async function renderSqlTableSelectorMetaData(tbody, dataSetID) {
+    // Step 1: Provide immediate feedback to the user with a loading state.
+    tbody.innerHTML = `
         <tr>
             <td>Tag <input type="hidden"></td>
             <td width="70%">
-                <input id="Name" class="form-control valid">
+                <input class="form-control" value="Loading..." disabled>
             </td>
         </tr>
     `;
 
-    // Set the table body's content to this single row.
-    tbody.innerHTML = rowHtml;
+    // A guard clause to handle cases where there's no ID to fetch.
+    if (!dataSetID || dataSetID === "new") {
+        tbody.innerHTML = `
+            <tr>
+                <td>Tag <input type="hidden" value="5"></td>
+                <td width="70%">
+                    <input id="metaDataTag" class="form-control valid" value="">
+                </td>
+            </tr>`;
+        return;
+    }
+
+    try {
+        const API_GET_DATASETMETADATAVALUE = 40;
+        
+        // Step 2: AWAIT the data. The code will pause here until the API responds.
+        const result = await getFromAPI(API_GET_DATASETMETADATAVALUE, { "data_set_id": dataSetID });
+
+        // Step 3: Now 'result' is the actual data array. Use it to build the final HTML.
+        // Use a variable for clarity.
+        const tagValue = (result && result.length > 0) ? result[0].Value : '';
+
+        // Let's assume the MetadataID for "Tag" is 5. It's important to have this in the hidden input.
+        const rowHtml = `
+            <tr>
+                <td>Tag <input type="hidden" value="5"></td>
+                <td width="70%">
+                    <input id="metaDataTag" class="form-control valid" value="${tagValue}">
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML = rowHtml;
+
+    } catch (error) {
+        console.error("Failed to fetch metadata value:", error);
+        // Step 4: Show an error message to the user if the API call fails.
+        tbody.innerHTML = `
+            <tr>
+                <td>Tag <input type="hidden" value="5"></td>
+                <td width="70%">
+                    <input class="form-control is-invalid" value="Error loading data" disabled>
+                </td>
+            </tr>
+        `;
+    }
 }
 
 /**
@@ -454,7 +506,8 @@ function updateMetaDataTable(dataSource, dataSetID)  {
     // Use a switch to decide which content to render
     switch (dataSource.DataSourceTypeID) {
         case 1: // SQL Database Type
-            renderSqlTableSelectorMetaData(tbody, dataSource, dataSetID);
+            console.log("In Render SQL Metadata: ", dataSetID)
+            renderSqlTableSelectorMetaData(tbody, dataSetID);
             break;
 
         case 2: // REDCap API Type
@@ -804,14 +857,15 @@ async function createDataSet(data) {
     }
 }
 
-async function updateDataSet(id, data) {
+async function updateDataSet(data_set_id, data) {
     const UPDATE_DATASET_API_ID = 28;
 
     const payload = {
         ...data, // Spread all properties from the original object
-        optOutMessage: "",
-        optOutList: "",
-        optOutColumn: ""
+        id: parseInt(data_set_id, 10),
+        optOutMessage: "{{OptOutMessage}}",
+        optOutList: "{{OptOutList}}",
+        optOutColumn: "{{OptOutColumn}}"
     };
 
     console.log("Sending this payload to the API:", payload);
@@ -828,15 +882,15 @@ async function updateDataSet(id, data) {
     }
 }
 
-// async function addOrUpdateColumns(dataSetId, columnsData) {
-//     const ADD_OR_UPDATE_COLUMNS_API_ID = 39;
-// }
+async function addOrUpdateColumns(dataSetId, columnsData) {
+    const ADD_OR_UPDATE_COLUMNS_API_ID = 39;
+}
 
-// // You would also need an endpoint for saving the metadata.
-// async function addOrUpdateMetadata(dataSetId, metadata) {
-//     console.log(`API CALL: POST /api/datasets/${dataSetId}/metadata`, metadata);
-//     return { success: true };
-// }
+// You would also need an endpoint for saving the metadata.
+async function addOrUpdateMetadata(dataSetId, metadata) {
+    console.log(`API CALL: POST /api/datasets/${dataSetId}/metadata`, metadata);
+    return { success: true };
+}
 
 async function renderManageDataSourcePage() {
     
@@ -889,6 +943,8 @@ async function renderManageDataSourcePage() {
 
         if (selectedId === 'new') {
             clearForm();
+            updateDataSetFieldsTable(null, null); 
+            updateMetaDataTable(null, null);
             // When creating a new set, there are no columns to show. Clear the table.
             displayColumnsTable(null); 
         } else {
