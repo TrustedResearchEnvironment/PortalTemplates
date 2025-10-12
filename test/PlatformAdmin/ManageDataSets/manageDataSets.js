@@ -1,6 +1,7 @@
-const pageSize = 5;
+const pageSize = 10;
+let currentPage = 1;
 let dataSourceTypeMap = new Map();
-
+let allColumnsData = [];
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -51,56 +52,145 @@ function showToast(message, type = 'success', duration = 3000) {
     }, duration);
 }
 
-async function fetchDataSetColumns(data_set_id) {
+/**
+ * Fetches a specific page of columns for a given data set ID.
+ * @param {string|number} data_set_id - The ID of the data set.
+ * @param {number} [page=1] - The page number to fetch.
+ * @returns {Promise<Object>} A promise that resolves with the paginated response object.
+ */
+async function fetchDataSetColumns(data_set_id, page = 1) {
     const DATASETCOLUMNS_API_ID = 38;
-    const initialParams = { "data_set_id": data_set_id }; 
+    // Add page and pageSize to the parameters sent to the API
+    const params = { 
+        "data_set_id": data_set_id,
+        "page": page,
+        "pageSize": pageSize
+    }; 
    
-    return getFromAPI(DATASETCOLUMNS_API_ID, initialParams)
+    // IMPORTANT: getFromAPI should return the single paginated object, not an array
+    return getFromAPI(DATASETCOLUMNS_API_ID, params);
 }
 
 /**
- * Populates the column table's tbody with data.
- * It now expects a single, consistent array of column objects.
- * @param {Array<Object>|null} columnsData - An array of column objects or null to show a placeholder.
+ * Populates the column table's tbody with data from a paginated response.
+ * @param {Object|null} paginatedResponse - The full response object from the API.
  */
-function displayColumnsTable(columnsData) {
+function displayColumnsTable(data) {
     const tableBody = document.getElementById('dataSetColsBody');
+    
+    // Extract the actual data array from the response object
+    //const columnsData = paginatedResponse ? paginatedResponse.Results : null;
 
-    // Handles null, undefined, or empty array by showing the placeholder
-    if (!columnsData || columnsData.length === 0) {
-        const placeholderHtml = `
-            <tr>
-                <td colspan="7" class="text-center text-muted">
-                    No columns to display. Select a Data Source and Table.
-                </td>
-            </tr>`;
+    if (!data || data.length === 0) {
+        // ... (placeholder logic remains the same) ...
+        const placeholderHtml = `<tr><td colspan="7" class="text-center text-muted">No columns to display.</td></tr>`;
         tableBody.innerHTML = placeholderHtml;
         return;
     }
 
     // --- DATA EXISTS ---
-    // This single block of code now handles both new and existing data sets,
-    // because the data has been pre-formatted by updateColumnsForTable.
-    const rowsHtml = columnsData.map(col => `
-        <tr data-id="${col.Id || ''}">
+    // The mapping logic remains exactly the same
+    const rowsHtml = data.map(col => `
+        <tr data-id="${col.DataSetColumnID || ''}" data-column-name="${col.ColumnName}">
             <td>${col.ColumnName || ''}</td>
             <td class="editable-cell" data-field="LogicalColumnName">${col.LogicalColumnName || ''}</td>
-            <td class="editable-cell" data-field="businessDescription">${col.BusinessDescription || ''}</td>
-            <td class="editable-cell" data-field="exampleValue">${col.ExampleValue || ''}</td>
+            <td class="editable-cell" data-field="BusinessDescription">${col.BusinessDescription || ''}</td>
+            <td class="editable-cell" data-field="ExampleValue">${col.ExampleValue || ''}</td>
             <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="redact" ${col.Redact ? 'checked' : ''}>
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${col.Redact ? 'checked' : ''}>
             </td>
             <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="deIdentify" ${col.Tokenise ? 'checked' : ''}>
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="DeIdentify" ${col.Tokenise ? 'checked' : ''}>
             </td>
             <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="isFilter" ${col.IsFilter ? 'checked' : ''}>
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="IsFilter" ${col.IsFilter ? 'checked' : ''}>
             </td>
         </tr>
     `).join('');
-
     tableBody.innerHTML = rowsHtml;
 }
+
+
+// /**
+//  * Renders Bootstrap 5 pagination controls from a paginated API response.
+//  * @param {string} containerId - The ID of the element to hold the controls.
+//  * @param {Object|null} paginatedResponse - The full response object from the API.
+//  */
+// function renderPagination(containerId, paginatedResponse) {
+//     const container = document.getElementById(containerId);
+//     if (!container) return;
+//     container.innerHTML = ''; // Clear old controls
+
+//     // Use the pagination data directly from the API response
+//     if (!paginatedResponse || paginatedResponse.PageCount <= 1) {
+//         return; // No need for pagination
+//     }
+
+//     const totalPages = paginatedResponse.PageCount;
+//     const currentPage = paginatedResponse.CurrentPage;
+
+//     // The rest of the HTML generation logic is the same as the Bootstrap version I provided earlier
+//     let paginationHTML = '<ul class="pagination justify-content-end">';
+//     const prevDisabled = currentPage === 1;
+//     paginationHTML += `<li class="page-item ${prevDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+
+//     for (let i = 1; i <= totalPages; i++) {
+//         const isActive = i === currentPage;
+//         paginationHTML += `<li class="page-item ${isActive ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+//     }
+
+//     const nextDisabled = currentPage === totalPages;
+//     paginationHTML += `<li class="page-item ${nextDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+    
+//     paginationHTML += '</ul>';
+//     container.innerHTML = paginationHTML;
+// }
+
+/**
+ * Renders Bootstrap 5 pagination controls based on calculated page data.
+ * This version is for client-side pagination where we know the total number of items.
+ * @param {string} containerId - The ID of the element to hold the controls.
+ * @param {number} totalItems - The total number of items in the full dataset (e.g., allColumnsData.length).
+ * @param {number} itemsPerPage - The number of items to display on each page (e.g., pageSize).
+ * @param {number} currentPage - The currently active page number.
+ */
+function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // --- THIS IS THE KEY CHANGE ---
+    // Calculate the total number of pages needed.
+    // Math.ceil() rounds up to the nearest whole number (e.g., 21 items / 10 per page = 2.1, which rounds up to 3 pages).
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    // Clear old controls and exit if pagination is not needed.
+    container.innerHTML = '';
+    if (totalPages <= 1) {
+        return;
+    }
+
+    // The rest of the HTML generation logic is the same as your Bootstrap version,
+    // as it already uses 'totalPages' and 'currentPage' variables.
+    let paginationHTML = '<ul class="pagination justify-content-end">';
+
+    // Previous Button
+    const prevDisabled = currentPage === 1;
+    paginationHTML += `<li class="page-item ${prevDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+
+    // Page Number Buttons
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = i === currentPage;
+        paginationHTML += `<li class="page-item ${isActive ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+    }
+
+    // Next Button
+    const nextDisabled = currentPage === totalPages;
+    paginationHTML += `<li class="page-item ${nextDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+    
+    paginationHTML += '</ul>';
+    container.innerHTML = paginationHTML;
+}
+
 
 
 
@@ -177,7 +267,7 @@ function renderRedcapApiKeyRowDataSetFields(tbody) {
     tbody.querySelector('#redcapRefreshBtn').addEventListener('click', () => {
         const apiKey = tbody.querySelector('#redcapapi').value;
         console.log(`Refresh button clicked! API Key: ${apiKey}`);
-        alert('Refresh clicked!');
+        showToast('Refresh clicked!');
     });
 }
 
@@ -570,7 +660,7 @@ async function getFromAPI(API_ID, initialParams) {
                     
                     // Construct params for the next page, preserving other initial params
                     const params = { ...initialParams, "page": page }; 
-                    
+                    console.log(params)
                     const response = await window.loomeApi.runApiRequest(API_ID, params);
                     const parsed = safeParseJson(response);
 
@@ -647,81 +737,175 @@ function populateDataSourceOptions(selectElement, data, valueField, textField) {
 }
 
 /**
- * The single, smart function to update the columns table.
- * It handles the logic for both new and existing data sets.
- * It should be called WITHOUT arguments from event listeners.
+ * Fetches the schema for a given table ID and formats it into a standard array of column objects.
+ * @param {string|number} tableId The ID of the table to fetch.
+ * @returns {Promise<Array<Object>>} A promise that resolves to the array of formatted column objects, or an empty array on failure.
  */
-async function updateColumnsForTable() {
+async function formatColumnsFromSchema(tableId) {
+    try {
+        const tableDataArray = await fetchLoomeDataSourceTablesByTableId(tableId);
+
+        // Safety check: ensure we got a valid response
+        if (!tableDataArray || tableDataArray.length === 0) {
+            console.warn(`No schema data found for Table ID: ${tableId}`);
+            return [];
+        }
+
+        const tableSchema = tableDataArray[0];
+
+        // IMPROVEMENT (Robustness): Use `|| ''` to prevent .split() from crashing on null/undefined.
+        const columnNames = (tableSchema.ColumnList || '').split(",").map(name => name.trim());
+        const columnTypes = (tableSchema.ColumnTypes || '').split(",").map(type => type.trim());
+
+        // Safety check for mismatched lengths
+        if (columnNames.length !== columnTypes.length) {
+            console.error("Mismatch between the number of column names and column types.");
+            return [];
+        }
+
+        // Map the names and types into the final object structure
+        const formattedColumns = columnNames.map((name, index) => ({
+            "ColumnName": name,
+            "ColumnType": columnTypes[index],
+            "LogicalColumnName": '', // Use empty string instead of null for consistency
+            "BusinessDescription": '',
+            "ExampleValue": '',
+            "Tokenise": false,
+            "TokenIdentifierType": 0,
+            "Redact": false,
+            "DisplayOrder": index + 1,
+            "IsFilter": false,
+        }));
+
+        return formattedColumns;
+
+    } catch (error) {
+        console.error(`Error fetching or formatting schema for Table ID ${tableId}:`, error);
+        return []; // Always return an array to prevent downstream errors
+    }
+}
+
+/**
+ * The single, smart function to update the columns table for a specific page.
+ * It handles the logic for both new and existing data sets.
+ * @param {number} [page=1] - The page number to fetch and display.
+ */
+// async function updateColumnsForTable(page = 1) {
+//     const dataSetId = document.getElementById('dataSetSelection').value;
+//     let paginatedResponse = null;
+
+//     // --- SCENARIO 1: Editing an EXISTING Data Set ---
+//     if (dataSetId && dataSetId !== 'new') {
+//         try {
+//             console.log(`Fetching page ${page} for existing Data Set ID: ${dataSetId}...`);
+//             paginatedResponse = await fetchDataSetColumns(dataSetId, page);
+//             result = paginatedResponse.Results
+//         } catch (error) {
+//             console.error(`Error fetching columns:`, error);
+//         }
+//     }
+//     // --- SCENARIO 2: Creating a NEW Data Set ---
+//     else if (dataSetId === 'new') {
+//         const tableNameSelector = document.getElementById('tableNameSelector');
+//         if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+//             const tableId = tableNameSelector.value;
+//             try {
+//                 if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+//                     const tableId = tableNameSelector.value;
+
+//                     // IMPROVEMENT (Clarity/Reusability): Call the dedicated helper function
+//                     const formattedColumns = await formatColumnsFromSchema(tableId);
+
+//                     // For Pagination
+//                     const pageSize = 10;
+//                     const startIndex = (page - 1) * pageSize;
+//                     const endIndex = startIndex + pageSize;
+//                     const pageOfColumns = formattedColumns.slice(startIndex, endIndex);
+
+//                     // Create the faux paginated response object for the display functions
+//                     paginatedResponse = {
+//                         Results: pageOfColumns,
+//                         CurrentPage: page,
+//                         // Calculate total pages based on the full, un-sliced array
+//                         PageCount: Math.ceil(formattedColumns.length / pageSize),
+//                         PageSize: pageSize,
+//                         RowCount: formattedColumns.length
+//                     };
+//                 }
+//             } catch (error) {
+//                 console.error(`Error fetching schema:`, error);
+//             }
+//         }
+//     }
+
+//     // --- RENDER THE RESULTS ---
+//     // These functions now work for both scenarios because the data structure is consistent.
+//     displayColumnsTable(paginatedResponse);
+//     renderPagination('pagination-controls', paginatedResponse);
+// }
+
+/**
+ * The single function responsible for FETCHING data and populating the master `allColumnsData` array.
+ * This is a "reset" action.
+ */
+async function loadColumnsData() {
     const dataSetId = document.getElementById('dataSetSelection').value;
+    let newColumnsData = []; // Default to an empty array
 
     // --- SCENARIO 1: Editing an EXISTING Data Set ---
     if (dataSetId && dataSetId !== 'new') {
         try {
-            console.log(`Fetching columns for existing Data Set ID: ${dataSetId}...`);
-            const columnsData = await fetchDataSetColumns(dataSetId);
-            // The data from this API is already in the correct format.
-            displayColumnsTable(columnsData);
+            console.log(`FETCHING columns for existing Data Set ID: ${dataSetId}...`);
+            newColumnsData = await fetchDataSetColumns(dataSetId);
+
+            console.log("newColumnsData:", newColumnsData)
         } catch (error) {
             console.error(`Error fetching columns for Data Set ID ${dataSetId}:`, error);
-            displayColumnsTable(null);
         }
-        return; // We're done with this path
     }
-
     // --- SCENARIO 2: Creating a NEW Data Set ---
-    if (dataSetId === 'new') {
+    else if (dataSetId === 'new') {
         const tableNameSelector = document.getElementById('tableNameSelector');
-
-        // Check if the table selector exists and has a valid table chosen
         if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
             const tableId = tableNameSelector.value;
-            try {
-                console.log(`Fetching schema for new Data Set from Table ID: ${tableId}...`);
-                const tableDataArray = await fetchLoomeDataSourceTablesByTableId(tableId);
-
-                if (tableDataArray && tableDataArray.length > 0) {
-                    const columnListString = tableDataArray[0].ColumnList;
-                    const columnNames = columnListString.split(",").map(name => name.trim());
-
-                    // *** THIS IS THE CRITICAL TRANSFORMATION STEP ***
-                    // Convert the simple array of strings into the standard array of objects
-                    // that displayColumnsTable expects.
-                    const formattedColumns = columnNames.map(name => ({
-                        Id: null, // No ID for new columns yet
-                        ColumnName: name,
-                        LogicalColumnName: '', // Default to empty
-                        BusinessDescription: '',
-                        ExampleValue: '',
-                        Redact: false, // Default to unchecked
-                        Tokenise: false,
-                        IsFilter: false
-                    }));
-                    
-                    displayColumnsTable(formattedColumns);
-                } else {
-                    displayColumnsTable(null); // No table data found
-                }
-            } catch (error) {
-                console.error(`Error fetching schema for Table ID ${tableId}:`, error);
-                displayColumnsTable(null);
-            }
-        } else {
-            // If it's a new data set but no table is selected, show the placeholder.
-            displayColumnsTable(null);
+            console.log(`FETCHING schema for new Data Set from Table ID: ${tableId}...`);
+            // This now calls your dedicated helper function
+            newColumnsData = await formatColumnsFromSchema(tableId);
         }
-        return; // We're done with this path
     }
 
-    // --- FALLBACK ---
-    // If neither condition is met, ensure the table is clear.
-    displayColumnsTable(null);
+    // --- CRITICAL: Update the master state ---
+    allColumnsData = newColumnsData || [];
+    currentPage = 1; // Always reset to the first page when data is reloaded
+
+    // Finally, render the first page of the NEW data
+    renderTablePage();
+}
+
+/**
+ * Renders the UI based on the current state of `allColumnsData` and `currentPage`.
+ * This function DOES NOT fetch data.
+ */
+function renderTablePage() {
+    // Calculate the slice of data for the current page
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    console.log(startIndex, endIndex)
+    const pageData = allColumnsData.slice(startIndex, endIndex);
+    console.log("pageData: ", pageData, allColumnsData)
+    // Render the table with only the data for the current page
+    displayColumnsTable(pageData);
+    
+    console.log(allColumnsData.length, pageSize, currentPage)
+    // Render the pagination controls based on the FULL dataset length
+    renderPagination('pagination-controls', allColumnsData.length, pageSize, currentPage);
 }
 
 /**
  * Gathers all data from the form fields and tables into a structured object.
  * @returns {object} An object containing mainDetails and columns arrays.
  */
-function gatherFormData() {
+function gatherFormData(allColumnsData) {
     // --- Part A: Gather Main Form Details ---
     const mainDetails = {
         name: document.getElementById('dataSetName').value,
@@ -801,27 +985,29 @@ function gatherFormData() {
     if (metaTableBody) scrapeMetaTable(metaTableBody);
 
     // --- Part C: Gather Editable Columns Table Data ---
-    const columns = [];
-    const colsTableBody = document.getElementById('dataSetColsBody');
-    colsTableBody.querySelectorAll('tr').forEach(row => {
-        // Skip the placeholder row if it exists
-        if (row.querySelector('td[colspan]')) {
-            return;
-        }
+    // const columns = [];
+    // const colsTableBody = document.getElementById('dataSetColsBody');
+    // colsTableBody.querySelectorAll('tr').forEach(row => {
+    //     // Skip the placeholder row if it exists
+    //     if (row.querySelector('td[colspan]')) {
+    //         return;
+    //     }
 
-        const columnData = {
-            // Use dataset.id for existing, or null for new
-            //Id: row.dataset.id ? parseInt(row.dataset.id, 10) : null,
-            ColumnName: row.cells[0].textContent.trim(),
-            LogicalColumnName: row.cells[1].textContent.trim(),
-            BusinessDescription: row.cells[2].textContent.trim(),
-            ExampleValue: row.cells[3].textContent.trim(),
-            Redact: row.querySelector('[data-field="redact"]').checked,
-            Tokenise: row.querySelector('[data-field="deIdentify"]').checked,
-            IsFilter: row.querySelector('[data-field="isFilter"]').checked
-        };
-        columns.push(columnData);
-    });
+    //     const columnData = {
+    //         // Use dataset.id for existing, or null for new
+    //         //Id: row.dataset.id ? parseInt(row.dataset.id, 10) : null,
+    //         ColumnName: row.cells[0].textContent.trim(),
+    //         LogicalColumnName: row.cells[1].textContent.trim(),
+    //         BusinessDescription: row.cells[2].textContent.trim(),
+    //         ExampleValue: row.cells[3].textContent.trim(),
+    //         Redact: row.querySelector('[data-field="Redact"]').checked,
+    //         Tokenise: row.querySelector('[data-field="DeIdentify"]').checked,
+    //         IsFilter: row.querySelector('[data-field="IsFilter"]').checked
+    //     };
+    //     columns.push(columnData);
+    // });
+
+    const columns = allColumnsData;
 
     return {
         ...mainDetails,
@@ -837,9 +1023,9 @@ function gatherFormData() {
 async function createDataSet(data) {
     const payload = {
         ...data, // Spread all properties from the original object
-        optOutMessage: "{{OptOutMessage}}",
-        optOutList: "{{OptOutList}}",
-        optOutColumn: "{{OptOutColumn}}"
+        optOutMessage: "string",
+        optOutList: "string",
+        optOutColumn: "-1"
     };
 
     console.log("Sending this payload to the API:", payload);
@@ -880,16 +1066,6 @@ async function updateDataSet(data_set_id, data) {
         console.error("Error updating dataset:", error);
         throw error;
     }
-}
-
-async function addOrUpdateColumns(dataSetId, columnsData) {
-    const ADD_OR_UPDATE_COLUMNS_API_ID = 39;
-}
-
-// You would also need an endpoint for saving the metadata.
-async function addOrUpdateMetadata(dataSetId, metadata) {
-    console.log(`API CALL: POST /api/datasets/${dataSetId}/metadata`, metadata);
-    return { success: true };
 }
 
 async function renderManageDataSourcePage() {
@@ -937,7 +1113,7 @@ async function renderManageDataSourcePage() {
         console.log("Form populated with:", dataSet, dataSource);
     }
     
-    // This is inside your renderManageDataSourcePage function
+
     async function updateFormForSelection(allDataSets, allDataSources) {
         const selectedId = selectionDropdown.value;
 
@@ -960,11 +1136,9 @@ async function renderManageDataSourcePage() {
             updateDataSetFieldsTable(dataSource, selectedId); 
             updateMetaDataTable(dataSource, selectedId);
             
-            // --- FIX IS HERE ---
             // 3. Now that a valid, existing data set is selected,
             //    immediately call the function to update the columns table.
-            //    We pass 'selectedId' because it IS the dataSetId we need.
-            await updateColumnsForTable(selectedId);
+            //await updateColumnsForTable(1);
         }
     }
    
@@ -991,12 +1165,12 @@ async function renderManageDataSourcePage() {
 
             // 4. Add the event listener to handle changes
             // Listener for TOP-LEVEL data set selection
-            selectionDropdown.addEventListener('change', async () => {
-                await updateFormForSelection(allDataSets, allDataSources); // This updates the form on the left
-                await updateColumnsForTable(); // This now updates the columns on the right
-            });
+            // selectionDropdown.addEventListener('change', async () => {
+            //     await updateFormForSelection(allDataSets, allDataSources); // This updates the form on the left
+            //     await updateColumnsForTable(); // This now updates the columns on the right
+            // });
 
-            // Listener for DATA SOURCE dropdown
+            // // Listener for DATA SOURCE dropdown
             dataSourceDrpDwn.addEventListener('change', async () => {
                 const selectedDataSourceId = dataSourceDrpDwn.value;
                 const selectedDataSource = allDataSources.find(src => src.DataSourceID == selectedDataSourceId);
@@ -1009,21 +1183,59 @@ async function renderManageDataSourcePage() {
                     await updateMetaDataTable(selectedDataSource, selectedDataSetID);
                     
                     // THEN, refresh the columns based on the new context.
-                    await updateColumnsForTable();
+                    //await updateColumnsForTable(1);
+
+                    await loadColumnsData();
                 } else {
                     // If no source is selected, clear everything.
                     displayColumnsTable(null);
                     // You might also want to clear the metadata tables here.
                 }
-});
+            });
+
+            // // Listener for TABLE NAME dropdown
+            // dataSetFieldsTable.addEventListener('change', async (event) => {
+            //     if (event.target.id === 'tableNameSelector') {
+            //         await updateColumnsForTable();
+            //     }
+            // });
+
+            // Listener for TOP-LEVEL data set selection
+            selectionDropdown.addEventListener('change', async () => {
+                await updateFormForSelection(allDataSets, allDataSources);
+                // Always load the FIRST page when the data set changes
+                //await updateColumnsForTable(1);
+
+                await loadColumnsData();
+            });
 
             // Listener for TABLE NAME dropdown
             dataSetFieldsTable.addEventListener('change', async (event) => {
                 if (event.target.id === 'tableNameSelector') {
-                    await updateColumnsForTable();
+                    // Always load the FIRST page when the table changes
+                    //await updateColumnsForTable(1);
+                    await loadColumnsData();
                 }
             });
 
+            // --- "RENDER" EVENT LISTENER ---
+            // This listener ONLY updates the view, it does not fetch data.
+
+            const paginationControls = document.getElementById('pagination-controls');
+            paginationControls.addEventListener('click', (event) => {
+                event.preventDefault();
+                const target = event.target;
+                console.log('page: ', target.dataset.page);
+                if (target.tagName === 'A' && target.dataset.page) {
+                    const page = parseInt(target.dataset.page, 10);
+                    const totalPages = Math.ceil(allColumnsData.length / pageSize);
+
+                    if (page > 0 && page <= totalPages) {
+                        currentPage = page;
+                        renderTablePage(); // Just re-render with the new page number
+                    }
+                }
+            });
 
             // =================================================================
             //  EDITABLE TABLE LOGIC
@@ -1060,16 +1272,21 @@ async function renderManageDataSourcePage() {
                 // Handler for when the input loses focus (blur) or Enter is pressed
                 const saveChanges = () => {
                     const newValue = input.value.trim();
-                    cell.innerHTML = newValue; // Revert cell to text
+                    cell.innerHTML = newValue;
 
-                    // --- THIS IS WHERE YOU SAVE THE TEXT CHANGE TO THE SERVER ---
                     const row = cell.closest('tr');
-                    const id = row.dataset.id;
+                    const columnName = row.dataset.columnName;
                     const field = cell.dataset.field;
-                    console.log(`Saving Text... ID: ${id}, Field: ${field}, New Value: '${newValue}'`);
-                    
-                    // Example API call:
-                    // updateColumnField(id, { [field]: newValue });
+
+                    // --- THIS IS THE KEY CHANGE ---
+                    // Find the corresponding object in our master array
+                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
+
+                    if (columnToUpdate) {
+                        // Update the property on the object in the array
+                        columnToUpdate[field] = newValue;
+                        console.log("Updated in-memory data:", allColumnsData);
+                    }
                 };
 
                 input.addEventListener('blur', saveChanges);
@@ -1083,26 +1300,50 @@ async function renderManageDataSourcePage() {
             });
 
 
-            // --- Listener 2: For CHECKBOX cell editing (on change) ---
-            // We use 'change' instead of 'click' as it's more semantically correct for form inputs.
+            // --- Listener 2: For CHECKBOX and TEXT cell editing (on change) ---
+            // Add this unified listener to your DOMContentLoaded block
             dataSetColsBody.addEventListener('change', (event) => {
-                const checkbox = event.target;
-                // Only act on our specific editable checkboxes
-                if (!checkbox.classList.contains('editable-checkbox')) {
-                    return;
+                const target = event.target; // The element that triggered the event (either a checkbox or a text input)
+
+                // --- PATH 1: Handle Checkbox Changes ---
+                if (target.classList.contains('editable-checkbox')) {
+                    const isChecked = target.checked;
+                    const row = target.closest('tr');
+                    const columnName = row.dataset.columnName;
+                    const field = target.dataset.field;
+                    
+                    console.log(`Saving Checkbox... Field: ${field}, New Value: ${isChecked}`);
+                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
+
+                    if (columnToUpdate) {
+                        // Update the property on the object in the in-memory array
+                        columnToUpdate[field] = isChecked;
+                        console.log("Updated in-memory data:", allColumnsData);
+                    }
+                } 
+                // --- PATH 2: Handle Text Input Changes (from a dblclick-generated input) ---
+                else if (target.tagName === 'INPUT' && target.type === 'text') {
+                    const newValue = target.value.trim();
+                    const cell = target.parentElement; // The <td> containing the input
+                    const row = cell.closest('tr');
+                    const columnName = row.dataset.columnName;
+                    const field = cell.dataset.field;
+
+                    // Revert the cell to plain text now that the edit is done
+                    cell.innerHTML = newValue;
+
+                    console.log(`Saving Text... Field: ${field}, New Value: '${newValue}'`);
+                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
+
+                    if (columnToUpdate) {
+                        // Update the property on the object in the in-memory array
+                        columnToUpdate[field] = newValue;
+                        console.log("Updated in-memory data:", allColumnsData);
+                    }
                 }
-
-                const isChecked = checkbox.checked;
-                
-                // --- THIS IS WHERE YOU SAVE THE CHECKBOX CHANGE TO THE SERVER ---
-                const row = checkbox.closest('tr');
-                const id = row.dataset.id;
-                const field = checkbox.dataset.field;
-                console.log(`Saving Checkbox... ID: ${id}, Field: ${field}, New Value: ${isChecked}`);
-
-                // Example API call:
-                // updateColumnField(id, { [field]: isChecked });
             });
+
+ 
 
             // =================================================================
             //  SUBMIT DATASET DETAILS LOGIC
@@ -1125,11 +1366,11 @@ async function renderManageDataSourcePage() {
 
                 try {
                     // 3. Gather all data from the form into a structured object
-                    const formData = gatherFormData();
+                    const formData = gatherFormData(allColumnsData);
                     console.log("Form Data to Submit:", formData);
                     // --- Client-side validation (optional but recommended) ---
                     if (!formData.name) {
-                        alert('Data Set Name is required.');
+                        showToast('Data Set Name is required.', 'warning');
                         throw new Error('Validation failed: Name is required.');
                     }
 
@@ -1139,16 +1380,12 @@ async function renderManageDataSourcePage() {
                     if (dataSetId === 'new') {
                         // --- CREATE (POST) LOGIC ---
                         
-                        // a. Create the main data set record first
+                        // Create the main data set record first
                         console.log("Creating new Data Set with payload:", formData);
                         const newDataSet = await createDataSet(formData); // Assume this returns the new object with its ID
                         const newDataSetId = newDataSet.DataSetID;
-
-                        // b. Now, save the associated columns
-                        // console.log("Adding columns for new Data Set ID:", newDataSetId, formData.columns);
-                        // await addOrUpdateColumns(newDataSetId, formData.columns);
                         
-                        alert('Data Set created successfully!');
+                        showToast('Data Set created successfully!');
                         // Optional: Reload the page or update the dropdown with the new item
                         window.location.reload(); 
 
@@ -1156,19 +1393,15 @@ async function renderManageDataSourcePage() {
                         // --- UPDATE (PUT/PATCH) LOGIC ---
                         console.log(`Updating Data Set ID ${dataSetId} with payload:`, formData);
                         
-                        // a. Update the main data set record;
+                        // Update the main data set record;
                         await updateDataSet(dataSetId, formData);
 
-                        // b. Save/update the associated columns
-                        // console.log(`Updating columns for Data Set ID ${dataSetId}:`, formData.columns);
-                        // await addOrUpdateColumns(dataSetId, formData.columns);
-
-                        alert('Data Set updated successfully!');
+                        showToast('Data Set updated successfully!');
                     }
 
                 } catch (error) {
                     console.error('An error occurred during submission:', error);
-                    alert('Failed to save the Data Set. Please check the console for details.');
+                    showToast('Failed to save the Data Set. Please check the console for details.', 'failed');
                 } finally {
                     // 5. ALWAYS re-enable the button and restore its text
                     submitButton.disabled = false;
