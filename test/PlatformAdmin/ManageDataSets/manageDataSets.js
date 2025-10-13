@@ -110,88 +110,95 @@ function displayColumnsTable(data) {
     tableBody.innerHTML = rowsHtml;
 }
 
-
-// /**
-//  * Renders Bootstrap 5 pagination controls from a paginated API response.
-//  * @param {string} containerId - The ID of the element to hold the controls.
-//  * @param {Object|null} paginatedResponse - The full response object from the API.
-//  */
-// function renderPagination(containerId, paginatedResponse) {
-//     const container = document.getElementById(containerId);
-//     if (!container) return;
-//     container.innerHTML = ''; // Clear old controls
-
-//     // Use the pagination data directly from the API response
-//     if (!paginatedResponse || paginatedResponse.PageCount <= 1) {
-//         return; // No need for pagination
-//     }
-
-//     const totalPages = paginatedResponse.PageCount;
-//     const currentPage = paginatedResponse.CurrentPage;
-
-//     // The rest of the HTML generation logic is the same as the Bootstrap version I provided earlier
-//     let paginationHTML = '<ul class="pagination justify-content-end">';
-//     const prevDisabled = currentPage === 1;
-//     paginationHTML += `<li class="page-item ${prevDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
-
-//     for (let i = 1; i <= totalPages; i++) {
-//         const isActive = i === currentPage;
-//         paginationHTML += `<li class="page-item ${isActive ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-//     }
-
-//     const nextDisabled = currentPage === totalPages;
-//     paginationHTML += `<li class="page-item ${nextDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
-    
-//     paginationHTML += '</ul>';
-//     container.innerHTML = paginationHTML;
-// }
-
 /**
- * Renders Bootstrap 5 pagination controls based on calculated page data.
- * This version is for client-side pagination where we know the total number of items.
- * @param {string} containerId - The ID of the element to hold the controls.
- * @param {number} totalItems - The total number of items in the full dataset (e.g., allColumnsData.length).
- * @param {number} itemsPerPage - The number of items to display on each page (e.g., pageSize).
- * @param {number} currentPage - The currently active page number.
- */
+* Renders a compact and functional set of pagination controls.
+* Includes First, Previous, Next, Last buttons and a page input field.
+*/
 function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     const container = document.getElementById(containerId);
-    if (!container) return;
-
-    // --- THIS IS THE KEY CHANGE ---
-    // Calculate the total number of pages needed.
-    // Math.ceil() rounds up to the nearest whole number (e.g., 21 items / 10 per page = 2.1, which rounds up to 3 pages).
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-    // Clear old controls and exit if pagination is not needed.
-    container.innerHTML = '';
-    if (totalPages <= 1) {
+    if (!container) {
+        console.error(`Pagination container with ID "${containerId}" not found.`);
         return;
     }
 
-    // The rest of the HTML generation logic is the same as your Bootstrap version,
-    // as it already uses 'totalPages' and 'currentPage' variables.
-    let paginationHTML = '<ul class="pagination justify-content-end">';
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    container.innerHTML = ''; // Clear old controls
 
-    // Previous Button
-    const prevDisabled = currentPage === 1;
-    paginationHTML += `<li class="page-item ${prevDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
-
-    // Page Number Buttons
-    for (let i = 1; i <= totalPages; i++) {
-        const isActive = i === currentPage;
-        paginationHTML += `<li class="page-item ${isActive ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+    if (totalPages <= 1) {
+        return; // No need for pagination.
     }
 
-    // Next Button
-    const nextDisabled = currentPage === totalPages;
-    paginationHTML += `<li class="page-item ${nextDisabled ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
-    
-    paginationHTML += '</ul>';
+    // --- Determine button states ---
+    const isFirstPage = currentPage === 1;
+    const isLastPage = currentPage === totalPages;
+    const commonButtonClasses = "px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100";
+    const disabledClasses = "opacity-50 cursor-not-allowed";
+
+    let paginationHTML = `
+            <!-- First Page Button -->
+            <button data-page="1" 
+                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
+                    ${isFirstPage ? 'disabled' : ''}>
+                First
+            </button>
+            <!-- Previous Page Button -->
+            <button data-page="${currentPage - 1}" 
+                    class="${commonButtonClasses} ${isFirstPage ? disabledClasses : ''}" 
+                    style="margin-right: 10px;"
+                    ${isFirstPage ? 'disabled' : ''}>
+                Previous
+            </button>
+
+        <!-- Page number input and display -->
+            <span>Page</span>
+            <input type="number" 
+                   id="page-input" 
+                   class="w-16 text-center border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                   value="${currentPage}" 
+                   min="1" 
+                   max="${totalPages}" 
+                   aria-label="Current page">
+            <span>of ${totalPages}</span>
+
+            <!-- Next Page Button -->
+            <button data-page="${currentPage + 1}" 
+                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}"
+                    style="margin-left: 10px;" 
+                    ${isLastPage ? 'disabled' : ''}>
+                Next
+            </button>
+            <!-- Last Page Button -->
+            <button data-page="${totalPages}" 
+                    class="${commonButtonClasses} ${isLastPage ? disabledClasses : ''}" 
+                    ${isLastPage ? 'disabled' : ''}>
+                Last
+            </button>
+    `;
+
     container.innerHTML = paginationHTML;
 }
 
+/**
+ * A central function to handle page changes. It validates the new page number
+ * and re-renders the table.
+ * @param {number} newPage - The page number to navigate to.
+ */
+function handlePageChange(newPage) {
+    const totalPages = Math.ceil(allColumnsData.length / pageSize);
 
+    // Validate the page number to ensure it's within bounds
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderTablePage(); // Your existing function to render the table and pagination
+    } else {
+        // Optional: Revert the input field if the user enters an invalid number
+        const pageInput = document.getElementById('page-input');
+        if (pageInput) {
+            pageInput.value = currentPage; 
+        }
+        console.warn(`Invalid page number entered: ${newPage}`);
+    }
+}
 
 
 // Data Set Field Table Rendering Functions
@@ -1136,9 +1143,6 @@ async function renderManageDataSourcePage() {
             updateDataSetFieldsTable(dataSource, selectedId); 
             updateMetaDataTable(dataSource, selectedId);
             
-            // 3. Now that a valid, existing data set is selected,
-            //    immediately call the function to update the columns table.
-            //await updateColumnsForTable(1);
         }
     }
    
@@ -1163,12 +1167,6 @@ async function renderManageDataSourcePage() {
             // Create the Empty Columns Table
             updateFormForSelection(allDataSets, allDataSources);
 
-            // 4. Add the event listener to handle changes
-            // Listener for TOP-LEVEL data set selection
-            // selectionDropdown.addEventListener('change', async () => {
-            //     await updateFormForSelection(allDataSets, allDataSources); // This updates the form on the left
-            //     await updateColumnsForTable(); // This now updates the columns on the right
-            // });
 
             // // Listener for DATA SOURCE dropdown
             dataSourceDrpDwn.addEventListener('change', async () => {
@@ -1193,13 +1191,6 @@ async function renderManageDataSourcePage() {
                 }
             });
 
-            // // Listener for TABLE NAME dropdown
-            // dataSetFieldsTable.addEventListener('change', async (event) => {
-            //     if (event.target.id === 'tableNameSelector') {
-            //         await updateColumnsForTable();
-            //     }
-            // });
-
             // Listener for TOP-LEVEL data set selection
             selectionDropdown.addEventListener('change', async () => {
                 await updateFormForSelection(allDataSets, allDataSources);
@@ -1222,20 +1213,42 @@ async function renderManageDataSourcePage() {
             // This listener ONLY updates the view, it does not fetch data.
 
             const paginationControls = document.getElementById('pagination-controls');
-            paginationControls.addEventListener('click', (event) => {
-                event.preventDefault();
-                const target = event.target;
-                console.log('page: ', target.dataset.page);
-                if (target.tagName === 'A' && target.dataset.page) {
-                    const page = parseInt(target.dataset.page, 10);
-                    const totalPages = Math.ceil(allColumnsData.length / pageSize);
+            // paginationControls.addEventListener('click', (event) => {
+            //     event.preventDefault();
+            //     const target = event.target;
+            //     console.log('page: ', target.dataset.page);
+            //     if (target.tagName === 'A' && target.dataset.page) {
+            //         const page = parseInt(target.dataset.page, 10);
+            //         const totalPages = Math.ceil(allColumnsData.length / pageSize);
 
-                    if (page > 0 && page <= totalPages) {
-                        currentPage = page;
-                        renderTablePage(); // Just re-render with the new page number
-                    }
+            //         if (page > 0 && page <= totalPages) {
+            //             currentPage = page;
+            //             renderTablePage(); // Just re-render with the new page number
+            //         }
+            //     }
+            // });
+
+            // This single listener handles all pagination interactions using event delegation.
+            paginationControls.addEventListener('click', (event) => {
+                // Check if a pagination button was clicked
+                const target = event.target.closest('button[data-page]');
+                if (target) {
+                    event.preventDefault();
+                    const page = parseInt(target.dataset.page, 10);
+                    handlePageChange(page);
                 }
             });
+
+            paginationControls.addEventListener('keydown', (event) => {
+                // Check if the Enter key was pressed in the input field
+                const target = event.target;
+                if (target.id === 'page-input' && event.key === 'Enter') {
+                    event.preventDefault();
+                    const page = parseInt(target.value, 10);
+                    handlePageChange(page);
+                }
+            });
+
 
             // =================================================================
             //  EDITABLE TABLE LOGIC
@@ -1370,7 +1383,7 @@ async function renderManageDataSourcePage() {
                     console.log("Form Data to Submit:", formData);
                     // --- Client-side validation (optional but recommended) ---
                     if (!formData.name) {
-                        showToast('Data Set Name is required.', 'warning');
+                        showToast('Data Set Name is required.', 'info');
                         throw new Error('Validation failed: Name is required.');
                     }
 
@@ -1386,8 +1399,6 @@ async function renderManageDataSourcePage() {
                         const newDataSetId = newDataSet.DataSetID;
                         
                         showToast('Data Set created successfully!');
-                        // Optional: Reload the page or update the dropdown with the new item
-                        window.location.reload(); 
 
                     } else {
                         // --- UPDATE (PUT/PATCH) LOGIC ---
@@ -1401,7 +1412,7 @@ async function renderManageDataSourcePage() {
 
                 } catch (error) {
                     console.error('An error occurred during submission:', error);
-                    showToast('Failed to save the Data Set. Please check the console for details.', 'failed');
+                    showToast('Failed to save the Data Set. Please check the console for details.', 'error');
                 } finally {
                     // 5. ALWAYS re-enable the button and restore its text
                     submitButton.disabled = false;
