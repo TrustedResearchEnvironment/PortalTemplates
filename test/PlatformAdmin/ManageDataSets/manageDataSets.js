@@ -100,7 +100,7 @@ function displayColumnsTable(data) {
                 <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${col.Redact ? 'checked' : ''}>
             </td>
             <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="DeIdentify" ${col.Tokenise ? 'checked' : ''}>
+                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${col.Tokenise ? 'checked' : ''}>
             </td>
             <td class="checkbox-cell">
                 <input class="form-check-input editable-checkbox" type="checkbox" data-field="IsFilter" ${col.IsFilter ? 'checked' : ''}>
@@ -792,64 +792,6 @@ async function formatColumnsFromSchema(tableId) {
     }
 }
 
-/**
- * The single, smart function to update the columns table for a specific page.
- * It handles the logic for both new and existing data sets.
- * @param {number} [page=1] - The page number to fetch and display.
- */
-// async function updateColumnsForTable(page = 1) {
-//     const dataSetId = document.getElementById('dataSetSelection').value;
-//     let paginatedResponse = null;
-
-//     // --- SCENARIO 1: Editing an EXISTING Data Set ---
-//     if (dataSetId && dataSetId !== 'new') {
-//         try {
-//             console.log(`Fetching page ${page} for existing Data Set ID: ${dataSetId}...`);
-//             paginatedResponse = await fetchDataSetColumns(dataSetId, page);
-//             result = paginatedResponse.Results
-//         } catch (error) {
-//             console.error(`Error fetching columns:`, error);
-//         }
-//     }
-//     // --- SCENARIO 2: Creating a NEW Data Set ---
-//     else if (dataSetId === 'new') {
-//         const tableNameSelector = document.getElementById('tableNameSelector');
-//         if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
-//             const tableId = tableNameSelector.value;
-//             try {
-//                 if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
-//                     const tableId = tableNameSelector.value;
-
-//                     // IMPROVEMENT (Clarity/Reusability): Call the dedicated helper function
-//                     const formattedColumns = await formatColumnsFromSchema(tableId);
-
-//                     // For Pagination
-//                     const pageSize = 10;
-//                     const startIndex = (page - 1) * pageSize;
-//                     const endIndex = startIndex + pageSize;
-//                     const pageOfColumns = formattedColumns.slice(startIndex, endIndex);
-
-//                     // Create the faux paginated response object for the display functions
-//                     paginatedResponse = {
-//                         Results: pageOfColumns,
-//                         CurrentPage: page,
-//                         // Calculate total pages based on the full, un-sliced array
-//                         PageCount: Math.ceil(formattedColumns.length / pageSize),
-//                         PageSize: pageSize,
-//                         RowCount: formattedColumns.length
-//                     };
-//                 }
-//             } catch (error) {
-//                 console.error(`Error fetching schema:`, error);
-//             }
-//         }
-//     }
-
-//     // --- RENDER THE RESULTS ---
-//     // These functions now work for both scenarios because the data structure is consistent.
-//     displayColumnsTable(paginatedResponse);
-//     renderPagination('pagination-controls', paginatedResponse);
-// }
 
 /**
  * The single function responsible for FETCHING data and populating the master `allColumnsData` array.
@@ -1056,9 +998,9 @@ async function updateDataSet(data_set_id, data) {
     const payload = {
         ...data, // Spread all properties from the original object
         id: parseInt(data_set_id, 10),
-        optOutMessage: "{{OptOutMessage}}",
-        optOutList: "{{OptOutList}}",
-        optOutColumn: "{{OptOutColumn}}"
+        optOutMessage: "string",
+        optOutList: "string",
+        optOutColumn: "-1"
     };
 
     console.log("Sending this payload to the API:", payload);
@@ -1095,6 +1037,7 @@ async function renderManageDataSourcePage() {
      * Clears the form fields to their default state for creating a new entry.
      */
     function clearForm() {
+        selectionDropdown.value = 'new';
         nameInput.value = '';
         descriptionInput.value = '';
         dataSourceDrpDwn.value = ''; // Resets dropdown to the "Select a Type..." option
@@ -1180,9 +1123,6 @@ async function renderManageDataSourcePage() {
                     await updateDataSetFieldsTable(selectedDataSource, selectedDataSetID);
                     await updateMetaDataTable(selectedDataSource, selectedDataSetID);
                     
-                    // THEN, refresh the columns based on the new context.
-                    //await updateColumnsForTable(1);
-
                     await loadColumnsData();
                 } else {
                     // If no source is selected, clear everything.
@@ -1194,9 +1134,6 @@ async function renderManageDataSourcePage() {
             // Listener for TOP-LEVEL data set selection
             selectionDropdown.addEventListener('change', async () => {
                 await updateFormForSelection(allDataSets, allDataSources);
-                // Always load the FIRST page when the data set changes
-                //await updateColumnsForTable(1);
-
                 await loadColumnsData();
             });
 
@@ -1213,20 +1150,6 @@ async function renderManageDataSourcePage() {
             // This listener ONLY updates the view, it does not fetch data.
 
             const paginationControls = document.getElementById('pagination-controls');
-            // paginationControls.addEventListener('click', (event) => {
-            //     event.preventDefault();
-            //     const target = event.target;
-            //     console.log('page: ', target.dataset.page);
-            //     if (target.tagName === 'A' && target.dataset.page) {
-            //         const page = parseInt(target.dataset.page, 10);
-            //         const totalPages = Math.ceil(allColumnsData.length / pageSize);
-
-            //         if (page > 0 && page <= totalPages) {
-            //             currentPage = page;
-            //             renderTablePage(); // Just re-render with the new page number
-            //         }
-            //     }
-            // });
 
             // This single listener handles all pagination interactions using event delegation.
             paginationControls.addEventListener('click', (event) => {
@@ -1363,7 +1286,7 @@ async function renderManageDataSourcePage() {
             // =================================================================
 
             const manageDataSetForm = document.getElementById('manageDataSetForm');
-            const submitButton = manageDataSetForm.querySelector('button[type="submit"]');
+            const submitButton = document.getElementById('submit-button');
 
             /**
              * The main submit handler for the entire form.
@@ -1409,6 +1332,13 @@ async function renderManageDataSourcePage() {
 
                         showToast('Data Set updated successfully!');
                     }
+
+                    // Clear the forms
+                    clearForm();
+                    updateDataSetFieldsTable(null, null); 
+                    updateMetaDataTable(null, null);
+                    displayColumnsTable(null); 
+
 
                 } catch (error) {
                     console.error('An error occurred during submission:', error);
