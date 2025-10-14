@@ -82,8 +82,12 @@ function displayColumnsTable(data) {
     //const columnsData = paginatedResponse ? paginatedResponse.Results : null;
 
     if (!data || data.length === 0) {
-        // ... (placeholder logic remains the same) ...
-        const placeholderHtml = `<tr><td colspan="7" class="text-center text-muted">No columns to display.</td></tr>`;
+        const placeholderHtml = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No columns to display. Select a Data Source and Table.
+                </td>
+            </tr>`;
         tableBody.innerHTML = placeholderHtml;
         return;
     }
@@ -102,11 +106,12 @@ function displayColumnsTable(data) {
             <td class="checkbox-cell">
                 <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${col.Tokenise ? 'checked' : ''}>
             </td>
-            <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="IsFilter" ${col.IsFilter ? 'checked' : ''}>
-            </td>
         </tr>
     `).join('');
+    // Excludeing isFilter for now
+    // <td class="checkbox-cell">
+    //     <input class="form-check-input editable-checkbox" type="checkbox" data-field="IsFilter" ${col.IsFilter ? 'checked' : ''}>
+    // </td>
     tableBody.innerHTML = rowsHtml;
 }
 
@@ -391,7 +396,7 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
                 <tr>
                     <td>Table Name <input type="text" hidden="true"></td>
                     <td width="70%">
-                        <select id="tableNameSelector" class="form-control selectpicker bg-white">
+                        <select id="tableNameSelector" class="form-control selectpicker" style="background-color: #E9ECEF" disabled>
                             <option value="${tableId}" title="${tableName}" selected>${tableName}</option>
                             ${optionsHtml}
                         </select>
@@ -1068,12 +1073,22 @@ async function renderManageDataSourcePage() {
         const selectedId = selectionDropdown.value;
 
         if (selectedId === 'new') {
+
+            nameInput.disabled = false;
+            descriptionInput.disabled = false;
+            dataSourceDrpDwn.disabled = false;
+
             clearForm();
             updateDataSetFieldsTable(null, null); 
             updateMetaDataTable(null, null);
             // When creating a new set, there are no columns to show. Clear the table.
             displayColumnsTable(null); 
         } else {
+            // Don't let name and description be edited for existing sets
+            nameInput.disabled = true;
+            descriptionInput.disabled = true;
+            dataSourceDrpDwn.disabled = true;
+
             const selectedDataSet = allDataSets.find(ds => ds.DataSetID == selectedId);
             if (!selectedDataSet) return;
             const dataSource = allDataSources.find(dsrc => dsrc.DataSourceID == selectedDataSet.DataSourceID);
