@@ -1,0 +1,13 @@
+ /* Make editable cells look clickable */
+.editable-cell {
+    cursor: pointer;
+}
+.editable-cell:hover {
+    background-color: #f0f8ff; /* Light blue on hover */
+}
+
+.thead-custom-dark th {
+    background-color: #363A44;
+    color: white;
+    border-color: #454d55; /* Optional: Adjust border for a cleaner look */
+}
