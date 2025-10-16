@@ -4,14 +4,16 @@
 
 const TABLE_CONTAINER_ID = 'export-jobs-table-area';
 const API_REQUEST_ID = 41;
-const EXPORT_TYPES_API_ID = 9; // ADDED: API ID for the dropdown options
+const EXPORT_TYPES_API_ID = 9; 
+const SUBMIT_EXPORT_API_ID = 42;
 
-// ADDED: Modal Element IDs
+// Modal Element IDs
 const MODAL_ID = 'export-modal';
 const OPEN_MODAL_BTN_ID = 'request-export-btn';
 const CLOSE_MODAL_BTN_ID = 'modal-close-btn';
 const EXPORT_FORM_ID = 'export-form';
-const DROPDOWN_ID = 'export-type'; // ADDED: ID for the dropdown
+const DROPDOWN_ID = 'export-type';
+const SUBMIT_MODAL_BTN_ID = 'modal-submit-btn'; // ADDED: ID for submit button
 
 // State for pagination
 let currentPage = 1;
@@ -19,26 +21,16 @@ const rowsPerPage = 5;
 
 // This will store all the jobs after the initial fetch
 let allJobs = [];
-let isDropdownPopulated = false; // ADDED: Flag to prevent re-fetching dropdown data
+let isDropdownPopulated = false; 
 
 // =================================================================
 //                      UTILITY FUNCTIONS
 // =================================================================
 
-/**
- * Safely parses a response that might be a JSON string or an object.
- * @param {string | object} response The API response.
- * @returns {object}
- */
 function safeParseJson(response) {
     return typeof response === 'string' ? JSON.parse(response) : response;
 }
 
-/**
- * Formats a date string into a more readable format.
- * @param {string} inputDate The ISO date string to format.
- * @returns {string} The formatted date or 'N/A' if invalid.
- */
 function formatDate(inputDate) {
     if (!inputDate) return 'N/A';
     const date = new Date(inputDate);
@@ -54,10 +46,7 @@ function formatDate(inputDate) {
 //                      MODAL & FORM FUNCTIONS
 // =================================================================
 
-/**
- * Fetches data from API 9 and populates the dropdown in the modal.
- */
-async function populateExportTypesDropdown() { // ADDED: New function
+async function populateExportTypesDropdown() { 
     const dropdown = document.getElementById(DROPDOWN_ID);
     if (!dropdown) return;
 
@@ -69,16 +58,16 @@ async function populateExportTypesDropdown() { // ADDED: New function
         const data = safeParseJson(response);
         const exportTypes = data.Results;
 
-        dropdown.innerHTML = '<option value="">Select an export type...</option>'; // Reset
+        dropdown.innerHTML = '<option value="">Select an export type...</option>';
 
         if (exportTypes && exportTypes.length > 0) {
             exportTypes.forEach(type => {
                 const option = document.createElement('option');
-                option.value = type.AssistProjectID; // Use the ID as the value
-                option.textContent = type.Name;      // Display the Name
+                option.value = type.AssistProjectID;
+                option.textContent = type.Name;
                 dropdown.appendChild(option);
             });
-            isDropdownPopulated = true; // Mark as populated to avoid re-fetching
+            isDropdownPopulated = true; 
         } else {
             dropdown.innerHTML = '<option value="">No export types found.</option>';
         }
@@ -86,27 +75,28 @@ async function populateExportTypesDropdown() { // ADDED: New function
         console.error("Failed to populate dropdown:", error);
         dropdown.innerHTML = '<option value="">Error loading options.</option>';
     } finally {
-        dropdown.disabled = false; // Re-enable dropdown
+        dropdown.disabled = false;
     }
 }
 
 /**
  * Opens the modal dialog and populates dropdown if needed.
  */
-function openModal() { // MODIFIED: To call the populate function
+function openModal() { // MODIFIED: To reset form state on open
     const modal = document.getElementById(MODAL_ID);
     if (modal) {
         modal.classList.remove('hidden');
-        // Fetch data only if it hasn't been fetched before
+
+        // Reset form to its initial state
+        document.getElementById(DROPDOWN_ID).selectedIndex = 0;
+        document.getElementById(SUBMIT_MODAL_BTN_ID).disabled = true;
+
         if (!isDropdownPopulated) {
             populateExportTypesDropdown();
         }
     }
 }
 
-/**
- * Closes the modal dialog.
- */
 function closeModal() {
     const modal = document.getElementById(MODAL_ID);
     if (modal) {
@@ -119,11 +109,6 @@ function closeModal() {
 //                      RENDERING FUNCTIONS
 // =================================================================
 
-/**
- * Renders the data table for export jobs.
- * @param {string} containerId The ID of the HTML element to render the table in.
- * @param {Array<object>} data The array of job data for the current page.
- */
 function renderTable(containerId, data) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -168,13 +153,6 @@ function renderTable(containerId, data) {
     container.appendChild(table);
 }
 
-/**
- * Renders pagination controls.
- * @param {string} containerId - The ID of the container element.
- * @param {number} totalItems - The total number of items to paginate.
- * @param {number} itemsPerPage - The number of items per page.
- * @param {number} currentPage - The currently active page.
- */
 function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -207,9 +185,6 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
     container.innerHTML = paginationHTML;
 }
 
-/**
- * Renders the UI based on the current state (no API calls).
- */
 function renderUI() {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
@@ -223,9 +198,6 @@ function renderUI() {
 //                      INITIALIZATION
 // =================================================================
 
-/**
- * Fetches all data and initializes the page.
- */
 async function initializePage() {
     const container = document.getElementById(TABLE_CONTAINER_ID);
     if (!container) return;
@@ -236,6 +208,7 @@ async function initializePage() {
         const initialResponse = await window.loomeApi.runApiRequest(API_REQUEST_ID, { page: 1, pageSize: 1 });
         const initialData = safeParseJson(initialResponse);
         const totalJobs = initialData.RowCount;
+        allJobs = []; // Clear previous data
 
         if (totalJobs > 0) {
             const allDataResponse = await window.loomeApi.runApiRequest(API_REQUEST_ID, { page: 1, pageSize: totalJobs });
@@ -251,9 +224,10 @@ async function initializePage() {
     }
 }
 
-/**
- * Sets up the event listeners for the page.
- */
+// =================================================================
+//                      EVENT LISTENERS
+// =================================================================
+
 function setupEventListeners() {
     document.getElementById('pagination-controls').addEventListener('click', (event) => {
         const button = event.target.closest('button[data-page]');
@@ -267,26 +241,52 @@ function setupEventListeners() {
     const closeBtn = document.getElementById(CLOSE_MODAL_BTN_ID);
     const modal = document.getElementById(MODAL_ID);
     const form = document.getElementById(EXPORT_FORM_ID);
+    const dropdown = document.getElementById(DROPDOWN_ID); // ADDED
+    const submitButton = document.getElementById(SUBMIT_MODAL_BTN_ID); // ADDED
 
-    if (openBtn) {
-        openBtn.addEventListener('click', openModal);
-    }
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeModal);
-    }
-    if (modal) {
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeModal();
-            }
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    // ADDED: Event listener for the dropdown to enable/disable the submit button
+    if (dropdown && submitButton) {
+        dropdown.addEventListener('change', () => {
+            submitButton.disabled = !dropdown.value;
         });
     }
+    
+    if (modal) {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) closeModal();
+        });
+    }
+    
     if (form) {
-        form.addEventListener('submit', (event) => {
+        form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            console.log('Form submitted!');
-            alert('Request submitted (for now).');
-            closeModal();
+            const selectedAssistProjectID = dropdown.value;
+
+            // This check is technically redundant now but good for safety
+            if (!selectedAssistProjectID) { 
+                alert('Please select an export type.');
+                return;
+            }
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+
+            try {
+                const params = { "LoomeAssistProjectID": parseInt(selectedAssistProjectID, 10) };
+                await window.loomeApi.runApiRequest(SUBMIT_EXPORT_API_ID, params);
+                alert('Export request submitted successfully!');
+                closeModal();
+                await initializePage(); 
+            } catch (error) {
+                console.error('Failed to submit export request:', error);
+                alert('An error occurred while submitting the request. Please try again.');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit Request';
+            }
         });
     }
 
