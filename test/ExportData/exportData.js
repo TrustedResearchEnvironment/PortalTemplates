@@ -4,12 +4,14 @@
 
 const TABLE_CONTAINER_ID = 'export-jobs-table-area';
 const API_REQUEST_ID = 41;
+const EXPORT_TYPES_API_ID = 9; // ADDED: API ID for the dropdown options
 
 // ADDED: Modal Element IDs
 const MODAL_ID = 'export-modal';
 const OPEN_MODAL_BTN_ID = 'request-export-btn';
 const CLOSE_MODAL_BTN_ID = 'modal-close-btn';
 const EXPORT_FORM_ID = 'export-form';
+const DROPDOWN_ID = 'export-type'; // ADDED: ID for the dropdown
 
 // State for pagination
 let currentPage = 1;
@@ -17,6 +19,7 @@ const rowsPerPage = 5;
 
 // This will store all the jobs after the initial fetch
 let allJobs = [];
+let isDropdownPopulated = false; // ADDED: Flag to prevent re-fetching dropdown data
 
 // =================================================================
 //                      UTILITY FUNCTIONS
@@ -48,16 +51,56 @@ function formatDate(inputDate) {
 }
 
 // =================================================================
-//                      MODAL FUNCTIONS (ADDED)
+//                      MODAL & FORM FUNCTIONS
 // =================================================================
 
 /**
- * Opens the modal dialog.
+ * Fetches data from API 9 and populates the dropdown in the modal.
  */
-function openModal() {
+async function populateExportTypesDropdown() { // ADDED: New function
+    const dropdown = document.getElementById(DROPDOWN_ID);
+    if (!dropdown) return;
+
+    dropdown.disabled = true;
+    dropdown.innerHTML = '<option value="">Loading...</option>';
+
+    try {
+        const response = await window.loomeApi.runApiRequest(EXPORT_TYPES_API_ID, {});
+        const data = safeParseJson(response);
+        const exportTypes = data.Results;
+
+        dropdown.innerHTML = '<option value="">Select an export type...</option>'; // Reset
+
+        if (exportTypes && exportTypes.length > 0) {
+            exportTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.AssistProjectID; // Use the ID as the value
+                option.textContent = type.Name;      // Display the Name
+                dropdown.appendChild(option);
+            });
+            isDropdownPopulated = true; // Mark as populated to avoid re-fetching
+        } else {
+            dropdown.innerHTML = '<option value="">No export types found.</option>';
+        }
+    } catch (error) {
+        console.error("Failed to populate dropdown:", error);
+        dropdown.innerHTML = '<option value="">Error loading options.</option>';
+    } finally {
+        dropdown.disabled = false; // Re-enable dropdown
+    }
+}
+
+/**
+ * Opens the modal dialog and populates dropdown if needed.
+ */
+function openModal() { // MODIFIED: To call the populate function
     const modal = document.getElementById(MODAL_ID);
     if (modal) {
         modal.classList.remove('hidden');
+        // Fetch data only if it hasn't been fetched before
+        if (!isDropdownPopulated) {
+            populateExportTypesDropdown();
+        }
     }
 }
 
@@ -220,7 +263,6 @@ function setupEventListeners() {
         renderUI();
     });
 
-    // ADDED: Modal event listeners
     const openBtn = document.getElementById(OPEN_MODAL_BTN_ID);
     const closeBtn = document.getElementById(CLOSE_MODAL_BTN_ID);
     const modal = document.getElementById(MODAL_ID);
@@ -233,7 +275,6 @@ function setupEventListeners() {
         closeBtn.addEventListener('click', closeModal);
     }
     if (modal) {
-        // Close modal if user clicks on the overlay background
         modal.addEventListener('click', (event) => {
             if (event.target === modal) {
                 closeModal();
@@ -244,13 +285,11 @@ function setupEventListeners() {
         form.addEventListener('submit', (event) => {
             event.preventDefault();
             console.log('Form submitted!');
-            // Here you would handle the form data, e.g., make an API call
             alert('Request submitted (for now).');
             closeModal();
         });
     }
 
-    // ADDED: Close modal with Escape key
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
