@@ -5,6 +5,12 @@
 const TABLE_CONTAINER_ID = 'export-jobs-table-area';
 const API_REQUEST_ID = 41;
 
+// ADDED: Modal Element IDs
+const MODAL_ID = 'export-modal';
+const OPEN_MODAL_BTN_ID = 'request-export-btn';
+const CLOSE_MODAL_BTN_ID = 'modal-close-btn';
+const EXPORT_FORM_ID = 'export-form';
+
 // State for pagination
 let currentPage = 1;
 const rowsPerPage = 5;
@@ -40,6 +46,31 @@ function formatDate(inputDate) {
         day: 'numeric'
     });
 }
+
+// =================================================================
+//                      MODAL FUNCTIONS (ADDED)
+// =================================================================
+
+/**
+ * Opens the modal dialog.
+ */
+function openModal() {
+    const modal = document.getElementById(MODAL_ID);
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+/**
+ * Closes the modal dialog.
+ */
+function closeModal() {
+    const modal = document.getElementById(MODAL_ID);
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
 
 // =================================================================
 //                      RENDERING FUNCTIONS
@@ -137,12 +168,10 @@ function renderPagination(containerId, totalItems, itemsPerPage, currentPage) {
  * Renders the UI based on the current state (no API calls).
  */
 function renderUI() {
-    // Calculate the slice of jobs for the current page from the master list.
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
     const jobsForCurrentPage = allJobs.slice(startIndex, endIndex);
 
-    // Render the table and pagination with the sliced data.
     renderTable(TABLE_CONTAINER_ID, jobsForCurrentPage);
     renderPagination('pagination-controls', allJobs.length, rowsPerPage, currentPage);
 }
@@ -161,19 +190,16 @@ async function initializePage() {
     container.innerHTML = '<p class="text-center text-gray-500">Loading export jobs...</p>';
 
     try {
-        // 1. First API call to get the total row count
         const initialResponse = await window.loomeApi.runApiRequest(API_REQUEST_ID, { page: 1, pageSize: 1 });
         const initialData = safeParseJson(initialResponse);
         const totalJobs = initialData.RowCount;
 
         if (totalJobs > 0) {
-            // 2. Second API call to fetch ALL rows using the total count
             const allDataResponse = await window.loomeApi.runApiRequest(API_REQUEST_ID, { page: 1, pageSize: totalJobs });
             const allData = safeParseJson(allDataResponse);
-            allJobs = allData.Results; // Store all results in our global variable
+            allJobs = allData.Results;
         }
         
-        // 3. Perform the initial render from the stored data
         renderUI();
 
     } catch (error) {
@@ -191,14 +217,49 @@ function setupEventListeners() {
         if (!button || button.disabled) return;
         
         currentPage = parseInt(button.dataset.page, 10);
-        
-        // This now calls the client-side render function, which is much faster.
         renderUI();
+    });
+
+    // ADDED: Modal event listeners
+    const openBtn = document.getElementById(OPEN_MODAL_BTN_ID);
+    const closeBtn = document.getElementById(CLOSE_MODAL_BTN_ID);
+    const modal = document.getElementById(MODAL_ID);
+    const form = document.getElementById(EXPORT_FORM_ID);
+
+    if (openBtn) {
+        openBtn.addEventListener('click', openModal);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+    }
+    if (modal) {
+        // Close modal if user clicks on the overlay background
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+    }
+    if (form) {
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            console.log('Form submitted!');
+            // Here you would handle the form data, e.g., make an API call
+            alert('Request submitted (for now).');
+            closeModal();
+        });
+    }
+
+    // ADDED: Close modal with Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
     });
 }
 
 // Start the application once the document is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
-    initializePage(); // Call the new initialization function
+    initializePage();
 });
