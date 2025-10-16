@@ -248,7 +248,6 @@ async function deleteRequestFromAPI(requestId) {
         
         const response = await window.loomeApi.runApiRequest(20, {
             "id": requestId,
-            "upn": getCurrentUserUpn()
         });
         
         // Log the response to console
@@ -402,13 +401,9 @@ function createToastContainer() {
  */
 async function fetchRequestDetails(requestID) {
     try {
-        // Get current user's UPN
-        const upn = getCurrentUserUpn(); // You'll need to implement this function
-        
         // Call the API
         const response = await window.loomeApi.runApiRequest(8, {
             "RequestID": requestID,
-            "upn": upn
         });
         
         // Parse the response
@@ -426,13 +421,9 @@ async function fetchRequestDetails(requestID) {
  */
 async function fetchDatasetDetails(datasetID) {
     try {
-        // Get current user's UPN
-        const upn = getCurrentUserUpn(); // You'll need to implement this function
-        
         // Call the API
         const response = await window.loomeApi.runApiRequest(6, {
             "DataSetID": datasetID,
-            "upn": upn
         });
         
         // Parse the response
@@ -441,14 +432,6 @@ async function fetchDatasetDetails(datasetID) {
         console.error(`Error fetching dataset details for ID ${datasetID}:`, error);
         throw error;
     }
-}
-
-/**
- * Gets the current user's UPN
- * @returns {string} - The user's UPN
- */
-function getCurrentUserUpn() {
-    return "hardcoded miguel as approver";
 }
 
 
@@ -466,11 +449,8 @@ async function getProjectsMapping() {
     }
     
     try {
-        // Get current user's UPN or use the hardcoded one
-        const upn = getCurrentUserUpn() || 'migueltestupn';
-        
         // Fetch projects data
-        const response = await window.loomeApi.runApiRequest(9, { upn });
+        const response = await window.loomeApi.runApiRequest(9);
         const data = safeParseJson(response);
         
         // Create a mapping from project ID to project name
