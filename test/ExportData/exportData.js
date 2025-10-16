@@ -58,7 +58,7 @@ async function populateExportTypesDropdown() {
         const data = safeParseJson(response);
         const exportTypes = data.Results;
 
-        dropdown.innerHTML = '<option value="">Select an export type...</option>';
+        dropdown.innerHTML = '<option value="">Select source Assist Project...</option>';
 
         if (exportTypes && exportTypes.length > 0) {
             exportTypes.forEach(type => {
@@ -69,7 +69,7 @@ async function populateExportTypesDropdown() {
             });
             isDropdownPopulated = true; 
         } else {
-            dropdown.innerHTML = '<option value="">No export types found.</option>';
+            dropdown.innerHTML = '<option value="">No Assist Project found.</option>';
         }
     } catch (error) {
         console.error("Failed to populate dropdown:", error);
@@ -202,7 +202,7 @@ async function initializePage() {
     const container = document.getElementById(TABLE_CONTAINER_ID);
     if (!container) return;
 
-    container.innerHTML = '<p class="text-center text-gray-500">Loading export jobs...</p>';
+    container.innerHTML = '<p class="text-center text-gray-500">Loading Requests...</p>';
 
     try {
         const initialResponse = await window.loomeApi.runApiRequest(API_REQUEST_ID, { page: 1, pageSize: 1 });
@@ -265,17 +265,13 @@ function setupEventListeners() {
             event.preventDefault();
             const selectedAssistProjectID = dropdown.value;
 
-            // This check is technically redundant now but good for safety
-            if (!selectedAssistProjectID) { 
-                alert('Please select an export type.');
-                return;
-            }
             
             submitButton.disabled = true;
             submitButton.textContent = 'Submitting...';
 
             try {
                 const params = { "LoomeAssistProjectID": parseInt(selectedAssistProjectID, 10) };
+                console.log('Submitting export request with params:', params);
                 await window.loomeApi.runApiRequest(SUBMIT_EXPORT_API_ID, params);
                 alert('Export request submitted successfully!');
                 closeModal();
