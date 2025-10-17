@@ -4,7 +4,7 @@
 
 const TABLE_CONTAINER_ID = 'export-jobs-table-area';
 const API_REQUEST_ID = 41;
-const EXPORT_TYPES_API_ID = 9; 
+const EXPORT_REQUEST_API_ID = 9; 
 const SUBMIT_EXPORT_API_ID = 42;
 
 // Modal Element IDs
@@ -46,7 +46,7 @@ function formatDate(inputDate) {
 //                      MODAL & FORM FUNCTIONS
 // =================================================================
 
-async function populateExportTypesDropdown() { 
+async function populateAssistProjectsDropdown() { 
     const dropdown = document.getElementById(DROPDOWN_ID);
     if (!dropdown) return;
 
@@ -54,17 +54,23 @@ async function populateExportTypesDropdown() {
     dropdown.innerHTML = '<option value="">Loading...</option>';
 
     try {
-        const response = await window.loomeApi.runApiRequest(EXPORT_TYPES_API_ID, {});
+        const response = await window.loomeApi.runApiRequest(EXPORT_REQUEST_API_ID, {});
         const data = safeParseJson(response);
-        const exportTypes = data.Results;
+        const assistProjects = data.Results;
 
         dropdown.innerHTML = '<option value="">Select source Assist Project...</option>';
 
-        if (exportTypes && exportTypes.length > 0) {
-            exportTypes.forEach(type => {
+        if (assistProjects && assistProjects.length > 0) {
+            assistProjects.forEach(type => {
                 const option = document.createElement('option');
                 option.value = type.AssistProjectID;
                 option.textContent = type.Name;
+
+                // Store extra data on the option element
+                option.dataset.name = type.Name; 
+                option.dataset.tenantsId = type.LoomeAssistTenantsID;
+
+                
                 dropdown.appendChild(option);
             });
             isDropdownPopulated = true; 
@@ -92,7 +98,7 @@ function openModal() { // MODIFIED: To reset form state on open
         document.getElementById(SUBMIT_MODAL_BTN_ID).disabled = true;
 
         if (!isDropdownPopulated) {
-            populateExportTypesDropdown();
+            populateAssistProjectsDropdown();
         }
     }
 }
@@ -116,7 +122,7 @@ function renderTable(containerId, data) {
     container.innerHTML = '';
     
     if (!data || data.length === 0) {
-        container.innerHTML = '<p class="text-center text-gray-500">No export jobs found.</p>';
+        container.innerHTML = '<p class="text-center text-gray-500">No export requests found.</p>';
         return;
     }
 
@@ -125,7 +131,8 @@ function renderTable(containerId, data) {
     const thead = document.createElement('thead');
     thead.className = 'bg-gray-50';
     const headerRow = document.createElement('tr');
-    const headers = ['Job Name', 'Created By', 'Date Created', 'Status'];
+    // const headers = ['Job Name', 'Created By', 'Date Created', 'Status'];
+    const headers = ['Job Name', 'Date Created', 'Status'];
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.scope = 'col';
@@ -143,9 +150,8 @@ function renderTable(containerId, data) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.jobName || 'N/A'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.createdBy || 'N/A'}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${formatDate(item.dateCreated)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.status || 'N/A'}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.lastExecution.status ?? 'In progress'}</td>
         `;
         tbody.appendChild(row);
     });
@@ -263,14 +269,34 @@ function setupEventListeners() {
     if (form) {
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            const selectedAssistProjectID = dropdown.value;
+            // const selectedAssistProjectID = dropdown.value;
+
+            // Get the full selected option element to access its data attributes
+            const selectedOption = dropdown.options[dropdown.selectedIndex];
+            
+            // Check if a valid option is selected
+            if (!selectedOption || !selectedOption.value) {
+                alert('Please select an Assist Project.');
+                return;
+            }
+
+            const selectedAssistProjectID = selectedOption.value;
+            const selectedName = selectedOption.dataset.name;
+            const selectedTenantsID = selectedOption.dataset.tenantsId;
 
             
             submitButton.disabled = true;
             submitButton.textContent = 'Submitting...';
 
             try {
-                const params = { "LoomeAssistProjectID": parseInt(selectedAssistProjectID, 10) };
+                // const params = { "LoomeAssistProjectID": parseInt(selectedAssistProjectID, 10) };
+
+                const params = { 
+                "LoomeAssistProjectID": parseInt(selectedAssistProjectID, 10),
+                "LoomeAssistName": selectedName,
+                "LoomeAssistTenantsID": selectedTenantsID
+                };
+
                 console.log('Submitting export request with params:', params);
                 await window.loomeApi.runApiRequest(SUBMIT_EXPORT_API_ID, params);
                 alert('Export request submitted successfully!');
