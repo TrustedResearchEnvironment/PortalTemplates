@@ -773,7 +773,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     headerRow.appendChild(chevronHeader);
     
     // Define headers based on the selected status
-    const headers = ['Request ID', 'Request Name', 'Requested On'];
+    const headers = ['Request ID', 'Request Name', 'Requested On', 'Requested By'];
     if (selectedStatus === 'Pending Approval') headers.push('Approvers');
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
@@ -816,6 +816,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                 <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
+                <td class="${tdClasses}">${item.CreateUser}</td>
                 ${statusSpecificCols}
             `;
             
@@ -899,7 +900,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                             requestDetails = null;
                         }
                         
-                        // Then try fetching dataset details
+                        // Then try fetching dataset detailsTa
                         let datasetDetails;
                         try {
                             console.log('Fetching dataset details...');
