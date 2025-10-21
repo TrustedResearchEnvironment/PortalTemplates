@@ -252,15 +252,16 @@ async function renderPlatformAdminEmailTemplatesPage() {
         
         // Place this inside renderPlatformAdminPage, replacing your old 'headers' object.
         const tableConfig =  {
-                headers: [
-                    { label: "Type", key: "EmailTemplateType", className: "whitespace-nowrap", widthClass: "w-3/12" },
-                    { label: "Subject", key: "EmailTemplateSubject", className: "break-words", widthClass: "w-6/12" },
-                    { label: "Modified Date", key: "ModifiedDate", render: (value) => formatDate(value) },
-                    {
-                        label: "Actions",
-                        key: "actions",
-                        render: (item) => `<button data-id="${item.EmailTemplateID}" class="text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>`
-                    }
+                headers: [ //whitespace-nowra
+                    { label: "Type", key: "EmailTemplateType", className: "whitespace-nowrap", widthClass: "w-1/12" },
+                    { label: "Subject", key: "EmailTemplateSubject", className: "break-words", widthClass: "w-2/12" },
+                    { label: "Body", key: "EmailTemplateText", className: "break-words", widthClass: "w-6/12" },
+                    { label: "Modified Date", key: "ModifiedDate", render: (value) => formatDate(value) }//,
+                    // {
+                    //     label: "Actions",
+                    //     key: "actions",
+                    //     render: (item) => `<button data-id="${item.EmailTemplateID}" class="text-indigo-600 hove:text-indigo-900 font-medium">Edit</button>`
+                    // }
                 ]
             };
         

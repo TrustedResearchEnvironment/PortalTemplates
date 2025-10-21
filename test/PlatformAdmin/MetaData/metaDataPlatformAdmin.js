@@ -301,9 +301,9 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
 
         // Update the total count display
-        const dataSourceCount = document.getElementById('dataSourceCount');
-        if(dataSourceCount) {
-            dataSourceCount.textContent = totalItems;
+        const metaDataCount = document.getElementById('metaDataCount');
+        if(metaDataCount) {
+            metaDataCount.textContent = totalItems;
         }
 
     } catch (error) {
@@ -580,7 +580,7 @@ async function renderPlatformAdminMetaDataPage() {
                     {
                         label: "Active",
                         key: "IsActive",
-                        render: (value) => value === 1 ? 'Yes' : 'No'
+                        render: (value) => value == 1 ? 'Yes' : 'No'
                     },
                     { key: 'Details', label: '', widthClass: 'w-12', 
                       render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
