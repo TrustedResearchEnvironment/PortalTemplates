@@ -293,7 +293,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 
         // --- 4. Render the UI Components ---
         // Render the table with only the data for the current page
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
+        renderTable(TABLE_CONTAINER_ID, tableConfig, filteredData, {
             renderAccordionContent: renderAccordionDetails 
         });
 
@@ -314,12 +314,13 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 }
 
 
-function renderTable(containerId, headers, data, config = {}) {
+function renderTable(containerId, tableConfig, data, config = {}) {
     const container = document.getElementById(containerId);
     if (!container) {
         console.error(`Container with ID "${containerId}" not found.`);
         return;
     }
+    const headers = tableConfig.headers;
     container.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'w-full divide-y divide-gray-200';
@@ -472,24 +473,29 @@ function renderTable(containerId, headers, data, config = {}) {
                         "isActive":  updatedIsActive,
                         "name":  updatedName,
                     };
-                    const updatedDataSource = await window.loomeApi.runApiRequest(27, updateParams);
+                    const updatedMetaData = await window.loomeApi.runApiRequest(27, updateParams);
 
                     // --- 3. Handle the Server's Response ---
-                    if (!updatedDataSource) {
+                    if (!updatedMetaData) {
                         // Handle cases where the API might return an empty or null response on success
                         throw new Error("API call succeeded but returned no data.");
                     }
-                    console.log(updatedDataSource)
-                    showToast('Data Source edited successfully!');
+                    console.log(updatedMetaData)
+                    showToast('MetaData edited successfully!\nPlease wait while the data refreshes.', 'success');
 
                     // --- 4. Update the UI with the New Data ---
-                    accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
-                    accordionBody.querySelector('.view-state-description').textContent = updatedDataSource.Description;
-                    accordionBody.querySelector('.view-state-isactive').textContent = updatedDataSource.IsActive ? 'Yes' : 'No';
+                    accordionBody.querySelector('.view-state-name').textContent = updatedMetaData.Name;
+                    accordionBody.querySelector('.view-state-description').textContent = updatedMetaData.Description;
+                    accordionBody.querySelector('.view-state-isactive').textContent = updatedMetaData.IsActive ? 'Yes' : 'No';
 
 
                     // Finally, switch back to view mode by calling your existing function
                     toggleEditState(false);
+
+                    setTimeout(() => {
+                        // This code will run AFTER the 3-second delay
+                        fetchAndRenderPage(tableConfig, 1, '');
+                    }, 3000);
 
                 } catch (error) {
                     console.error('Failed to save:', error);
@@ -536,29 +542,29 @@ function formatDate(inputDate) {
 /**
  * Updates the UI and renders the correct table, optionally filtering the data.
  */
-function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
+// function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
 
-    const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
-    const filteredData = lowerCaseSearchTerm
-        ? data.filter(item => 
-            Object.values(item).some(value =>
-                String(value).toLowerCase().includes(lowerCaseSearchTerm)
-            )
-        )
-        : data;
+//     const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
+//     const filteredData = lowerCaseSearchTerm
+//         ? data.filter(item => 
+//             Object.values(item).some(value =>
+//                 String(value).toLowerCase().includes(lowerCaseSearchTerm)
+//             )
+//         )
+//         : data;
 
-    // --- 3. PAGINATION LOGIC (NEW!) ---
-    // Calculate the slice of data for the current page
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
+//     // --- 3. PAGINATION LOGIC (NEW!) ---
+//     // Calculate the slice of data for the current page
+//     const startIndex = (currentPage - 1) * rowsPerPage;
+//     const endIndex = startIndex + rowsPerPage;
+//     const paginatedData = filteredData.slice(startIndex, endIndex);
 
-    // --- 4. RENDER TABLE AND PAGINATION ---
-    // Render the table with ONLY the data for the current page
-    renderTable(tableContainerId, config.headers, paginatedData);
+//     // --- 4. RENDER TABLE AND PAGINATION ---
+//     // Render the table with ONLY the data for the current page
+//     renderTable(tableContainerId, config.headers, paginatedData);
     
-    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
-}
+//     renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
+// }
 
 /**
  * Safely parses a response that might be a JSON string or an object.
