@@ -220,9 +220,10 @@ async function fetchAndRenderPage(page, searchTerm = '') {
         // --- 4. Render the UI Components ---
         // Render the table with only the data for the current page
         console.log("before renderTable headers: ",tableConfig.headers)
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
-            renderAccordionContent: renderAccordionDetails 
-        });
+        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData);
+        // renderTable(TABLE_CONTAINER_ID, tableConfig.headers, filteredData, {
+        //     renderAccordionContent: renderAccordionDetails 
+        // });
 
         // Render pagination using the TOTAL item count from the API
         renderPagination('pagination-controls', totalItems, rowsPerPage, currentPage);
@@ -287,14 +288,14 @@ function renderTable(containerId, headers, data, config = {}) {
 
     } else {
         data.forEach((item, index) => {
-            const isAccordion = typeof config.renderAccordionContent === 'function';
+            //const isAccordion = typeof config.renderAccordionContent === 'function';
             const triggerRow = document.createElement('tr');
-            if (isAccordion) {
-                triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
-                // Use a more robust unique ID
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
-                triggerRow.dataset.target = `#${accordionId}`;
-            }
+            // if (isAccordion) {
+            //     triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
+            //     // Use a more robust unique ID
+            //     const accordionId = `accordion-content-${item.DataSourceID || index}`;
+            //     triggerRow.dataset.target = `#${accordionId}`;
+            // }
             
             // ... (main row creation is the same) ...
             headers.forEach(headerConfig => {
@@ -323,121 +324,121 @@ function renderTable(containerId, headers, data, config = {}) {
             });
             tbody.appendChild(triggerRow);
 
-            if (isAccordion) {
-                const contentRow = document.createElement('tr');
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
-                contentRow.id = accordionId;
-                contentRow.className = 'accordion-content hidden';
+            // if (isAccordion) {
+            //     const contentRow = document.createElement('tr');
+            //     const accordionId = `accordion-content-${item.DataSourceID || index}`;
+            //     contentRow.id = accordionId;
+            //     contentRow.className = 'accordion-content hidden';
                 
-                const contentCell = document.createElement('td');
-                contentCell.colSpan = headers.length;
-                // The render function is called here with the full item, including 'Fields'
-                contentCell.innerHTML = config.renderAccordionContent(item);
+            //     const contentCell = document.createElement('td');
+            //     contentCell.colSpan = headers.length;
+            //     // The render function is called here with the full item, including 'Fields'
+            //     contentCell.innerHTML = config.renderAccordionContent(item);
                 
-                contentRow.appendChild(contentCell);
-                tbody.appendChild(contentRow);
-            }
+            //     contentRow.appendChild(contentCell);
+            //     tbody.appendChild(contentRow);
+            // }
         });
     }
     table.appendChild(tbody);
     container.appendChild(table);
 
     // --- SIMPLIFIED Event Listener ---
-    if (config.renderAccordionContent) {
-        tbody.addEventListener('click', async (event) => {
-            const trigger = event.target.closest('.accordion-trigger');
-            const accordionBody = event.target.closest('.accordion-body');
+    // if (config.renderAccordionContent) {
+    //     tbody.addEventListener('click', async (event) => {
+    //         const trigger = event.target.closest('.accordion-trigger');
+    //         const accordionBody = event.target.closest('.accordion-body');
             
-            // --- Logic for Opening/Closing the Accordion ---
-            if (trigger && !accordionBody) {
-                event.preventDefault();
-                const targetId = trigger.dataset.target;
-                const contentRow = document.querySelector(targetId);
-                if (contentRow) {
-                    contentRow.classList.toggle('hidden');
-                    trigger.classList.toggle('expanded');
-                    const chevron = trigger.querySelector('.chevron-icon');
-                    if (chevron) chevron.classList.toggle('rotate-180');
-                }
-                return;
-            }
+    //         // --- Logic for Opening/Closing the Accordion ---
+    //         if (trigger && !accordionBody) {
+    //             event.preventDefault();
+    //             const targetId = trigger.dataset.target;
+    //             const contentRow = document.querySelector(targetId);
+    //             if (contentRow) {
+    //                 contentRow.classList.toggle('hidden');
+    //                 trigger.classList.toggle('expanded');
+    //                 const chevron = trigger.querySelector('.chevron-icon');
+    //                 if (chevron) chevron.classList.toggle('rotate-180');
+    //             }
+    //             return;
+    //         }
 
-            // --- Logic for Edit/Save/Cancel Buttons (remains the same) ---
-            const editButton = event.target.closest('.btn-edit');
-            const saveButton = event.target.closest('.btn-save');
-            const cancelButton = event.target.closest('.btn-cancel');
+    //         // --- Logic for Edit/Save/Cancel Buttons (remains the same) ---
+    //         const editButton = event.target.closest('.btn-edit');
+    //         const saveButton = event.target.closest('.btn-save');
+    //         const cancelButton = event.target.closest('.btn-cancel');
             
-            if (!editButton && !saveButton && !cancelButton) return;
-            event.stopPropagation();
+    //         if (!editButton && !saveButton && !cancelButton) return;
+    //         event.stopPropagation();
             
-            const parentAccordion = event.target.closest('.accordion-body');
-            const toggleEditState = (isEditing) => {
-                parentAccordion.querySelectorAll('.view-state').forEach(el => el.classList.toggle('hidden', isEditing));
-                parentAccordion.querySelectorAll('.edit-state').forEach(el => el.classList.toggle('hidden', !isEditing));
-            };
+    //         const parentAccordion = event.target.closest('.accordion-body');
+    //         const toggleEditState = (isEditing) => {
+    //             parentAccordion.querySelectorAll('.view-state').forEach(el => el.classList.toggle('hidden', isEditing));
+    //             parentAccordion.querySelectorAll('.edit-state').forEach(el => el.classList.toggle('hidden', !isEditing));
+    //         };
             
-            if (editButton) toggleEditState(true);
+    //         if (editButton) toggleEditState(true);
 
-            if (saveButton) {
-                // Stop the click from propagating and closing the accordion
-                event.stopPropagation();
+    //         if (saveButton) {
+    //             // Stop the click from propagating and closing the accordion
+    //             event.stopPropagation();
                 
-                // Get the button that was clicked and its parent accordion
-                const saveBtn = saveButton;
-                const accordionBody = saveBtn.closest('.accordion-body');
-                const metaDataId = accordionBody.dataset.id; // Using .dataset.id
+    //             // Get the button that was clicked and its parent accordion
+    //             const saveBtn = saveButton;
+    //             const accordionBody = saveBtn.closest('.accordion-body');
+    //             const metaDataId = accordionBody.dataset.id; // Using .dataset.id
              
-                // Show a "saving..." state for better UX
-                saveBtn.textContent = 'Saving...';
-                saveBtn.disabled = true;
+    //             // Show a "saving..." state for better UX
+    //             saveBtn.textContent = 'Saving...';
+    //             saveBtn.disabled = true;
 
-                try {
-                    // --- 1. Gather Data from the Form ---
-                    // Use document.querySelector to find elements within the accordionBody
-                    const updatedName = accordionBody.querySelector('.edit-state-name').value;
-                    const updatedDescription = accordionBody.querySelector('.edit-state-description').value;
-                    const updatedIsActive = accordionBody.querySelector('.edit-state-isactive').checked;
-
-
-                    // --- 2. Send Request to the Endpoint using fetch ---
-                    const updateParams = {
-                        "meta_data_id": metaDataId ,
-                        "description":  updatedDescription,
-                        "isActive":  updatedIsActive,
-                        "name":  updatedName,
-                    };
-                    const updatedDataSource = await window.loomeApi.runApiRequest(27, updateParams);
-
-                    // --- 3. Handle the Server's Response ---
-                    if (!updatedDataSource) {
-                        // Handle cases where the API might return an empty or null response on success
-                        throw new Error("API call succeeded but returned no data.");
-                    }
-                    console.log(updatedDataSource)
-                    showToast('Data Source edited successfully!');
-
-                    // --- 4. Update the UI with the New Data ---
-                    accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
-                    accordionBody.querySelector('.view-state-description').textContent = updatedDataSource.Description;
-                    accordionBody.querySelector('.view-state-isactive').textContent = updatedDataSource.IsActive ? 'Yes' : 'No';
+    //             try {
+    //                 // --- 1. Gather Data from the Form ---
+    //                 // Use document.querySelector to find elements within the accordionBody
+    //                 const updatedName = accordionBody.querySelector('.edit-state-name').value;
+    //                 const updatedDescription = accordionBody.querySelector('.edit-state-description').value;
+    //                 const updatedIsActive = accordionBody.querySelector('.edit-state-isactive').checked;
 
 
-                    // Finally, switch back to view mode by calling your existing function
-                    toggleEditState(false);
+    //                 // --- 2. Send Request to the Endpoint using fetch ---
+    //                 const updateParams = {
+    //                     "meta_data_id": metaDataId ,
+    //                     "description":  updatedDescription,
+    //                     "isActive":  updatedIsActive,
+    //                     "name":  updatedName,
+    //                 };
+    //                 const updatedDataSource = await window.loomeApi.runApiRequest(27, updateParams);
 
-                } catch (error) {
-                    console.error('Failed to save:', error);
-                    showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
-                } finally {
-                    // Reset the button back to its original state
-                    saveBtn.textContent = 'Save Changes';
-                    saveBtn.disabled = false;
-                }
-            }
+    //                 // --- 3. Handle the Server's Response ---
+    //                 if (!updatedDataSource) {
+    //                     // Handle cases where the API might return an empty or null response on success
+    //                     throw new Error("API call succeeded but returned no data.");
+    //                 }
+    //                 console.log(updatedDataSource)
+    //                 showToast('Data Source edited successfully!');
 
-            if (cancelButton) toggleEditState(false);
-        });
-    }
+    //                 // --- 4. Update the UI with the New Data ---
+    //                 accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
+    //                 accordionBody.querySelector('.view-state-description').textContent = updatedDataSource.Description;
+    //                 accordionBody.querySelector('.view-state-isactive').textContent = updatedDataSource.IsActive ? 'Yes' : 'No';
+
+
+    //                 // Finally, switch back to view mode by calling your existing function
+    //                 toggleEditState(false);
+
+    //             } catch (error) {
+    //                 console.error('Failed to save:', error);
+    //                 showToast(`Error: ${error.message || 'Failed to save data.'}`, 'error');
+    //             } finally {
+    //                 // Reset the button back to its original state
+    //                 saveBtn.textContent = 'Save Changes';
+    //                 saveBtn.disabled = false;
+    //             }
+    //         }
+
+    //         if (cancelButton) toggleEditState(false);
+    //     });
+    // }
 }
 
 function formatDate(inputDate) {
@@ -511,15 +512,19 @@ async function renderPlatformAdminDataSourceTypesPage() {
         tableConfig = {
                 headers: [
                     { label: "Name", key: "Name", widthClass: "w-4/12" },
-                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-6/12" },
+                    { label: "Description", key: "Description", className: "break-words", widthClass: "w-4/12" },
                     {
                         label: "Active",
                         key: "IsActive",
                         render: (value) => value == 1 ? 'Yes' : 'No'
-                    },
-                    { key: 'Details', label: '', widthClass: 'w-12', 
-                      render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
+                    }, {
+                        label: "Date Modified",
+                        key: "ModifiedDate",
+                        render: (value) => formatDate(value)
                     }
+                    // { key: 'Details', label: '', widthClass: 'w-12', 
+                    //   render: () => `<div class="flex justify-end"><svg class="chevron-icon h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>`
+                    // }
                     // {
                     //     label: "Actions",
                     //     key: "actions",
