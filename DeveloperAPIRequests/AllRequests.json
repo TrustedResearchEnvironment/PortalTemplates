@@ -2,7 +2,7 @@
     {
         "id": 4,
         "name": "GetRequests",
-        "url": "REMOVED_API_URL/api/Request/?page={{page}}&pageSize=5&search={{search}}&statusId={{statusId}}",
+        "url": "https://PLACEHOLDER/api/Request/?page={{page}}&pageSize=5&search={{search}}&statusId={{statusId}}",
         "body": "",
         "headers": [
             {
@@ -11,7 +11,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -34,12 +34,12 @@
     {
         "id": 5,
         "name": "GetDataSource",
-        "url": "REMOVED_API_URL/api/DataSource?search={{search}}&page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/DataSource?search={{search}}&page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -62,12 +62,12 @@
     {
         "id": 6,
         "name": "GetDataSetID",
-        "url": "REMOVED_API_URL/api/DataSet/{{DataSetID}}",
+        "url": "https://PLACEHOLDER/api/DataSet/{{DataSetID}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -88,12 +88,12 @@
     {
         "id": 7,
         "name": "GetDatasetIDColumns",
-        "url": "REMOVED_API_URL/api/DataSet/{{DataSetID}}/columns",
+        "url": "https://PLACEHOLDER/api/DataSet/{{DataSetID}}/columns",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -114,12 +114,12 @@
     {
         "id": 8,
         "name": "GetRequestID",
-        "url": "REMOVED_API_URL/api/Request/{{RequestID}}",
+        "url": "https://PLACEHOLDER/api/Request/{{RequestID}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -139,8 +139,8 @@
     },
     {
         "id": 9,
-        "name": "GetAssistProjects",
-        "url": "REMOVED_API_URL/api/Request/AssistProjects",
+        "name": "GetAssistProjectsFilteredByUpn",
+        "url": "https://PLACEHOLDER/api/Request/AssistProjects",
         "body": "",
         "headers": [
             {
@@ -149,7 +149,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "GET",
@@ -158,19 +158,19 @@
             "upn"
         ],
         "createdBy": "d2e75a1b-56d2-4bd5-9ee2-4daa4704baf3",
-        "modifiedBy": "d2e75a1b-56d2-4bd5-9ee2-4daa4704baf3",
+        "modifiedBy": "05f47618-9283-493f-ba8b-301932e43792",
         "dateCreated": "2025-10-03T04:21:01.4446517",
-        "dateModified": "2025-10-03T04:27:39.2790413"
+        "dateModified": "2025-10-21T01:47:00.1417097"
     },
     {
         "id": 10,
         "name": "GetDataSet",
-        "url": "REMOVED_API_URL/api/DataSet?search={{search}}&page={{page}}&pageSize={{pageSize}}&activeStatus={{activeStatus}}",
+        "url": "https://PLACEHOLDER/api/DataSet?search={{search}}&page={{page}}&pageSize={{pageSize}}&activeStatus={{activeStatus}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -194,12 +194,12 @@
     {
         "id": 12,
         "name": "GetMetadata",
-        "url": "REMOVED_API_URL/api/MetaData?search={{search}}&page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/MetaData?search={{search}}&page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -222,12 +222,12 @@
     {
         "id": 13,
         "name": "GetDataSourceTypes",
-        "url": "REMOVED_API_URL/api/DataSourceType?search={{search}}&page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/DataSourceType?search={{search}}&page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -250,12 +250,12 @@
     {
         "id": 14,
         "name": "GetEmailTemplates",
-        "url": "REMOVED_API_URL/api/EmailTemplate?search={{search}}&page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/EmailTemplate?search={{search}}&page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -278,12 +278,12 @@
     {
         "id": 15,
         "name": "GetRequestList",
-        "url": "REMOVED_API_URL/api/Request/List?search={{search}}&page={{page}}&pageSize={{pageSize}}&statusId={{statusId}}",
+        "url": "https://PLACEHOLDER/api/Request/List?search={{search}}&page={{page}}&pageSize={{pageSize}}&statusId={{statusId}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -307,7 +307,7 @@
     {
         "id": 16,
         "name": "GetAllRequests",
-        "url": "REMOVED_API_URL/api/Request/All?page={{page}}&pageSize={{pageSize}}&statusId={{statusId}}&search={{search}}",
+        "url": "https://PLACEHOLDER/api/Request/All?page={{page}}&pageSize={{pageSize}}&statusId={{statusId}}&search={{search}}",
         "body": "",
         "headers": [
             {
@@ -316,7 +316,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "GET",
@@ -336,12 +336,12 @@
     {
         "id": 17,
         "name": "RequestDataSet",
-        "url": "REMOVED_API_URL/api/DataSet/{{DataSetID}}/Request?assistProjectID={{assistProjectID}}&requestName={{requestName}}&approvers={{approvers}}&description={{description}}",
+        "url": "https://PLACEHOLDER/api/DataSet/{{DataSetID}}/Request?assistProjectID={{assistProjectID}}&requestName={{requestName}}&approvers={{approvers}}&description={{description}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -366,12 +366,12 @@
     {
         "id": 18,
         "name": "GetDataSourceFieldValues",
-        "url": "REMOVED_API_URL/api/DataSourceFieldValue",
+        "url": "https://PLACEHOLDER/api/DataSourceFieldValue",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -391,12 +391,12 @@
     {
         "id": 19,
         "name": "GetField",
-        "url": "REMOVED_API_URL/api/Field",
+        "url": "https://PLACEHOLDER/api/Field",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -416,12 +416,12 @@
     {
         "id": 20,
         "name": "DeleteRequestID",
-        "url": "REMOVED_API_URL/api/Request/{{id}}/Delete",
+        "url": "https://PLACEHOLDER/api/Request/{{id}}/Delete",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -442,12 +442,12 @@
     {
         "id": 21,
         "name": "UpdateDataSource",
-        "url": "REMOVED_API_URL/api/DataSource/Update/{{data_source_id}}?data_source_id={{data_source_id}}",
+        "url": "https://PLACEHOLDER/api/DataSource/Update/{{data_source_id}}?data_source_id={{data_source_id}}",
         "body": "{\r\n \"Name\": \"{{name}}\",\r\n \"Description\": \"{{description}}\",\r\n \"IsActive\": \"{{isActive}}\",\r\n \"Fields\": {\r\n     \"{{fieldName}}\": \"{{fieldValue}}\"\r\n }\r\n}\r\n",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -473,7 +473,7 @@
     {
         "id": 22,
         "name": "AddDataSource",
-        "url": "REMOVED_API_URL/api/DataSource/Add",
+        "url": "https://PLACEHOLDER/api/DataSource/Add",
         "body": "{\r\n \"Name\": \"{{name}}\",\r\n \"Description\": \"{{description}}\",\r\n \"DataSourceTypeID\":\"{{dataSourceTypeID}}\",\r\n \"IsActive\": \"{{isActive}}\",\r\n \"Fields\": {\r\n     \"{{fieldName}}\": \"{{fieldValue}}\"\r\n }\r\n}\r\n",
         "headers": [
             {
@@ -482,7 +482,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "POST",
@@ -504,12 +504,12 @@
     {
         "id": 23,
         "name": "ApproveRequestID",
-        "url": "REMOVED_API_URL/api/Request/{{id}}/Approve",
+        "url": "https://PLACEHOLDER/api/Request/{{id}}/Approve",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -530,7 +530,7 @@
     {
         "id": 24,
         "name": "RejectRequestID",
-        "url": "REMOVED_API_URL/api/Request/{{id}}/Reject",
+        "url": "https://PLACEHOLDER/api/Request/{{id}}/Reject",
         "body": "",
         "headers": [
             {
@@ -539,7 +539,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "POST",
@@ -556,7 +556,7 @@
     {
         "id": 25,
         "name": "GetDataSetActiveStatus",
-        "url": "REMOVED_API_URL/api/DataSet/IsActive/{{IsActive}}",
+        "url": "https://PLACEHOLDER/api/DataSet/IsActive/{{IsActive}}",
         "body": "",
         "headers": [
             {
@@ -565,7 +565,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "GET",
@@ -582,7 +582,7 @@
     {
         "id": 26,
         "name": "AddMetaData",
-        "url": "REMOVED_API_URL/api/MetaData/Add",
+        "url": "https://PLACEHOLDER/api/MetaData/Add",
         "body": "{\r\n \"Name\": \"{{name}}\",\r\n \"Description\": \"{{description}}\",\r\n \"IsActive\": \"{{isActive}}\"\r\n}\r\n",
         "headers": [
             {
@@ -591,7 +591,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "POST",
@@ -610,12 +610,12 @@
     {
         "id": 27,
         "name": "UpdateMetaData",
-        "url": "REMOVED_API_URL/api/MetaData/Update/{{meta_data_id}}?meta_data_id={{meta_data_id}}",
+        "url": "https://PLACEHOLDER/api/MetaData/Update/{{meta_data_id}}?meta_data_id={{meta_data_id}}",
         "body": "{\r\n \"Name\": \"{{name}}\",\r\n \"Description\": \"{{description}}\",\r\n \"IsActive\": \"{{isActive}}\"\r\n}\r\n",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -639,7 +639,7 @@
     {
         "id": 28,
         "name": "UpdateDataSet",
-        "url": "REMOVED_API_URL/api/DataSet/Update/{{id}}?id={{id}}",
+        "url": "https://PLACEHOLDER/api/DataSet/Update/{{id}}?id={{id}}",
         "body": "{\r\n  \"Name\": \"{{name}}\",\r\n  \"Description\": \"{{description}}\",\r\n  \"DataSourceID\": \"{{datasourceId}}\",\r\n  \"IsActive\": \"{{isActive}}\",\r\n  \"Approvers\": \"{{approvers}}\",\r\n  \"OptOutMessage\": \"{{optOutMessage}}\",\r\n  \"OptOutList\": \"{{optOutList}}\",\r\n  \"Owner\": \"{{owner}}\",\r\n  \"OptOutColumn\": \"{{optOutColumn}}\",\r\n  \"DataSetFieldValues\": {{dataSetFieldValues}},\r\n  \"DataSetMetaDataValues\": {{dataSetMetaDataValues}},\r\n  \"DataSetColumns\": {{dataSetColumns}},\r\n  \"DataSetFolders\": {{dataSetFolders}}\r\n}",
         "headers": [
             {
@@ -648,7 +648,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "PUT",
@@ -678,7 +678,7 @@
     {
         "id": 29,
         "name": "CreateDataSet",
-        "url": "REMOVED_API_URL/api/DataSet/Create",
+        "url": "https://PLACEHOLDER/api/DataSet/Create",
         "body": "{\r\n  \"Name\": \"{{name}}\",\r\n  \"Description\": \"{{description}}\",\r\n  \"DataSourceID\": \"{{datasourceId}}\",\r\n  \"IsActive\": \"{{isActive}}\",\r\n  \"Approvers\": \"{{approvers}}\",\r\n  \"OptOutMessage\": \"{{optOutMessage}}\",\r\n  \"OptOutList\": \"{{optOutList}}\",\r\n  \"Owner\": \"{{owner}}\",\r\n  \"OptOutColumn\": \"{{optOutColumn}}\",\r\n  \"DataSetFieldValues\": {{dataSetFieldValues}},\r\n  \"DataSetMetaDataValues\": {{dataSetMetaDataValues}},\r\n  \"DataSetColumns\": {{dataSetColumns}},\r\n  \"DataSetFolders\": {{dataSetFolders}}\r\n}",
         "headers": [
             {
@@ -687,7 +687,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "POST",
@@ -716,12 +716,12 @@
     {
         "id": 31,
         "name": "GetDataSourceTable",
-        "url": "REMOVED_API_URL/api/DataSource/DataSourceTable",
+        "url": "https://PLACEHOLDER/api/DataSource/DataSourceTable",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -741,12 +741,12 @@
     {
         "id": 32,
         "name": "GetDataSourceFolders",
-        "url": "REMOVED_API_URL/api/DataSource/Folder",
+        "url": "https://PLACEHOLDER/api/DataSource/Folder",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -766,7 +766,7 @@
     {
         "id": 33,
         "name": "GetDatabaseConnection",
-        "url": "REMOVED_API_URL/api/DataSource/DatabaseConnection",
+        "url": "https://PLACEHOLDER/api/DataSource/DatabaseConnection",
         "body": "",
         "headers": [
             {
@@ -775,7 +775,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "GET",
@@ -791,7 +791,7 @@
     {
         "id": 34,
         "name": "GetLoomeDataSourceTablesByDataSourceID",
-        "url": "REMOVED_API_URL/api/DataSourceTables/DataSourceID/{{data_source_id}}",
+        "url": "https://PLACEHOLDER/api/DataSourceTables/DataSourceID/{{data_source_id}}",
         "body": "",
         "headers": [
             {
@@ -800,7 +800,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -821,7 +821,7 @@
     {
         "id": 35,
         "name": "GetLoomeDataSourceFolders",
-        "url": "REMOVED_API_URL/api/DataSourceFolders/{{data_source_id}}",
+        "url": "https://PLACEHOLDER/api/DataSourceFolders/{{data_source_id}}",
         "body": "",
         "headers": [
             {
@@ -830,7 +830,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -851,12 +851,12 @@
     {
         "id": 36,
         "name": "GetDataSetFieldValuesByDataSetID",
-        "url": "REMOVED_API_URL/api/DataSetFieldValue/{{data_set_id}}",
+        "url": "https://PLACEHOLDER/api/DataSetFieldValue/{{data_set_id}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -877,7 +877,7 @@
     {
         "id": 37,
         "name": "GetLoomeDataSourceTablesByTableId",
-        "url": "REMOVED_API_URL/api/DataSourceTables/TableID/{{table_id}}",
+        "url": "https://PLACEHOLDER/api/DataSourceTables/TableID/{{table_id}}",
         "body": "",
         "headers": [
             {
@@ -886,7 +886,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             }
         ],
         "method": "GET",
@@ -903,7 +903,7 @@
     {
         "id": 38,
         "name": "GetColumnsDataByDataSetID",
-        "url": "REMOVED_API_URL/api/DataSetColumns/DataSetID/{{data_set_id}}?page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/DataSetColumns/DataSetID/{{data_set_id}}?page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
@@ -912,7 +912,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "accept",
@@ -935,7 +935,7 @@
     {
         "id": 39,
         "name": "CreateAndUpdateDataSetColumns",
-        "url": "REMOVED_API_URL/api/DataSetColumns/{{data_set_id}}",
+        "url": "https://PLACEHOLDER/api/DataSetColumns/{{data_set_id}}",
         "body": "{\r\n  \"LogicalColumnName\": \"{{LogicalColumnName}}\",\r\n  \"BusinessDescription\": \"{{BusinessDescription}}\",\r\n  \"ExampleValue\": \"{{ExampleValue}}\",\r\n  \"Redact\": \"{{Redact}}\",\r\n  \"Tokenise\": \"{{Tokenise}}\",\r\n  \"IsFilter\": \"{{IsFilter}}\"\r\n}",
         "headers": [
             {
@@ -944,7 +944,7 @@
             },
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -971,12 +971,12 @@
     {
         "id": 40,
         "name": "GetDataSetMetaDataValue",
-        "url": "REMOVED_API_URL/api/DataSetMetaDataValue/DataSetID/{{data_set_id}}",
+        "url": "https://PLACEHOLDER/api/DataSetMetaDataValue/DataSetID/{{data_set_id}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -997,12 +997,12 @@
     {
         "id": 41,
         "name": "GetDataExport",
-        "url": "REMOVED_API_URL/api/DataExport?page={{page}}&pageSize={{pageSize}}",
+        "url": "https://PLACEHOLDER/api/DataExport?page={{page}}&pageSize={{pageSize}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -1024,12 +1024,12 @@
     {
         "id": 42,
         "name": "RequestDataExportByAssistProjectID",
-        "url": "REMOVED_API_URL/api/DataExport/{AssistProjectID}?LoomeAssistProjectID={{LoomeAssistProjectID}}&LoomeAssistTenantsID={{LoomeAssistTenantsID}}&LoomeAssistName={{LoomeAssistName}}",
+        "url": "https://PLACEHOLDER/api/DataExport/{AssistProjectID}?LoomeAssistProjectID={{LoomeAssistProjectID}}&LoomeAssistTenantsID={{LoomeAssistTenantsID}}&LoomeAssistName={{LoomeAssistName}}",
         "body": "",
         "headers": [
             {
                 "key": "X-API-Key",
-                "value": "REMOVED_API_KEY"
+                "value": "PLACEHOLDER"
             },
             {
                 "key": "X-UPN",
@@ -1048,5 +1048,67 @@
         "modifiedBy": "d2e75a1b-56d2-4bd5-9ee2-4daa4704baf3",
         "dateCreated": "2025-10-16T05:43:45.6883937",
         "dateModified": "2025-10-17T01:16:44.3927672"
+    },
+    {
+        "id": 43,
+        "name": "REMOVE",
+        "url": "https://PLACEHOLDER/",
+        "body": "",
+        "headers": [],
+        "method": "GET",
+        "contentType": "application/x-www-form-urlencoded",
+        "parameters": [],
+        "createdBy": "d2e75a1b-56d2-4bd5-9ee2-4daa4704baf3",
+        "modifiedBy": "d2e75a1b-56d2-4bd5-9ee2-4daa4704baf3",
+        "dateCreated": "2025-10-21T00:30:23.3738023",
+        "dateModified": "2025-10-21T00:34:35.8389407"
+    },
+    {
+        "id": 44,
+        "name": "GetAllAssistProjects",
+        "url": "https://PLACEHOLDER/api/Request/AssistProjects/All",
+        "body": "",
+        "headers": [
+            {
+                "key": "X-API-Key",
+                "value": "PLACEHOLDER"
+            }
+        ],
+        "method": "GET",
+        "contentType": "application/json",
+        "parameters": [],
+        "createdBy": "05f47618-9283-493f-ba8b-301932e43792",
+        "modifiedBy": "05f47618-9283-493f-ba8b-301932e43792",
+        "dateCreated": "2025-10-21T02:09:18.9708303",
+        "dateModified": "2025-10-21T02:09:18.9708332"
+    },
+    {
+        "id": 45,
+        "name": "UpdateEmailTemplate",
+        "url": "https://PLACEHOLDER/api/EmailTemplate/Update/{{email_template_id}}?id={{email_template_id}}",
+        "body": "{\r\n \"EmailTemplateID\": {{email_template_id}},\r\n \"EmailTemplateType\": \"{{email_template_type}}\",\r\n \"EmailTemplateSubject\": \"{{email_template_subject}}\",\r\n \"EmailTemplateText\": {{email_template_body}}\r\n}\r\n",
+        "headers": [
+            {
+                "key": "X-UPN",
+                "value": "{{upn}}"
+            },
+            {
+                "key": "X-API-Key",
+                "value": "PLACEHOLDER"
+            }
+        ],
+        "method": "PUT",
+        "contentType": "application/json",
+        "parameters": [
+            "email_template_id",
+            "email_template_type",
+            "email_template_subject",
+            "email_template_body",
+            "upn"
+        ],
+        "createdBy": "05f47618-9283-493f-ba8b-301932e43792",
+        "modifiedBy": "05f47618-9283-493f-ba8b-301932e43792",
+        "dateCreated": "2025-10-21T15:22:54.1651755",
+        "dateModified": "2025-10-22T02:38:24.7164799"
     }
 ]
