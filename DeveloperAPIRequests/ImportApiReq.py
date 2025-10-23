@@ -72,7 +72,7 @@ if __name__ == "__main__":
         # request['name'] =  str(int(time.time()))
 
         if 'url' in request:
-            request['url'] = request['url'].replace('REMOVED_API_URL', FASTAPI_URL)
+            request['url'] = request['url'].replace('https://PLACEHOLDER', FASTAPI_URL)
         # replace the headers X-API-Key
         if 'headers' in request:
             for header in request['headers']:
@@ -80,15 +80,15 @@ if __name__ == "__main__":
                     header['value'] = API_KEY
 
         # show id
-        print(request['id'])
+        # print(request['id'])
         response = requests.request("PUT", API_URL + '/apirequests', data=json.dumps(request), headers=headers)
         if response.status_code == 200:
-            print(f"Successfully submitted request: {request['name']}")
-            print(response.text)
+            print(f"Successfully submitted request:  {request['id']} {request['name']}")
+            # print(response.text)
             # sleep 5
-            time.sleep(5)
+            time.sleep(4)
         else:
             print(response.text)
-            print(f"FAILED: to submit request: {request['name']}, Status Code: {response.status_code}")
+            print(f"FAILED: to submit request: {request['id']} {request['name']}, Status Code: {response.status_code}")
             print(response.status_code)
         # exit()
