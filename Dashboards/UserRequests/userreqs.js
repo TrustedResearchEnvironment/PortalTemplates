@@ -435,6 +435,7 @@ async function fetchDatasetDetails(datasetID) {
 }
 
 
+
 // Global variable to store project data
 let projectsCache = null;
 
@@ -449,6 +450,7 @@ async function getProjectsMapping() {
     }
     
     try {
+        
         // Fetch projects data
         const response = await window.loomeApi.runApiRequest(9);
         const data = safeParseJson(response);

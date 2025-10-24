@@ -2,12 +2,14 @@
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 5
 const DBCONNECTION_API_ID = 33
+
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
 let currentPage = 1;
 let rowsPerPage = 5; // Default, will be updated by API response
 let totalPages = 1;
 let tableConfig = {}; // Will hold your headers configuration
+let displayValue = '';
 const searchInput = document.getElementById('searchRequests');
 
 let dataSourceTypeMap = new Map();
@@ -552,7 +554,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
 
         // --- 4. Render the UI Components ---
         // Render the table with only the data for the current page
-        renderTable(TABLE_CONTAINER_ID, tableConfig.headers, processedData, {
+        renderTable(TABLE_CONTAINER_ID, tableConfig, processedData, {
             renderAccordionContent: renderAccordionDetails 
         });
 
@@ -586,7 +588,7 @@ const renderAccordionDetails = (item) => {
     if (item.Fields && Object.keys(item.Fields).length > 0) {
         // Use Object.entries to iterate over key-value pairs
         const fieldRows = Object.entries(item.Fields).map(([key, value]) => {
-            let displayValue = value; // Default display value
+            displayValue = value; // Default display value
 
             // Check if the current field is Database Connection
             if (key === 'Database Connection') {
@@ -595,18 +597,18 @@ const renderAccordionDetails = (item) => {
                 displayValue = dbConnectionMap.get(parseInt(value)) || value;
             }
 
+
             return `
                 <tr>
                     <td class="p-2 border-t">${key}</td>
                     <td class="p-2 border-t">
-                        <span class="view-state view-state-field" data-field-name="${key}">${displayValue || ''}</span>
+                        <span id="dbConnValue" data-field-name="${key}">${displayValue || ''}</span>
                         
-                        <input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
                     </td>
                 </tr>
             `;
         }).join(''); // Join the array of HTML strings into one string
-
+        //<input type="text" value="${value || ''}" class="edit-state edit-state-field hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm" data-field-name="${key}">
         fieldsTableHtml = `
             <table class="w-full text-sm bg-white rounded shadow-sm">
                 <thead class="bg-gray-100">
@@ -688,12 +690,13 @@ const renderAccordionDetails = (item) => {
 // This is the simplified renderTable function.
 // All the async logic in the event listener has been removed.
 
-function renderTable(containerId, headers, data, config = {}) {
+function renderTable(containerId, tableConfig, data, config = {}) {
     const container = document.getElementById(containerId);
     if (!container) {
         console.error(`Container with ID "${containerId}" not found.`);
         return;
     }
+    const headers = tableConfig.headers;
     container.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'w-full divide-y divide-gray-200';
@@ -840,14 +843,22 @@ function renderTable(containerId, headers, data, config = {}) {
 
                     // Gather all dynamic field values into a dictionary
                     //const updatedFields = {};
-                    const dynamicFieldInput = accordionBody.querySelector('.edit-state-field');
-                    const fieldName = dynamicFieldInput.dataset.fieldName;
-                    const fieldValue = dynamicFieldInput.value;
+                    // const dynamicFieldInput = accordionBody.querySelector('.edit-state-field');
+                    // const fieldName = dynamicFieldInput.dataset.fieldName;
+                    // const fieldValue = dynamicFieldInput.value;
                     // accordionBody.querySelectorAll('.edit-state-field').forEach(input => {
                     //     const fieldName = input.dataset.fieldName; // using .dataset
                     //     const fieldValue = input.value;
                     //     updatedFields[fieldName] = fieldValue;
                     // });
+                    // const dbConnSpan = document.getElementById('dbConnValue'); // Replace with the actual I
+                    // let fieldValue = null;
+                    // if (dbConnSpan) {
+                        
+                    //     fieldValue = dbConnSpan.textContent;
+                    //     console.log("The value of 'Database Connection' is:", fieldValue);
+                            
+                    // }
 
                     // --- 2. Send Request to the Endpoint using fetch ---
                     const updateParams = {
@@ -855,8 +866,8 @@ function renderTable(containerId, headers, data, config = {}) {
                         "description":  updatedDescription,
                         "isActive":  updatedIsActive,
                         "name":  updatedName,
-                        "fieldName": fieldName,
-                        "fieldValue": fieldValue
+                        "fieldName": "Database Connection",
+                        "fieldValue": displayValue
                     };
                     const updatedDataSource = await window.loomeApi.runApiRequest(21, updateParams);
 
@@ -866,7 +877,7 @@ function renderTable(containerId, headers, data, config = {}) {
                         throw new Error("API call succeeded but returned no data.");
                     }
                     console.log(updatedDataSource)
-                    showToast('Data Source edited successfully!');
+                    showToast('Data Source updated successfully!\nPlease wait while the data refreshes.', 'success');
 
                     // --- 4. Update the UI with the New Data ---
                     accordionBody.querySelector('.view-state-name').textContent = updatedDataSource.Name;
@@ -883,6 +894,11 @@ function renderTable(containerId, headers, data, config = {}) {
 
                     // Finally, switch back to view mode by calling your existing function
                     toggleEditState(false);
+
+                    setTimeout(() => {
+                        // This code will run AFTER the 3-second delay
+                        fetchAndRenderPage(tableConfig, 1, '');
+                    }, 3000);
 
                 } catch (error) {
                     console.error('Failed to save:', error);
@@ -929,31 +945,31 @@ function formatDate(inputDate) {
 /**
  * Updates the UI and renders the correct table, optionally filtering the data.
  */
-function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
+// function updateTable(config, data, tableContainerId, currentPage, rowsPerPage, searchTerm = '') {
 
-    const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
-    const filteredData = lowerCaseSearchTerm
-        ? data.filter(item => 
-            Object.values(item).some(value =>
-                String(value).toLowerCase().includes(lowerCaseSearchTerm)
-            )
-        )
-        : data;
+//     const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
+//     const filteredData = lowerCaseSearchTerm
+//         ? data.filter(item => 
+//             Object.values(item).some(value =>
+//                 String(value).toLowerCase().includes(lowerCaseSearchTerm)
+//             )
+//         )
+//         : data;
 
-    // --- 3. PAGINATION LOGIC (NEW!) ---
-    // Calculate the slice of data for the current page
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
+//     // --- 3. PAGINATION LOGIC (NEW!) ---
+//     // Calculate the slice of data for the current page
+//     const startIndex = (currentPage - 1) * rowsPerPage;
+//     const endIndex = startIndex + rowsPerPage;
+//     const paginatedData = filteredData.slice(startIndex, endIndex);
 
-    // --- 4. RENDER TABLE AND PAGINATION ---
-    // Render the table with ONLY the data for the current page
-    renderTable(tableContainerId, config.headers, paginatedData, {
-        renderAccordionContent: renderAccordionDetails 
-    });
+//     // --- 4. RENDER TABLE AND PAGINATION ---
+//     // Render the table with ONLY the data for the current page
+//     renderTable(tableContainerId, config, paginatedData, {
+//         renderAccordionContent: renderAccordionDetails 
+//     });
     
-    renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
-}
+//     renderPagination('pagination-controls', filteredData.length, rowsPerPage, currentPage);
+// }
 
 /**
  * Safely parses a response that might be a JSON string or an object.
@@ -1084,7 +1100,7 @@ async function renderPlatformAdminDataSourcePage() {
             const response = await window.loomeApi.runApiRequest(22, payload);
             console.log("RESPONSE: ", response)
             
-            showToast('Data Source created successfully!');
+            showToast('Data Source added successfully!\nPlease wait while the data refreshes.', 'success');
             
             // This should now work!
             modalInstance.hide();
