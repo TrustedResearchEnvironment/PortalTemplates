@@ -1,25 +1,11 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>My Webcrumbs Plugin</title>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="https://cdn.webcrumbs.org/assets/images/landing/favicon.ico" />
-        <link
-            rel="apple-touch-icon"
-            sizes="192x192"
-            href="https://cdn.webcrumbs.org/assets/images/landing/logo192.png"
-        />
-        <link
-            rel="apple-touch-icon"
-            sizes="512x512"
-            href="https://cdn.webcrumbs.org/assets/images/landing/logo512.png"
-        />
-        <meta name="theme-color" content="#ffffff" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Webcrumbs" />
+        <!-- Your head content... -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,118 +17,156 @@
                     <div class="p-6 border-b border-gray-200">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
                             <div>
-                                <h1 id="datasetName" class="text-2xl font-bold"></h1>
-                                <p id="lastUpdated" class="text-gray-600 mt-1">Last updated: </p>
+                                <h1 id="userRequests" class="text-2xl font-bold">Review Requests</h1>
                             </div>
-                            <button
-                                id="requestDatasetBtn"
-                                data-bs-toggle="modal"
-                                data-bs-target="#requestDatasetModal"
-                                class="mt-4 md:mt-0 px-6 py-2.5 bg-[#4EC4BC] hover:brightness-90 text-white font-medium rounded-lg transform transition-transform hover:scale-105 flex items-center gap-2"
-                            >
-                                <span class="material-symbols-outlined">lock_open</span> Request Access
-                            </button>
                         </div>
                     </div>
                 
-                    <!-- 2. SCROLLABLE WRAPPER: This new div will contain all scrollable content -->
-                    <div class="flex-grow overflow-y-auto">
-                    
-                        <!-- Content Section 1: Grid (Description, Owner, etc.) -->
-                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div class="col-span-1 lg:col-span-2">
-                                <h2 class="text-lg font-semibold mb-3">Description</h2>
-                                <p id="dataSetDescription" class="text-gray-700"></p>
-                                <div class="bg-gray-50 p-4 rounded-lg hover:shadow-md transition-shadow mt-4">
-                                    <h2 class="text-lg font-semibold mb-2">Table Information</h2>
-                                    <div class="space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Table Name</span>
-                                            <span class="font-medium">customer_data</span>
-                                        </div>
-                                    </div>
+                    <!-- 2. SCROLLABLE WRAPPER: Added p-6 for padding -->
+                    <div class="flex-grow overflow-y-auto p-6">
+                        
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                                
+                                <div id="status-chips-container" class="chip-container mb-4">
+                                    <!-- Using a data-status attribute is the key to linking the chip to the data -->
+                                    <button class="chip active" data-status="Pending Approval">
+                                        Pending Approval
+                                        <span id="count-pending" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Approved">
+                                        Approved
+                                        <span id="count-approved" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Rejected">
+                                        Rejected
+                                        <span id="count-rejected" class="chip-count"></span>
+                                    </button>
+                                    <button class="chip" data-status="Finalised">
+                                        Finalised
+                                        <span id="count-finalised" class="chip-count"></span>
+                                    </button>
                                 </div>
-                            </div>
-                            <div class="space-y-4">
-                                <div class="bg-gray-50 p-4 rounded-lg hover:shadow-md transition-shadow">
-                                    <h2 class="text-lg font-semibold mb-2">Owner</h2>
-                                    <div class="flex items-center gap-3">
-                                        <div class="h-10 w-10 rounded-full bg-[#4EC4BC] flex items-center justify-center">
-                                            <span class="material-symbols-outlined text-white">person</span>
-                                        </div>
-                                        <div>
-                                            <p id="ownerEmail" class="font-medium"></p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 p-4 rounded-lg hover:shadow-md transition-shadow">
-                                    <h2 class="text-lg font-semibold mb-2">Approver</h2>
-                                    <div class="flex items-center gap-3">
-                                        <div class="h-10 w-10 rounded-full bg-[#4EC4BC] flex items-center justify-center">
-                                            <span class="material-symbols-outlined text-white">admin_panel_settings</span>
-                                        </div>
-                                        <div>
-                                            <p id="approverEmail" class="font-medium"></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                
-                        <!-- Content Section 2: Data Preview Table -->
-                        <div class="p-6">
-                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-                                <h2 class="text-xl font-semibold">Data Preview</h2>
+                                
                                 <div class="flex items-center mt-3 md:mt-0 gap-2">
                                     <div class="relative">
-                                        <input id="searchInput" type="text" placeholder="Search data..." class="px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                                        <input id="searchRequests" type="text" placeholder="Search data..." class="px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                                         <span class="material-symbols-outlined absolute right-3 top-2.5 text-gray-400">search</span>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
-                                <table class="w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <!-- your table headers -->
-                                        <tr>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Column Name</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Column Type</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Logical Name</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Description</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Example</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Redacted</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">De-identified</th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group cursor-pointer">Filterable</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dataSetColumnsTableBody" class="bg-white divide-y divide-gray-200">
-                                        <!-- Dynamic rows here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            <!-- The pagination controls will be rendered here -->
-                            <div id="pagination-container" class="mt-4 flex flex-col sm:flex-row justify-between items-center">
-                                <!-- This will be populated by JavaScript -->
-                            </div>
+                        </div>
+                        
+                        
+                        <div id="requests-table-area">
+                            <!-- The JavaScript will generate the table inside this div -->
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <div id="pagination-controls" class="flex justify-between items-center mt-4 px-2">
+                            <!-- pagination content can go here -->
                         </div>
                 
-                    </div> <!-- End of the new scrollable wrapper -->
+                    </div> <!-- End of the scrollable wrapper -->
                 </div>
             </div>
         </div>
         
-        <div class="modal fade" id="requestDatasetModal" tabindex="-1" aria-labelledby="requestDatasetModalLabel" aria-hidden="true">
+        <!-- Modal Templates -->    
+        
+        <!-- Bootstrap Modal Template -->
+        <div class="modal fade" id="viewRequestModal" tabindex="-1" aria-labelledby="viewRequestModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="requestDatasetModalLabel">Create Request</h5>
+                        <h5 class="modal-title" id="viewRequestModalLabel">Request Details</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body" id="requestDatasetModalBody">
+                    <div class="modal-body" id="viewRequestModalBody">
                         <!-- Dynamic content will be inserted here -->
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Bootstrap Modal for View Dataset -->
+        <div class="modal fade" id="viewDatasetModal" tabindex="-1" aria-labelledby="viewDatasetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg"> <!-- Optional: Use 'modal-lg' for larger width -->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewDatasetModalLabel">Data Set Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewDatasetModalBody">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bootstrap Modal Template -->
+        <div class="modal fade" id="viewRequestModal" tabindex="-1" aria-labelledby="viewRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewRequestModalLabel">Request Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Bootstrap Modal for View Dataset -->
+        <div class="modal fade" id="viewDatasetModal" tabindex="-1" aria-labelledby="viewDatasetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg"> <!-- Optional: Use 'modal-lg' for larger width -->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="viewDatasetModalLabel">Data Set Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="viewDatasetModalBody">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Approve Request Modal -->
+        <div class="modal fade" id="approveRequestModal" tabindex="-1" aria-labelledby="approveRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog" style="max-width: 400px;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="approveRequestModalLabel">Approve Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="approveRequestModalBody">
+                        <!-- Content will be dynamically inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reject Request Modal -->
+        <div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-labelledby="rejectRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog" style="max-width: 400px;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectRequestModalLabel">Reject Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="rejectRequestModalBody">
+                        <!-- Dynamic content will be inserted here -->
                     </div>
                 </div>
             </div>
