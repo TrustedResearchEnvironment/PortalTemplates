@@ -244,7 +244,6 @@ async function approveRequestFromAPI(requestId) {
         
         const response = await window.loomeApi.runApiRequest(23, {
             "id": requestId,
-            "upn": getCurrentUserUpn()
         });
         
         // Log the response to console
@@ -354,7 +353,6 @@ async function rejectRequestFromAPI(requestId) {
         
         const response = await window.loomeApi.runApiRequest(24, {
             "id": requestId,
-            "upn": getCurrentUserUpn(),
         });
         
         // Hide loading toast
@@ -500,13 +498,10 @@ function createToastContainer() {
  */
 async function fetchRequestDetails(requestID) {
     try {
-        // Get current user's UPN
-        const upn = getCurrentUserUpn(); // You'll need to implement this function
         
         // Call the API
         const response = await window.loomeApi.runApiRequest(8, {
             "RequestID": requestID,
-            "upn": upn
         });
         
         // Parse the response
@@ -524,13 +519,10 @@ async function fetchRequestDetails(requestID) {
  */
 async function fetchDatasetDetails(datasetID) {
     try {
-        // Get current user's UPN
-        const upn = getCurrentUserUpn(); // You'll need to implement this function
         
         // Call the API
         const response = await window.loomeApi.runApiRequest(6, {
             "DataSetID": datasetID,
-            "upn": upn
         });
         
         // Parse the response
@@ -551,11 +543,9 @@ async function getProjectsMapping() {
     }
     
     try {
-        // Get current user's UPN or use the hardcoded one
-        const upn = getCurrentUserUpn() || 'migueltestupn';
         
         // Fetch projects data
-        const response = await window.loomeApi.runApiRequest(9, { upn });
+        const response = await window.loomeApi.runApiRequest(44);
         const data = safeParseJson(response);
         
         // Create a mapping from project ID to project name
@@ -743,13 +733,7 @@ function formatDate(inputDate) {
     return date.toLocaleDateString('en-US', formattingOptions);
 }
 
-/**
- * Gets the current user's UPN
- * @returns {string} - The user's UPN
- */
-function getCurrentUserUpn() {
-    return "o.dean@deakin.edu.au";
-}
+
 // =================================================================
 //                      API & RENDERING FUNCTIONS
 // =================================================================
@@ -773,7 +757,7 @@ function renderTable(containerId, data, config, selectedStatus) {
     headerRow.appendChild(chevronHeader);
     
     // Define headers based on the selected status
-    const headers = ['Request ID', 'Request Name', 'Requested On'];
+    const headers = ['Request ID', 'Request Name', 'Requested On', 'Requested By'];
     if (selectedStatus === 'Pending Approval') headers.push('Approvers');
     else if (selectedStatus === 'Approved') { headers.push('Approved by'); headers.push('Approved on'); }
     else if (selectedStatus === 'Rejected') { headers.push('Rejected by'); headers.push('Rejected on'); }
@@ -816,6 +800,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                 <td class="${tdClasses}">${item.RequestID}</td>
                 <td class="${tdClasses}">${item.Name}</td>
                 <td class="${tdClasses}">${formatDate(item.CreateDate)}</td>
+                <td class="${tdClasses}">${item.CreateUser}</td>
                 ${statusSpecificCols}
             `;
             
@@ -899,7 +884,7 @@ function renderTable(containerId, data, config, selectedStatus) {
                             requestDetails = null;
                         }
                         
-                        // Then try fetching dataset details
+                        // Then try fetching dataset detailsTa
                         let datasetDetails;
                         try {
                             console.log('Fetching dataset details...');
@@ -990,7 +975,6 @@ async function getCounts(status) {
         "pageSize": rowsPerPage,
         "search": '',
         "statusId": parseInt(Object.keys(statusIdToNameMap).find(key => statusIdToNameMap[key] === status)),
-        "upn": getCurrentUserUpn()
     }
     
     console.log(apiParams)

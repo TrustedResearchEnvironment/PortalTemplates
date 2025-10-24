@@ -727,6 +727,12 @@ async function getAllDataSources() {
  * Populates the dropdown with the list of existing data sources.
  */
 function populateExistingDataSets(optgroup, allResults) {
+    // First, clear any existing options from the optgroup.
+    optgroup.innerHTML = '';
+
+    // A good practice is to sort the data before rendering.
+    allResults.sort((a, b) => a.Name.localeCompare(b.Name));
+    
     allResults.forEach(ds => {
         const option = document.createElement('option');
         option.value = ds.DataSetID;
@@ -1353,6 +1359,7 @@ async function renderManageDataSourcePage() {
                     updateDataSetFieldsTable(null, null); 
                     updateMetaDataTable(null, null);
                     displayColumnsTable(null); 
+                    populateExistingDataSets(optgroup, await getAllDataSets());
 
 
                 } catch (error) {
