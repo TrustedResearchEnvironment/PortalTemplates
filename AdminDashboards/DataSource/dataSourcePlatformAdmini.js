@@ -1,10 +1,12 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE = 5
-const API_DBCONNECTION = 33
-const API_ADDDATASOURCE = 22
 const API_DATASOURCETYPE = 13
 const API_DATASOURCEFIELDVALUE = 19
+const API_ADDDATASOURCE = 22
+API_DATASOURCEFOLDER = 32
+const API_DBCONNECTION = 33
+
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -271,7 +273,43 @@ function AddDataSource(typeNamesList, allFields) {
             }
             return;
         }
+        // Special handling for Folder type (ID = 3)
+        else if (selectedTypeId === 3) {
+            try {
+                const response = await window.loomeApi.runApiRequest(API_DATASOURCEFOLDER);
+                const folders = safeParseJson(response);
 
+                // MIGUEL: Change ConnectionID and ConnectionName to FolderID and FolderName later
+                const dropdownHtml = `
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Folder</td>
+                                <td>
+                                    <select class="form-control form-control-sm dynamic-field" name="Folder">
+                                        <option value="">Select a folder...</option>
+                                        ${folders.map(folder => `
+                                            <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
+                                        `).join('')}
+                                    </select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                fieldsContainer.innerHTML = dropdownHtml;
+            } catch (error) {
+                console.error('Failed to fetch folders:', error);
+                fieldsContainer.innerHTML = '<p class="text-danger">Error loading folders.</p>';
+            }
+            return;
+        }
         // Original code for other types
         const requiredFieldIds = typeIdToFieldIdMap[selectedTypeId] || [];
 
