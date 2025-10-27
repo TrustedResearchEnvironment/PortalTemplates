@@ -1,7 +1,10 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
-const API_DATASOURCE_ID = 5
-const DBCONNECTION_API_ID = 33
+const API_DATASOURCE = 5
+const API_DBCONNECTION = 33
+const API_ADDDATASOURCE = 22
+const API_DATASOURCETYPE = 13
+const API_DATASOURCEFIELDVALUE = 19
 
 // --- STATE MANAGEMENT ---
 // These variables need to be accessible by multiple functions.
@@ -71,7 +74,7 @@ function showToast(message, type = 'success', duration = 3000) {
  */
 async function createDbConnectionMap() {
     try {
-        const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {});
+        const response = await window.loomeApi.runApiRequest(API_DBCONNECTION, {});
         const connections = safeParseJson(response);
 
         if (!connections || connections.length === 0) {
@@ -214,7 +217,7 @@ function AddDataSource(typeNamesList, allFields) {
         if (selectedTypeId === 1) {
             try {
                 // MIGUEL TO BE UPDATED
-                const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
+                const response = await window.loomeApi.runApiRequest(API_DBCONNECTION);
                 const connections = safeParseJson(response);
                 
                 // Store ConnectionId in a data attribute that we can access later
@@ -324,13 +327,13 @@ function AddDataSource(typeNamesList, allFields) {
  * @returns {Promise<Array>} A promise that resolves to an array of all data source types.
  */
 async function getAllDataSourceTypes(pageSize = 100) {
-    const DATASOURCETYPE_API_ID = 13;
+    
     let allResults = []; // Use a local variable to store results
 
     try {
         // --- 1. Initial request ---
         const initialParams = { "page": 1, "pageSize": pageSize, "search": '' };
-        const initialResponse = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, initialParams);
+        const initialResponse = await window.loomeApi.runApiRequest(API_DATASOURCETYPE, initialParams);
         const parsedInitial = safeParseJson(initialResponse);
 
         if (!parsedInitial || parsedInitial.RowCount === 0) {
@@ -351,7 +354,7 @@ async function getAllDataSourceTypes(pageSize = 100) {
             console.log(`Fetching page ${page} of ${totalPages}...`);
             const params = { "page": page, "pageSize": pageSize, "search": '' };
             // FIXED BUG: Use the correct API ID in the loop
-            const response = await window.loomeApi.runApiRequest(DATASOURCETYPE_API_ID, params);
+            const response = await window.loomeApi.runApiRequest(API_DATASOURCETYPE, params);
             const parsed = safeParseJson(response);
             if (parsed && parsed.Results) {
                 allResults = allResults.concat(parsed.Results);
@@ -426,10 +429,8 @@ async function fetchApiData(apiId, params = {}, context = 'data') {
  * @returns {Promise<object|null>} A promise resolving to a single field value object, or null on failure.
  */
 async function getAllFields(fieldID) {
-    const DATASOURCEFIELDVALUE_API_ID = 19;
-
     // Call the generic helper
-    return fetchApiData(DATASOURCEFIELDVALUE_API_ID, {});
+    return fetchApiData(API_DATASOURCEFIELDVALUE, {});
 }
 
 /**
@@ -522,7 +523,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         };
         console.log(apiParams)
         // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(API_DATASOURCE_ID, apiParams);
+        const response = await window.loomeApi.runApiRequest(API_DATASOURCE, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
@@ -1097,7 +1098,7 @@ async function renderPlatformAdminDataSourcePage() {
 
         try {
             
-            const response = await window.loomeApi.runApiRequest(22, payload);
+            const response = await window.loomeApi.runApiRequest(API_ADDDATASOURCE, payload);
             console.log("RESPONSE: ", response)
             
             showToast('Data Source added successfully!\nPlease wait while the data refreshes.', 'success');
