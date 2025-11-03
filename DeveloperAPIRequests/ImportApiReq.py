@@ -105,9 +105,6 @@ if __name__ == "__main__":
                 if header['key'] == 'X-API-Key':
                     header['value'] = API_KEY
 
-        # show id
-        # print(request['id'])
-        # PUT
         # if id is 0 do a post
         if request['id'] == 0:
             response = requests.request("POST", API_URL + '/apirequests', data=json.dumps(request), headers=headers)
