@@ -255,13 +255,43 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource) {
     }
 }
 
-// --- MOCK API FUNCTION (replace with your real one) ---
+
 async function fetchFolders(data_source_id) {
     const initialParams = { "data_source_id": data_source_id }; 
-   
-    return getFromAPI(API_GET_DATASOURCE_FOLDERS, initialParams)
-}
 
+    const results = await getFromAPI(API_GET_DATASOURCE_FOLDERS, initialParams);
+    
+    console.log("Fetched Folders Raw Results:", results);
+
+    // Now that 'results' is a real array, the normalization logic can be simpler.
+    // We just need to make sure we have an array to work with, even if the API returns null.
+    const dataToFilter = Array.isArray(results) ? results : [];
+    
+    console.log("Data to Filter:", dataToFilter);
+    
+    const subFolders = dataToFilter.filter(item => {
+        const folderName = item.FolderName;
+        console.log("Processing FolderName:", folderName); // Good for debugging
+
+        if (!folderName || typeof folderName !== 'string' || !folderName.startsWith('\\\\')) {
+            console.log("-> SKIPPED (Invalid format or not a UNC path)");
+            return false;
+        }
+        
+        const cleanedPath = folderName.substring(2);
+        const parts = cleanedPath.split('\\');
+        console.log("-> Path Parts:", parts);
+        
+        const isMatch = parts.length === 3;
+        console.log(`-> Part count is ${parts.length}. Is it a match? ${isMatch}`);
+
+        return isMatch;
+    });
+
+    console.log("Filtered Subfolders:", subFolders);
+
+    return subFolders;
+}
 /**
  * Renders the row for the REDCap API Key.
  * @param {HTMLElement} tbody The table body to append the row to.
