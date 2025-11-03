@@ -1,7 +1,8 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 'GetDataSource';
-const DBCONNECTION_API_ID = 'GetDatabaseConnection';
+const API_DBCONNECTION_ID = 'GetDatabaseConnection';
+
 const API_DATASOURCETYPE_ID = 'GetDataSourceTypes';
 const API__DATASOURCE_FIELDVALUE_ID = 'GetDataSourceFieldValues';
 const API__DATASOURCE_FOLDER_ID = 'GetDataSourceFolders';
@@ -18,6 +19,7 @@ const searchInput = document.getElementById('searchRequests');
 
 let dataSourceTypeMap = new Map();
 let dbConnectionMap = new Map();
+let folderConnectionMap = new Map();
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -75,7 +77,7 @@ function showToast(message, type = 'success', duration = 3000) {
  */
 async function createDbConnectionMap() {
     try {
-        const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {});
+        const response = await window.loomeApi.runApiRequest(API_DBCONNECTION_ID, {});
         const connections = safeParseJson(response);
 
         if (!connections || connections.length === 0) {
@@ -94,6 +96,39 @@ async function createDbConnectionMap() {
 
     } catch (error) {
         console.error("Failed to create DB connection map:", error);
+        return new Map(); // Return empty map on failure
+    }
+}
+
+
+
+// Miguel
+/**
+ * Fetches all Folder connections and creates a lookup map.
+ * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
+ * key is the ConnectionId and the value is the ConnectionName.
+ */
+async function createFolderConnectionMap() {
+    try {
+        const response = await window.loomeApi.runApiRequest(API__DATASOURCE_FOLDER_ID, {});
+        const connections = safeParseJson(response);
+
+        if (!connections || connections.length === 0) {
+            return new Map(); // Return an empty map if no data
+        }
+
+        // Use reduce() to transform the array into a Map
+        const connectionMap = connections.reduce((map, item) => {
+            if (item.ConnectionID && item.ConnectionName) {
+                map.set(item.ConnectionID, item.ConnectionName);
+            }
+            return map;
+        }, new Map());
+
+        return connectionMap;
+
+    } catch (error) {
+        console.error("Failed to create Folder connection map:", error);
         return new Map(); // Return empty map on failure
     }
 }
@@ -218,7 +253,7 @@ function AddDataSource(typeNamesList, allFields) {
         if (selectedTypeId === 1) {
             try {
                 // MIGUEL TO BE UPDATED
-                const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
+                const response = await window.loomeApi.runApiRequest(API_DBCONNECTION_ID);
                 const connections = safeParseJson(response);
                 
                 // Store ConnectionId in a data attribute that we can access later
@@ -629,25 +664,39 @@ const renderAccordionDetails = (item) => {
 
     // --- NEW: Logic to build the fields table HTML ---
     let fieldsTableHtml = '';
+
+    
+    
     // Check if item.Fields exists and is not an empty object
     if (item.Fields && Object.keys(item.Fields).length > 0) {
         // Use Object.entries to iterate over key-value pairs
         const fieldRows = Object.entries(item.Fields).map(([key, value]) => {
             displayValue = value; // Default display value
 
+            // For overriding key display names
+            let displayKey = key;
+
             // Check if the current field is Database Connection
             if (key === 'Database Connection') {
                 // Look up the name from our map. Use parseInt because the ID might be a string.
                 // If not found, fall back to showing the original value (the ID).
                 displayValue = dbConnectionMap.get(parseInt(value)) || value;
-            }
+            } else if (key === 'Folder Name') {
+                // Look up the name from our map. Use parseInt because the ID might be a string.
+                // If not found, fall back to showing the original value (the ID).
+                
+                displayValue = folderConnectionMap.get(parseInt(value)) || value;
 
+                // instead of Folder Name in the Name column, use 'Folder Connection'
+                displayKey = 'Folder Connection';
+            }
+            
 
             return `
                 <tr>
-                    <td class="p-2 border-t">${key}</td>
+                    <td class="p-2 border-t">${displayKey}</td>
                     <td class="p-2 border-t">
-                        <span id="dbConnValue" data-field-name="${key}">${displayValue || ''}</span>
+                        <span id="dbConnValue" data-field-name="${displayKey}">${displayValue || ''}</span>
                         
                     </td>
                 </tr>
@@ -1033,6 +1082,8 @@ async function renderPlatformAdminDataSourcePage() {
     const allTypesArray = await getAllDataSourceTypes();
     dataSourceTypeMap = await createDataSourceTypeMap(allTypesArray);
     dbConnectionMap = await createDbConnectionMap();
+
+    folderConnectionMap = await createFolderConnectionMap();
 
     const typeNamesList = allTypesArray.map(item => item.Name);
 
