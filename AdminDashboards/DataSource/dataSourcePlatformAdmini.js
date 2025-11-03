@@ -76,7 +76,7 @@ function showToast(message, type = 'success', duration = 3000) {
  */
 async function createDbConnectionMap() {
     try {
-        const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {});
+        const response = await window.loomeApi.runApiRequest(API_DBCONNECTION, {});
         const connections = safeParseJson(response);
 
         if (!connections || connections.length === 0) {
@@ -219,7 +219,7 @@ function AddDataSource(typeNamesList, allFields) {
         if (selectedTypeId === 1) {
             try {
                 // MIGUEL TO BE UPDATED
-                const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
+                const response = await window.loomeApi.runApiRequest(API_DBCONNECTION);
                 const connections = safeParseJson(response);
                 
                 // Store ConnectionId in a data attribute that we can access later
@@ -273,7 +273,43 @@ function AddDataSource(typeNamesList, allFields) {
             }
             return;
         }
+        // Special handling for Folder type (ID = 3)
+        else if (selectedTypeId === 3) {
+            try {
+                const response = await window.loomeApi.runApiRequest(API_DATASOURCEFOLDER);
+                const folders = safeParseJson(response);
 
+                // MIGUEL: Change ConnectionID and ConnectionName to FolderID and FolderName later
+                const dropdownHtml = `
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Folder</td>
+                                <td>
+                                    <select class="form-control form-control-sm dynamic-field" name="Folder">
+                                        <option value="">Select a folder...</option>
+                                        ${folders.map(folder => `
+                                            <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
+                                        `).join('')}
+                                    </select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                fieldsContainer.innerHTML = dropdownHtml;
+            } catch (error) {
+                console.error('Failed to fetch folders:', error);
+                fieldsContainer.innerHTML = '<p class="text-danger">Error loading folders.</p>';
+            }
+            return;
+        }
         // Original code for other types
         const requiredFieldIds = typeIdToFieldIdMap[selectedTypeId] || [];
 
@@ -524,7 +560,7 @@ async function fetchAndRenderPage(tableConfig, page, searchTerm = '') {
         };
         console.log(apiParams)
         // You might need to pass params differently, e.g., runApiRequest(10, apiParams)
-        const response = await window.loomeApi.runApiRequest(API_DATASOURCE_ID, apiParams);
+        const response = await window.loomeApi.runApiRequest(API_DATASOURCE, apiParams);
 
         
         const parsedResponse = safeParseJson(response);
