@@ -233,7 +233,7 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource) {
         // --- TODO: Replace this with your actual API call ---
         const folders = await fetchFolders(dataSource.DataSourceID);
         console.log("Fetched folders:", folders);
-        const optionsHtml = folders.map(folder => `<option value="${folder.Id}">${folder.Name}</option>`).join('');
+        const optionsHtml = folders.map(folder => `<option value="${folder.Id}">${folder.FolderName}</option>`).join('');
         
         const rowHtml = `
             <tr>
