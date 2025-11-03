@@ -119,8 +119,8 @@ async function createFolderConnectionMap() {
 
         // Use reduce() to transform the array into a Map
         const connectionMap = connections.reduce((map, item) => {
-            if (item.ConnectionID && item.ConnectionName) {
-                map.set(item.ConnectionID, item.ConnectionName);
+            if (item.ConnectionId && item.ConnectionName) {
+                map.set(item.ConnectionId, item.ConnectionName);
             }
             return map;
         }, new Map());
@@ -330,7 +330,7 @@ function AddDataSource(typeNamesList, allFields) {
                                             name="Folder Name">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${folders.map(folder => `
-                                            <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
+                                            <option value="${folder.ConnectionId}">${folder.ConnectionName}</option>
                                         `).join('')}
                                     </select>
                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -722,13 +722,13 @@ const renderAccordionDetails = (item) => {
     // --- END of new logic ---
 
     return `
-    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceID}">
+    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceId}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
             <!-- LEFT COLUMN: Remains the same -->
             <div>
                  <table class="w-full text-sm">
                     <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceId}</td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
                             <span class="view-state view-state-name">${item.Name}</span>
                             <input type="text" value="${item.Name}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
@@ -829,7 +829,7 @@ function renderTable(containerId, tableConfig, data, config = {}) {
             if (isAccordion) {
                 triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
                 // Use a more robust unique ID
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
+                const accordionId = `accordion-content-${item.DataSourceId || index}`;
                 triggerRow.dataset.target = `#${accordionId}`;
             }
             
@@ -862,7 +862,7 @@ function renderTable(containerId, tableConfig, data, config = {}) {
 
             if (isAccordion) {
                 const contentRow = document.createElement('tr');
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
+                const accordionId = `accordion-content-${item.DataSourceId || index}`;
                 contentRow.id = accordionId;
                 contentRow.className = 'accordion-content hidden';
                 
