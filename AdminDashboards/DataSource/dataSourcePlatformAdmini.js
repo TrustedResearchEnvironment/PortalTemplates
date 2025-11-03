@@ -289,11 +289,11 @@ function AddDataSource(typeNamesList, allFields) {
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Folder</td>
+                                <td>Folder Connection</td>
                                 <td class="relative">
                                     <select class="form-control form-control-sm dynamic-field appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full" 
                                             name="Folder Name">
-                                        <option value="" class="text-gray-500">Select a folder...</option>
+                                        <option value="" class="text-gray-500">Select a connection...</option>
                                         ${folders.map(folder => `
                                             <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
                                         `).join('')}
