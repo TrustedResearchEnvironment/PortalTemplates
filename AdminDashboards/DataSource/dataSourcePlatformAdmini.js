@@ -1,7 +1,8 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 'GetDataSource';
-const DBCONNECTION_API_ID = 'GetDatabaseConnection';
+const API_DBCONNECTION_ID = 'GetDatabaseConnection';
+
 const API_DATASOURCETYPE_ID = 'GetDataSourceTypes';
 const API__DATASOURCE_FIELDVALUE_ID = 'GetDataSourceFieldValues';
 const API__DATASOURCE_FOLDER_ID = 'GetDataSourceFolders';
@@ -18,6 +19,7 @@ const searchInput = document.getElementById('searchRequests');
 
 let dataSourceTypeMap = new Map();
 let dbConnectionMap = new Map();
+let folderConnectionMap = new Map();
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -75,7 +77,7 @@ function showToast(message, type = 'success', duration = 3000) {
  */
 async function createDbConnectionMap() {
     try {
-        const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID, {});
+        const response = await window.loomeApi.runApiRequest(API_DBCONNECTION_ID, {});
         const connections = safeParseJson(response);
 
         if (!connections || connections.length === 0) {
@@ -94,6 +96,39 @@ async function createDbConnectionMap() {
 
     } catch (error) {
         console.error("Failed to create DB connection map:", error);
+        return new Map(); // Return empty map on failure
+    }
+}
+
+
+
+// Miguel
+/**
+ * Fetches all Folder connections and creates a lookup map.
+ * @returns {Promise<Map<number, string>>} A promise that resolves to a Map where the
+ * key is the ConnectionId and the value is the ConnectionName.
+ */
+async function createFolderConnectionMap() {
+    try {
+        const response = await window.loomeApi.runApiRequest(API__DATASOURCE_FOLDER_ID, {});
+        const connections = safeParseJson(response);
+
+        if (!connections || connections.length === 0) {
+            return new Map(); // Return an empty map if no data
+        }
+
+        // Use reduce() to transform the array into a Map
+        const connectionMap = connections.reduce((map, item) => {
+            if (item.ConnectionId && item.ConnectionName) {
+                map.set(item.ConnectionId, item.ConnectionName);
+            }
+            return map;
+        }, new Map());
+
+        return connectionMap;
+
+    } catch (error) {
+        console.error("Failed to create Folder connection map:", error);
         return new Map(); // Return empty map on failure
     }
 }
@@ -218,7 +253,7 @@ function AddDataSource(typeNamesList, allFields) {
         if (selectedTypeId === 1) {
             try {
                 // MIGUEL TO BE UPDATED
-                const response = await window.loomeApi.runApiRequest(DBCONNECTION_API_ID);
+                const response = await window.loomeApi.runApiRequest(API_DBCONNECTION_ID);
                 const connections = safeParseJson(response);
                 
                 // Store ConnectionId in a data attribute that we can access later
@@ -289,13 +324,13 @@ function AddDataSource(typeNamesList, allFields) {
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Folder</td>
+                                <td>Folder Connection</td>
                                 <td class="relative">
                                     <select class="form-control form-control-sm dynamic-field appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full" 
-                                            name="Folder">
-                                        <option value="" class="text-gray-500">Select a folder...</option>
+                                            name="Folder Name">
+                                        <option value="" class="text-gray-500">Select a connection...</option>
                                         ${folders.map(folder => `
-                                            <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
+                                            <option value="${folder.ConnectionId}">${folder.ConnectionName}</option>
                                         `).join('')}
                                     </select>
                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -629,25 +664,39 @@ const renderAccordionDetails = (item) => {
 
     // --- NEW: Logic to build the fields table HTML ---
     let fieldsTableHtml = '';
+
+    
+    
     // Check if item.Fields exists and is not an empty object
     if (item.Fields && Object.keys(item.Fields).length > 0) {
         // Use Object.entries to iterate over key-value pairs
         const fieldRows = Object.entries(item.Fields).map(([key, value]) => {
             displayValue = value; // Default display value
 
+            // For overriding key display names
+            let displayKey = key;
+
             // Check if the current field is Database Connection
             if (key === 'Database Connection') {
                 // Look up the name from our map. Use parseInt because the ID might be a string.
                 // If not found, fall back to showing the original value (the ID).
                 displayValue = dbConnectionMap.get(parseInt(value)) || value;
-            }
+            } else if (key === 'Folder Name') {
+                // Look up the name from our map. Use parseInt because the ID might be a string.
+                // If not found, fall back to showing the original value (the ID).
+                
+                displayValue = folderConnectionMap.get(parseInt(value)) || value;
 
+                // instead of Folder Name in the Name column, use 'Folder Connection'
+                displayKey = 'Folder Connection';
+            }
+            
 
             return `
                 <tr>
-                    <td class="p-2 border-t">${key}</td>
+                    <td class="p-2 border-t">${displayKey}</td>
                     <td class="p-2 border-t">
-                        <span id="dbConnValue" data-field-name="${key}">${displayValue || ''}</span>
+                        <span id="dbConnValue" data-field-name="${displayKey}">${displayValue || ''}</span>
                         
                     </td>
                 </tr>
@@ -673,13 +722,13 @@ const renderAccordionDetails = (item) => {
     // --- END of new logic ---
 
     return `
-    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceID}">
+    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceId}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
             <!-- LEFT COLUMN: Remains the same -->
             <div>
                  <table class="w-full text-sm">
                     <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceId}</td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
                             <span class="view-state view-state-name">${item.Name}</span>
                             <input type="text" value="${item.Name}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
@@ -780,7 +829,7 @@ function renderTable(containerId, tableConfig, data, config = {}) {
             if (isAccordion) {
                 triggerRow.className = 'accordion-trigger hover:bg-gray-50 cursor-pointer';
                 // Use a more robust unique ID
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
+                const accordionId = `accordion-content-${item.DataSourceId || index}`;
                 triggerRow.dataset.target = `#${accordionId}`;
             }
             
@@ -813,7 +862,7 @@ function renderTable(containerId, tableConfig, data, config = {}) {
 
             if (isAccordion) {
                 const contentRow = document.createElement('tr');
-                const accordionId = `accordion-content-${item.DataSourceID || index}`;
+                const accordionId = `accordion-content-${item.DataSourceId || index}`;
                 contentRow.id = accordionId;
                 contentRow.className = 'accordion-content hidden';
                 
@@ -1033,6 +1082,8 @@ async function renderPlatformAdminDataSourcePage() {
     const allTypesArray = await getAllDataSourceTypes();
     dataSourceTypeMap = await createDataSourceTypeMap(allTypesArray);
     dbConnectionMap = await createDbConnectionMap();
+
+    folderConnectionMap = await createFolderConnectionMap();
 
     const typeNamesList = allTypesArray.map(item => item.Name);
 
