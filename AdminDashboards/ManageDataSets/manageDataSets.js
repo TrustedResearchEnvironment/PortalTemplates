@@ -11,11 +11,15 @@ const API_GET_DATASETS = 'GetDataSet';
 const API_GET_DATASOURCES = 'GetDataSource';
 const API_CREATE_DATASET = 'CreateDataSet';
 const API_UPDATE_DATASET = 'UpdateDataSet';
+const API_GET_DATASOURCE_SUBFOLDERS = 'GetLoomeDataSourceFirstSubFolders';
+const API_GET_DATASOURCE_SUBFOLDERS_WITH_FILES = 'GetLoomeDataSourceSubFoldersWithFiles';
 
 const pageSize = 10;
 let currentPage = 1;
 let dataSourceTypeMap = new Map();
 let allColumnsData = [];
+let currentDataSourceTypeID = 0;
+let currentDataSourceID = 0;
 
 /**
  * Displays a temporary "toast" notification on the screen.
@@ -72,7 +76,7 @@ function showToast(message, type = 'success', duration = 3000) {
  * @param {number} [page=1] - The page number to fetch.
  * @returns {Promise<Object>} A promise that resolves with the paginated response object.
  */
-async function fetchDataSetColumns(data_set_id, page = 1) {
+async function fetchSQLDataSetColumns(data_set_id, page = 1) {
     // Add page and pageSize to the parameters sent to the API
     const params = { 
         "data_set_id": data_set_id,
@@ -88,7 +92,7 @@ async function fetchDataSetColumns(data_set_id, page = 1) {
  * Populates the column table's tbody with data from a paginated response.
  * @param {Object|null} paginatedResponse - The full response object from the API.
  */
-function displayColumnsTable(data) {
+function displayColumnsTable(data, dataSetTypeId) {
     const tableBody = document.getElementById('dataSetColsBody');
     
     // Extract the actual data array from the response object
@@ -107,24 +111,90 @@ function displayColumnsTable(data) {
 
     // --- DATA EXISTS ---
     // The mapping logic remains exactly the same
-    const rowsHtml = data.map(col => `
-        <tr data-id="${col.DataSetColumnID || ''}" data-column-name="${col.ColumnName}">
-            <td>${col.ColumnName || ''}</td>
-            <td class="editable-cell" data-field="LogicalColumnName">${col.LogicalColumnName || ''}</td>
-            <td class="editable-cell" data-field="BusinessDescription">${col.BusinessDescription || ''}</td>
-            <td class="editable-cell" data-field="ExampleValue">${col.ExampleValue || ''}</td>
-            <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${col.Redact ? 'checked' : ''}>
-            </td>
-            <td class="checkbox-cell">
-                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${col.Tokenise ? 'checked' : ''}>
-            </td>
-        </tr>
-    `).join('');
-    // Excludeing isFilter for now
+    let rowsHtml = '';
+    if (dataSetTypeId == 1) { // Database type
+
+        rowsHtml = data.map(col => `
+            <tr data-id="${col.DataSetColumnID || ''}" data-column-name="${col.ColumnName}">
+                <td>${col.ColumnName || ''}</td>
+                <td class="editable-cell" data-field="LogicalColumnName">${col.LogicalColumnName || ''}</td>
+                <td class="editable-cell" data-field="BusinessDescription">${col.BusinessDescription || ''}</td>
+                <td class="editable-cell" data-field="ExampleValue">${col.ExampleValue || ''}</td>
+                <td class="checkbox-cell">
+                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${col.Redact ? 'checked' : ''}>
+                </td>
+                <td class="checkbox-cell">
+                    <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${col.Tokenise ? 'checked' : ''}>
+                </td>
+            </tr>
+        `).join('');
+        // Excludeing isFilter for now
     // <td class="checkbox-cell">
     //     <input class="form-check-input editable-checkbox" type="checkbox" data-field="IsFilter" ${col.IsFilter ? 'checked' : ''}>
     // </td>
+
+    } else if (dataSetTypeId == 3) { // Folder type   
+        // 1. Group the data by FolderName
+        const groupedByFolderName = new Map();
+
+        data.forEach(item => {
+            const folderName = item.FolderName || 'Unnamed Folder';
+            if (!groupedByFolderName.has(folderName)) {
+                groupedByFolderName.set(folderName, []);
+            }
+            groupedByFolderName.get(folderName).push(item);
+        });
+
+        groupedByFolderName.forEach((items, folderName) => {
+            const rowspan = items.length;
+
+            items.forEach((col, index) => {
+                // --- THIS IS THE FIX ---
+                // Use the correct property name: `col.FileExtensions`
+                // Also, add default values for Redact and Tokenise if they don't exist.
+                const fileExtension = col.FileExtensions || '';
+                const fileDescription = col.FileDescription || '';
+                const isRedacted = col.Redact || false;
+                const isTokenised = col.Tokenise || false;
+
+                // Check if this is the first row in the group
+                if (index === 0) {
+                    // --- First Row of the Group ---
+                    rowsHtml += `
+                        <tr data-id="${col.Id}-${col.FileExtensions}" data-folder-name="${folderName}">
+                            <td rowspan="${rowspan}">${folderName}</td>
+                            <td data-field="FileExtensions">${fileExtension}</td>
+                            <td class="editable-cell" data-field="FileDescription">${fileDescription}</td>
+                            <td class="checkbox-cell">
+                                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${isRedacted ? 'checked' : ''}>
+                            </td>
+                            <td class="checkbox-cell">
+                                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${isTokenised ? 'checked' : ''}>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // --- Subsequent Rows of the Group ---
+                    rowsHtml += `
+                        <tr data-id="${col.Id}-${col.FileExtensions}" data-folder-name="${folderName}">
+                            <td data-field="FileExtensions">${fileExtension}</td>
+                            <td class="editable-cell" data-field="FileDescription">${fileDescription}</td>
+                            <td class="checkbox-cell">
+                                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${isRedacted ? 'checked' : ''}>
+                            </td>
+                            <td class="checkbox-cell">
+                                <input class="form-check-input editable-checkbox" type="checkbox" data-field="Tokenise" ${isTokenised ? 'checked' : ''}>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+        });
+
+
+    }
+    
+    
     tableBody.innerHTML = rowsHtml;
 }
 
@@ -207,7 +277,7 @@ function handlePageChange(newPage) {
     // Validate the page number to ensure it's within bounds
     if (newPage >= 1 && newPage <= totalPages) {
         currentPage = newPage;
-        renderTablePage(); // Your existing function to render the table and pagination
+        renderTablePage(currentDataSourceTypeID); // Your existing function to render the table and pagination
     } else {
         // Optional: Revert the input field if the user enters an invalid number
         const pageInput = document.getElementById('page-input');
@@ -226,26 +296,57 @@ function handlePageChange(newPage) {
  * @param {HTMLElement} tbody The table body to append the row to.
  * @param {object} dataSource The data source object.
  */
-async function renderFolderSelectorDataSetFields(tbody, dataSource) {
+async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
     tbody.innerHTML = `<tr><td>Folder Name</td><td>Loading folders...</td></tr>`;
 
     try {
-        // --- TODO: Replace this with your actual API call ---
-        const folders = await fetchFolders(dataSource.DataSourceID);
+        console.log("DataSource in Folder Selector:", dataSource);
+        const folders = await fetchSubFolders(dataSource.DataSourceID);
         console.log("Fetched folders:", folders);
-        const optionsHtml = folders.map(folder => `<option value="${folder.Id}">${folder.FolderName}</option>`).join('');
+
+        // Await the result from your function
+        const fetchedData = await fetchDataSetFieldValue(dataSetID);
+        console.log("Fetched DataSet Field Value 2:", fetchedData);
+        let folderId = fetchedData.id;
+        let folderName = fetchedData.name;
         
-        const rowHtml = `
+        if (dataSetID === "new" || !tableId) {
+            // Create the dropdown HTML with the fetched tables
+            const optionsHtml = folders.map(folder => `<option value="${folder.FolderName}">${folder.FolderName}</option>`).join('');
+
+            rowHtml = `
             <tr>
-                <td>Folder Name <input type="text" hidden="true"></td>
+                <td>Table Name <input type="text" hidden="true"></td>
                 <td width="70%">
-                    <select class="form-control selectpicker">
+                    <select id="tableNameSelector" class="form-control selectpicker bg-white">
                         <option value="-1">Select a Folder</option>
                         ${optionsHtml}
                     </select>
                     <div class="validation-message"></div>
                 </td>
             </tr>`;
+
+        } else {
+
+            const filteredFolders = folders.filter(folder => folder.Id != folderId);
+
+            // Now, create the options HTML from the *filtered* array.
+            const optionsHtml = filteredFolders
+                .map(folder => `<option value="${folder.Id}" title="${folder.FolderName}">${folder.FolderName}</option>`)
+                .join('');
+
+            rowHtml = `
+                <tr>
+                    <td>Table Name <input type="text" hidden="true"></td>
+                    <td width="70%">
+                        <select id="tableNameSelector" class="form-control selectpicker" style="background-color: #E9ECEF" disabled>
+                            <option value="${folderName}" title="${folderName}" selected>${folderName}</option>
+                            ${optionsHtml}
+                        </select>
+                        <div class="validation-message"></div>
+                    </td>
+                </tr>`;
+        }
         
         tbody.innerHTML = rowHtml;
 
@@ -255,11 +356,19 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource) {
     }
 }
 
-// --- MOCK API FUNCTION (replace with your real one) ---
-async function fetchFolders(data_source_id) {
+
+async function fetchSubFolders(data_source_id) {
     const initialParams = { "data_source_id": data_source_id }; 
-   
-    return getFromAPI(API_GET_DATASOURCE_FOLDERS, initialParams)
+  
+    return getFromAPI(API_GET_DATASOURCE_SUBFOLDERS, initialParams);
+}
+
+
+async function fetchSubFoldersWithFiles(subFolderName, currentDataSourceID) {
+    const initialParams = { "sub_folder_name": subFolderName, "data_source_id": currentDataSourceID }; 
+    const results = await getFromAPI(API_GET_DATASOURCE_SUBFOLDERS_WITH_FILES, initialParams);
+    
+    return results;
 }
 
 /**
@@ -354,6 +463,7 @@ async function fetchDataSetFieldValue(data_set_id) {
     }
 }
 
+
 /**
  * Renders the row for selecting a SQL table.
  * @param {HTMLElement} tbody The table body to append the row to.
@@ -364,7 +474,7 @@ async function renderSqlTableSelectorDataSetFields(tbody, dataSource, dataSetID)
     tbody.innerHTML = `<tr><td>Table Name</td><td>Loading tables...</td></tr>`;
 
     try {
-        // --- TODO: Replace this with your actual API call ---
+
         // This function should fetch the list of tables for the given data source connection.
         const tables = await fetchSqlTables(dataSource.DataSourceID); 
         console.log("Fetched tables:", tables);
@@ -471,7 +581,7 @@ async function updateDataSetFieldsTable(dataSource, dataSetID) {
             break;
 
         case 3: // Folder Type
-            await renderFolderSelectorDataSetFields(tbody, dataSource);
+            await renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID);
             break;
 
         default:
@@ -764,7 +874,7 @@ function populateDataSourceOptions(selectElement, data, valueField, textField) {
  * @param {string|number} tableId The ID of the table to fetch.
  * @returns {Promise<Array<Object>>} A promise that resolves to the array of formatted column objects, or an empty array on failure.
  */
-async function formatColumnsFromSchema(tableId) {
+async function formatSQLColumnsFromSchema(tableId) {
     try {
         const tableDataArray = await fetchLoomeDataSourceTablesByTableId(tableId);
 
@@ -809,49 +919,79 @@ async function formatColumnsFromSchema(tableId) {
 }
 
 
+
 /**
  * The single function responsible for FETCHING data and populating the master `allColumnsData` array.
  * This is a "reset" action.
  */
-async function loadColumnsData() {
+async function loadColumnsData(dataSourceTypeId, currentDataSourceID) {
     const dataSetId = document.getElementById('dataSetSelection').value;
     let newColumnsData = []; // Default to an empty array
 
-    // --- SCENARIO 1: Editing an EXISTING Data Set ---
-    if (dataSetId && dataSetId !== 'new') {
-        try {
-            console.log(`FETCHING columns for existing Data Set ID: ${dataSetId}...`);
-            newColumnsData = await fetchDataSetColumns(dataSetId);
+    if (dataSourceTypeId === 1) { // SQL Database Type
+        // --- SCENARIO 1: Editing an EXISTING Data Set ---
+        if (dataSetId && dataSetId !== 'new') {
+            try {
+                console.log(`FETCHING columns for existing Data Set ID: ${dataSetId}...`);
+                newColumnsData = await fetchSQLDataSetColumns(dataSetId);
 
-            console.log("newColumnsData:", newColumnsData)
-        } catch (error) {
-            console.error(`Error fetching columns for Data Set ID ${dataSetId}:`, error);
+                console.log("newColumnsData:", newColumnsData)
+            } catch (error) {
+                console.error(`Error fetching columns for Data Set ID ${dataSetId}:`, error);
+            }
+        }
+        // --- SCENARIO 2: Creating a NEW Data Set ---
+        else if (dataSetId === 'new') {
+            const tableNameSelector = document.getElementById('tableNameSelector');
+            if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+                const tableId = tableNameSelector.value;
+                console.log(`FETCHING schema for new Data Set from Table ID: ${tableId}...`);
+                // This now calls your dedicated helper function
+                newColumnsData = await formatSQLColumnsFromSchema(tableId);
+            }
+        }
+    } else if (dataSourceTypeId === 3) { // Folder Type
+        newColumnsData = [];
+
+        if (dataSetId === 'new') {
+
+            const tableNameSelector = document.getElementById('tableNameSelector');
+            if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+                const subFolderName = tableNameSelector.value;
+
+                // This now calls your dedicated helper function
+                const originalData = await fetchSubFoldersWithFiles(subFolderName, currentDataSourceID);
+                newColumnsData = originalData.map(item => {
+                    // For each item, create a new object...
+                    return {
+                        ...item, // ...copy all of the original item's properties...
+
+                        // ...and then add your new default properties.
+                        FileDescription: '', // Default to an empty string
+                        Redact: 0,           // Default to 0
+                        Tokenise: 0          // Default to 0
+                    };
+                });
+                console.log("Folder Columns Data: ", newColumnsData)
+            }
+
         }
     }
-    // --- SCENARIO 2: Creating a NEW Data Set ---
-    else if (dataSetId === 'new') {
-        const tableNameSelector = document.getElementById('tableNameSelector');
-        if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
-            const tableId = tableNameSelector.value;
-            console.log(`FETCHING schema for new Data Set from Table ID: ${tableId}...`);
-            // This now calls your dedicated helper function
-            newColumnsData = await formatColumnsFromSchema(tableId);
-        }
-    }
+    
 
     // --- CRITICAL: Update the master state ---
     allColumnsData = newColumnsData || [];
     currentPage = 1; // Always reset to the first page when data is reloaded
 
     // Finally, render the first page of the NEW data
-    renderTablePage();
+    renderTablePage(dataSourceTypeId);
 }
 
 /**
  * Renders the UI based on the current state of `allColumnsData` and `currentPage`.
  * This function DOES NOT fetch data.
  */
-function renderTablePage() {
+function renderTablePage(dataSetTypeId) {
     // Calculate the slice of data for the current page
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
@@ -859,7 +999,7 @@ function renderTablePage() {
     const pageData = allColumnsData.slice(startIndex, endIndex);
     console.log("pageData: ", pageData, allColumnsData)
     // Render the table with only the data for the current page
-    displayColumnsTable(pageData);
+    displayColumnsTable(pageData, dataSetTypeId);
     
     console.log(allColumnsData.length, pageSize, currentPage)
     // Render the pagination controls based on the FULL dataset length
@@ -949,38 +1089,33 @@ function gatherFormData(allColumnsData) {
     if (fieldsTableBody) scrapeFieldsTable(fieldsTableBody);
     if (metaTableBody) scrapeMetaTable(metaTableBody);
 
-    // --- Part C: Gather Editable Columns Table Data ---
-    // const columns = [];
-    // const colsTableBody = document.getElementById('dataSetColsBody');
-    // colsTableBody.querySelectorAll('tr').forEach(row => {
-    //     // Skip the placeholder row if it exists
-    //     if (row.querySelector('td[colspan]')) {
-    //         return;
-    //     }
-
-    //     const columnData = {
-    //         // Use dataset.id for existing, or null for new
-    //         //Id: row.dataset.id ? parseInt(row.dataset.id, 10) : null,
-    //         ColumnName: row.cells[0].textContent.trim(),
-    //         LogicalColumnName: row.cells[1].textContent.trim(),
-    //         BusinessDescription: row.cells[2].textContent.trim(),
-    //         ExampleValue: row.cells[3].textContent.trim(),
-    //         Redact: row.querySelector('[data-field="Redact"]').checked,
-    //         Tokenise: row.querySelector('[data-field="DeIdentify"]').checked,
-    //         IsFilter: row.querySelector('[data-field="IsFilter"]').checked
-    //     };
-    //     columns.push(columnData);
-    // });
-
     const columns = allColumnsData;
 
-    return {
-        ...mainDetails,
-        dataSetMetaDataValues: metaData, // You'll need an endpoint for this too
-        dataSetFieldValues: dataSetFieldValues, // And this
-        dataSetColumns: columns,
-        dataSetFolders: [] // Placeholder for future folder support
-    };
+    if (currentDataSourceTypeID === 1) {
+        return {
+            ...mainDetails,
+            dataSetMetaDataValues: metaData, // You'll need an endpoint for this too
+            dataSetFieldValues: dataSetFieldValues, // And this
+            dataSetColumns: columns,
+            dataSetFolders: [],
+            dataSetFolderFiles: [] // Placeholder for future folder support
+        };
+    } else if (currentDataSourceTypeID === 3) {
+        console.log("Gathering form data for Folder type with columns:", columns);
+        const uniqueFolders = Array.from(
+            new Map(columns.map(item => [item.FolderName, item])).values()
+        );
+        console.log("Unique Folders extracted:", uniqueFolders);
+        return {
+            ...mainDetails,
+            dataSetMetaDataValues: metaData, 
+            dataSetFieldValues: dataSetFieldValues, 
+            dataSetColumns: [],
+            dataSetFolders: uniqueFolders, 
+            dataSetFolderFiles: columns
+        };
+    }
+    
 }
 
 // --- API FUNCTIONS ---
@@ -990,7 +1125,8 @@ async function createDataSet(data) {
         ...data, // Spread all properties from the original object
         optOutMessage: "string",
         optOutList: "string",
-        optOutColumn: "-1"
+        optOutColumn: "-1",
+        dataSourceTypeID: currentDataSourceTypeID
     };
 
     console.log("Sending this payload to the API:", payload);
@@ -1013,7 +1149,8 @@ async function updateDataSet(data_set_id, data) {
         id: parseInt(data_set_id, 10),
         optOutMessage: "string",
         optOutList: "string",
-        optOutColumn: "-1"
+        optOutColumn: "-1",
+        dataSourceTypeID: currentDataSourceTypeID
     };
 
     console.log("Sending this payload to the API:", payload);
@@ -1028,6 +1165,32 @@ async function updateDataSet(data_set_id, data) {
         console.error("Error updating dataset:", error);
         throw error;
     }
+}
+
+/**
+ * Updates the header of a data table based on the specified data source type.
+ * @param {number | string} dataSourceType - The ID of the data source type (e.g., 1 for Database, 3 for Folder).
+ */
+function updateTableHeader(dataSourceType) {
+    const headersConfig = {
+        1: ['Column Name', 'Logical Name', 'Business Description', 'Example Value', 'Redact', 'Deidentify'],
+        3: ['Folder Name', 'File Type', 'File Description','Redact', 'Deidentify']
+    };
+
+    const tableHeaderRow = document.getElementById('dataSetColsHeader');
+    if (!tableHeaderRow) {
+        console.error("Error: Table header row with id 'data-table-header' not found.");
+        return;
+    }
+
+    const headers = headersConfig[dataSourceType];
+    if (!headers) {
+        tableHeaderRow.innerHTML = '<th>Please select a data source type first.</th>';
+        return;
+    }
+
+    const headerHtml = headers.map(headerText => `<th>${headerText}</th>`).join('');
+    tableHeaderRow.innerHTML = headerHtml;
 }
 
 async function renderManageDataSourcePage() {
@@ -1139,25 +1302,30 @@ async function renderManageDataSourcePage() {
                 const selectedDataSourceId = dataSourceDrpDwn.value;
                 const selectedDataSource = allDataSources.find(src => src.DataSourceID == selectedDataSourceId);
                 const selectedDataSetID = selectionDropdown.value;
+                currentDataSourceTypeID = selectedDataSource ? selectedDataSource.DataSourceTypeID : null;
+                currentDataSourceID = selectedDataSource.DataSourceID;
 
                 if (selectedDataSource) {
-                    // --- THIS IS THE MISSING PART ---
                     // First, update the metadata sections in the left column.
                     await updateDataSetFieldsTable(selectedDataSource, selectedDataSetID);
                     await updateMetaDataTable(selectedDataSource, selectedDataSetID);
                     
-                    await loadColumnsData();
                 } else {
                     // If no source is selected, clear everything.
                     displayColumnsTable(null);
                     // You might also want to clear the metadata tables here.
                 }
+
+                await loadColumnsData(currentDataSourceTypeID, currentDataSourceID);
+                updateTableHeader(selectedDataSource.DataSourceTypeID)
+              
+            
             });
 
             // Listener for TOP-LEVEL data set selection
             selectionDropdown.addEventListener('change', async () => {
                 await updateFormForSelection(allDataSets, allDataSources);
-                await loadColumnsData();
+                await loadColumnsData(currentDataSourceTypeID, currentDataSourceID);
             });
 
             // Listener for TABLE NAME dropdown
@@ -1165,7 +1333,8 @@ async function renderManageDataSourcePage() {
                 if (event.target.id === 'tableNameSelector') {
                     // Always load the FIRST page when the table changes
                     //await updateColumnsForTable(1);
-                    await loadColumnsData();
+                    console.log("Table Name Selector Changed");
+                    await loadColumnsData(currentDataSourceTypeID, currentDataSourceID);
                 }
             });
 
@@ -1200,107 +1369,199 @@ async function renderManageDataSourcePage() {
             //  EDITABLE TABLE LOGIC
             // =================================================================
 
+            const dataSetColsTable = document.getElementById('dataSetColsTable');
+            
+
             // Get a reference to the body of the columns table.
             const dataSetColsBody = document.getElementById('dataSetColsBody');
 
             // --- Listener 1: For TEXT cell editing (on double-click) ---
+            // dataSetColsBody.addEventListener('dblclick', (event) => {
+            //     const cell = event.target;
+            //     // Only allow editing on cells with the 'editable-cell' class
+            //     if (!cell.classList.contains('editable-cell')) {
+            //         return;
+            //     }
+            //     // Prevent creating an input if one already exists
+            //     if (cell.querySelector('input')) {
+            //         return;
+            //     }
+            //     const originalText = cell.textContent.trim();
+                
+            //     // Create an input element (this part is the same)
+            //     cell.innerHTML = '';
+            //     const input = document.createElement('input');
+            //     input.type = 'text';
+            //     input.className = 'form-control form-control-sm';
+            //     input.value = originalText;
+            //     cell.appendChild(input);
+            //     input.focus();
+            //     // Handler for when the input loses focus (blur) or Enter is pressed
+            //     const saveChanges = () => {
+            //         const newValue = input.value.trim();
+            //         cell.innerHTML = newValue;
+            //         const row = cell.closest('tr');
+            //         if (!row) return;
+            //         // Get the ID from the row
+            //         const uniqueId = row.dataset.id;
+            //         const field = cell.dataset.field;
+            //         if (!uniqueId || !field) return;
+            //         // Find the object in the master array using the appropriate logic for each type.
+            //         const columnToUpdate = allColumnsData.find(col => {
+            //             // Check for Database type (which has DataSetColumnID)
+            //             if (col.DataSetColumnID && col.DataSetColumnID == uniqueId) {
+            //                 return true;
+            //             }
+            //             // Check for Folder type (which has Id and FileExtensions)
+            //             if (col.Id && col.FileExtensions && `${col.Id}-${col.FileExtensions}` === uniqueId) {
+            //                 return true;
+            //             }
+            //             return false;
+            //         });
+            //         if (columnToUpdate) {
+            //             // Update the property on the object in the in-memory array
+            //             columnToUpdate[field] = newValue;
+            //             console.log("Updated in-memory data:", allColumnsData);
+            //         } else {
+            //             console.error("Could not find matching object in allColumnsData for uniqueId:", uniqueId);
+            //         }
+            //     };
+            //     input.addEventListener('blur', saveChanges);
+            //     input.addEventListener('keydown', (e) => {
+            //         if (e.key === 'Enter') {
+            //             input.blur(); // Trigger the blur event to save
+            //         } else if (e.key === 'Escape') {
+            //             cell.innerHTML = originalText; // Cancel the edit
+            //         }
+            //     });
+            // });
+
+
+            // // --- Listener 2: For CHECKBOX and TEXT cell editing (on change) ---
+            // // Add this unified listener to your DOMContentLoaded block
+            // dataSetColsBody.addEventListener('change', (event) => {
+            //     const target = event.target;
+            //     const row = target.closest('tr');
+            //     if (!row) return; // Exit if the event didn't originate from within a row
+
+            //     // Use the unique ID as the primary key to find the object
+            //     const uniqueId = row.dataset.id;
+            //     const field = target.dataset.field;
+            //     console.log("Change detected... ID:", uniqueId, "Field:", field);
+            //     if (!uniqueId || !field) return; // Exit if we don't have the info we need
+
+            //     // Find the object in the master array. We need to check both possible ID structures.
+            //     const columnToUpdate = allColumnsData.find(col => {
+            //         // Check for Database type
+            //         if (col.DataSetColumnID && col.DataSetColumnID == uniqueId) {
+            //             return true;
+            //         }
+            //         // Check for Folder type
+            //         if (col.Id && col.FileExtensions && `${col.Id}-${col.FileExtensions}` === uniqueId) {
+            //             return true;
+            //         }
+            //         return false;
+            //     });
+
+            //     if (!columnToUpdate) {
+            //         console.error("Could not find matching object in allColumnsData for uniqueId:", uniqueId);
+            //         return;
+            //     }
+                
+            //     // Now that we have the correct object, proceed with the update logic
+            //     if (target.classList.contains('editable-checkbox')) {
+            //         const isChecked = target.checked;
+            //         console.log(`Saving Checkbox... ID: ${uniqueId}, Field: ${field}, New Value: ${isChecked}`);
+                    
+            //         // This works for both because 'field' will be "Redact" or "Tokenise"
+            //         columnToUpdate[field] = isChecked;
+
+            //     } else if (target.tagName === 'INPUT' && target.type === 'text') {
+            //         const newValue = target.value.trim();
+            //         const cell = target.parentElement;
+            //         cell.innerHTML = newValue;
+            //         console.log(`Saving Text... ID: ${uniqueId}, Field: ${field}, New Value: '${newValue}'`);
+
+            //         // This works for both because 'field' will be "LogicalColumnName", etc.
+            //         columnToUpdate[field] = newValue;
+            //     }
+
+            //     console.log("Updated in-memory data:", allColumnsData);
+            // });
+
+            // --- 1. The dblclick listener is now ONLY for creating the input ---
             dataSetColsBody.addEventListener('dblclick', (event) => {
-                const cell = event.target;
-                // Only allow editing on cells with the 'editable-cell' class
-                if (!cell.classList.contains('editable-cell')) {
-                    return;
-                }
-                // Prevent creating an input if one already exists
-                if (cell.querySelector('input')) {
-                    return;
-                }
+                const cell = event.target.closest('td.editable-cell');
+                if (!cell || cell.querySelector('input')) return;
 
                 const originalText = cell.textContent.trim();
-                
-                // Create an input element
+                cell.innerHTML = '';
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.className = 'form-control form-control-sm'; // Use small form control for a better fit
+                input.className = 'form-control form-control-sm';
                 input.value = originalText;
-                
-                // Replace cell content with the input
-                cell.innerHTML = '';
                 cell.appendChild(input);
                 input.focus();
 
-                // Handler for when the input loses focus (blur) or Enter is pressed
-                const saveChanges = () => {
+                // The 'blur' event on the input will fire a 'change' event,
+                // which is handled by the main listener below.
+                input.addEventListener('blur', () => {
+                    // Find the object and update it
                     const newValue = input.value.trim();
-                    cell.innerHTML = newValue;
-
-                    const row = cell.closest('tr');
-                    const columnName = row.dataset.columnName;
                     const field = cell.dataset.field;
+                    updateInMemoryData(cell.closest('tr'), field, newValue);
+                    // Revert the cell to plain text
+                    cell.innerHTML = newValue;
+                });
 
-                    // --- THIS IS THE KEY CHANGE ---
-                    // Find the corresponding object in our master array
-                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
-
-                    if (columnToUpdate) {
-                        // Update the property on the object in the array
-                        columnToUpdate[field] = newValue;
-                        console.log("Updated in-memory data:", allColumnsData);
-                    }
-                };
-
-                input.addEventListener('blur', saveChanges);
                 input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        input.blur(); // Trigger the blur event to save
-                    } else if (e.key === 'Escape') {
-                        cell.innerHTML = originalText; // Cancel the edit
-                    }
+                    if (e.key === 'Enter') input.blur();
+                    else if (e.key === 'Escape') cell.innerHTML = originalText;
                 });
             });
 
-
-            // --- Listener 2: For CHECKBOX and TEXT cell editing (on change) ---
-            // Add this unified listener to your DOMContentLoaded block
+            // --- 2. The change listener ONLY handles checkboxes now ---
             dataSetColsBody.addEventListener('change', (event) => {
-                const target = event.target; // The element that triggered the event (either a checkbox or a text input)
-
-                // --- PATH 1: Handle Checkbox Changes ---
+                const target = event.target;
                 if (target.classList.contains('editable-checkbox')) {
-                    const isChecked = target.checked;
-                    const row = target.closest('tr');
-                    const columnName = row.dataset.columnName;
                     const field = target.dataset.field;
-                    
-                    console.log(`Saving Checkbox... Field: ${field}, New Value: ${isChecked}`);
-                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
-
-                    if (columnToUpdate) {
-                        // Update the property on the object in the in-memory array
-                        columnToUpdate[field] = isChecked;
-                        console.log("Updated in-memory data:", allColumnsData);
-                    }
-                } 
-                // --- PATH 2: Handle Text Input Changes (from a dblclick-generated input) ---
-                else if (target.tagName === 'INPUT' && target.type === 'text') {
-                    const newValue = target.value.trim();
-                    const cell = target.parentElement; // The <td> containing the input
-                    const row = cell.closest('tr');
-                    const columnName = row.dataset.columnName;
-                    const field = cell.dataset.field;
-
-                    // Revert the cell to plain text now that the edit is done
-                    cell.innerHTML = newValue;
-
-                    console.log(`Saving Text... Field: ${field}, New Value: '${newValue}'`);
-                    const columnToUpdate = allColumnsData.find(col => col.ColumnName === columnName);
-
-                    if (columnToUpdate) {
-                        // Update the property on the object in the in-memory array
-                        columnToUpdate[field] = newValue;
-                        console.log("Updated in-memory data:", allColumnsData);
-                    }
+                    const value = target.checked;
+                    updateInMemoryData(target.closest('tr'), field, value);
                 }
             });
+
+
+            // --- 3. A NEW helper function to keep the update logic DRY ---
+            function updateInMemoryData(rowElement, field, value) {
+                if (!rowElement || !field) {
+                    console.error("Cannot update: missing row or field information.");
+                    return;
+                }
+                
+                const uniqueId = rowElement.dataset.id;
+                if (!uniqueId) {
+                    console.error("Cannot update: missing data-id on the row.");
+                    return;
+                }
+
+                console.log(`Updating... ID: ${uniqueId}, Field: ${field}, New Value:`, value);
+
+                const columnToUpdate = allColumnsData.find(col => {
+                    // Check for Database type
+                    if (col.DataSetColumnID && col.DataSetColumnID == uniqueId) return true;
+                    // Check for Folder type
+                    if (col.Id && col.FileExtensions && `${col.Id}-${col.FileExtensions}` === uniqueId) return true;
+                    return false;
+                });
+
+                if (columnToUpdate) {
+                    // Update the property on the object in the in-memory array
+                    columnToUpdate[field] = value;
+                    console.log("Updated in-memory data:", allColumnsData);
+                } else {
+                    console.error("Could not find matching object in allColumnsData for uniqueId:", uniqueId);
+                }
+            }
 
  
 
