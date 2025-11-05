@@ -981,7 +981,7 @@ async function loadColumnsData(dataSourceTypeId, currentDataSourceID) {
                     console.log(`FETCHING SAVED columns for existing Data Set ID: ${dataSetId}...`);
                     
                     // 1. Fetch data for EXISTING set (SAVED data from DB)
-                    const fetchedData = await fetchSQLDataSetColumns(dataSetId); //NEED TO CHANGE THIS
+                    const fetchedData = await _______(dataSetId); //NEED TO CHANGE THIS
 
                     // 2. Apply the SAME consistent mapping
                     newColumnsData = fetchedData.map(mapFolderData);
