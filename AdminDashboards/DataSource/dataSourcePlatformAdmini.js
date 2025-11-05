@@ -5,7 +5,7 @@ const API_DBCONNECTION_ID = 'GetDatabaseConnection';
 
 const API_DATASOURCETYPE_ID = 'GetDataSourceTypes';
 const API__DATASOURCE_FIELDVALUE_ID = 'GetDataSourceFieldValues';
-const API__DATASOURCE_FOLDER_ID = 'GetDataSourceFolders';
+const API__DATASOURCE_FOLDER_ID = 'GetFolderConnection';
 const API_ADD_DATASOURCE_ID = 'AddDataSource';
 
 // --- STATE MANAGEMENT ---
