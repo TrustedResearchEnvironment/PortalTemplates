@@ -330,7 +330,7 @@ function AddDataSource(typeNamesList, allFields) {
                                             name="Folder Name">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${folders.map(folder => `
-                                            <option value="${folder.ConnectionId}">${folder.ConnectionName}</option>
+                                            <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
                                         `).join('')}
                                     </select>
                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
