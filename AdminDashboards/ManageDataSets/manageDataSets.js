@@ -978,7 +978,6 @@ async function loadColumnsData(dataSourceTypeId, currentDataSourceID) {
                 }
             } else if (dataSetId && dataSetId !== 'new') {
                 try {
-                    console.log(`FETCHING SAVED columns for existing Data Set ID: ${dataSetId}...`);
                     
                     // 1. Fetch data for EXISTING set (SAVED data from DB)
                     const fetchedData = await _______(dataSetId); //NEED TO CHANGE THIS
