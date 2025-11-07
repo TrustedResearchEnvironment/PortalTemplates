@@ -1,6 +1,7 @@
 // Define the single container ID for the table
 const TABLE_CONTAINER_ID = 'requests-table-area';
 const API_DATASOURCE_ID = 'GetDataSource';
+const API_UPDATE_DATASOURCE_ID = 'UpdateDataSource';
 const API_DBCONNECTION_ID = 'GetDatabaseConnection';
 
 const API_DATASOURCETYPE_ID = 'GetDataSourceTypes';
@@ -119,8 +120,8 @@ async function createFolderConnectionMap() {
 
         // Use reduce() to transform the array into a Map
         const connectionMap = connections.reduce((map, item) => {
-            if (item.ConnectionId && item.ConnectionName) {
-                map.set(item.ConnectionId, item.ConnectionName);
+            if (item.ConnectionID && item.ConnectionName) {
+                map.set(item.ConnectionID, item.ConnectionName);
             }
             return map;
         }, new Map());
@@ -327,7 +328,7 @@ function AddDataSource(typeNamesList, allFields) {
                                 <td>Folder Connection</td>
                                 <td class="relative">
                                     <select class="form-control form-control-sm dynamic-field appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full" 
-                                            name="Folder Name">
+                                            name="Folder Connection">
                                         <option value="" class="text-gray-500">Select a connection...</option>
                                         ${folders.map(folder => `
                                             <option value="${folder.ConnectionID}">${folder.ConnectionName}</option>
@@ -681,7 +682,7 @@ const renderAccordionDetails = (item) => {
                 // Look up the name from our map. Use parseInt because the ID might be a string.
                 // If not found, fall back to showing the original value (the ID).
                 displayValue = dbConnectionMap.get(parseInt(value)) || value;
-            } else if (key === 'Folder Name') {
+            } else if (key === 'Folder Connection') {
                 // Look up the name from our map. Use parseInt because the ID might be a string.
                 // If not found, fall back to showing the original value (the ID).
                 
@@ -722,13 +723,13 @@ const renderAccordionDetails = (item) => {
     // --- END of new logic ---
 
     return `
-    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceId}">
+    <div class="accordion-body bg-slate-50 p-6" data-id="${item.DataSourceID}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12">
             <!-- LEFT COLUMN: Remains the same -->
             <div>
                  <table class="w-full text-sm">
                     <tbody>
-                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceId}</td></tr>
+                        <tr class="border-b"><td class="py-2 font-medium text-gray-500 w-1/3">ID</td><td class="py-2 text-gray-900">${item.DataSourceID}</td></tr>
                         <tr class="border-b"><td class="py-2 font-medium text-gray-500">Name</td><td class="py-2 text-gray-900">
                             <span class="view-state view-state-name">${item.Name}</span>
                             <input type="text" value="${item.Name}" class="edit-state edit-state-name hidden w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
@@ -955,15 +956,33 @@ function renderTable(containerId, tableConfig, data, config = {}) {
                     // }
 
                     // --- 2. Send Request to the Endpoint using fetch ---
-                    const updateParams = {
-                        "data_source_id": dataSourceId ,
-                        "description":  updatedDescription,
-                        "isActive":  updatedIsActive,
-                        "name":  updatedName,
-                        "fieldName": "Database Connection",
-                        "fieldValue": displayValue
-                    };
-                    const updatedDataSource = await window.loomeApi.runApiRequest(21, updateParams);
+                    const dbConnSpan = document.getElementById('dbConnValue');
+                    const connType = dbConnSpan.dataset.fieldName;
+                    
+                    let updateParams = {}
+                    if (connType == 'Database Connection') {
+                        updateParams = {
+                            "data_source_id": dataSourceId ,
+                            "description":  updatedDescription,
+                            "isActive":  updatedIsActive,
+                            "name":  updatedName,
+                            "fieldName": "Database Connection",
+                            "fieldValue": displayValue
+                        };
+                    } else if (connType == 'Folder Connection') {
+                        updateParams = {
+                            "data_source_id": dataSourceId ,
+                            "description":  updatedDescription,
+                            "isActive":  updatedIsActive,
+                            "name":  updatedName,
+                            "fieldName": "Folder Connection",
+                            "fieldValue": displayValue
+                        };
+                    }
+                    
+
+                    
+                    const updatedDataSource = await window.loomeApi.runApiRequest(API_UPDATE_DATASOURCE_ID, updateParams);
 
                     // --- 3. Handle the Server's Response ---
                     if (!updatedDataSource) {
