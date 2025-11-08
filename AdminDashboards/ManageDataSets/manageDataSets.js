@@ -310,13 +310,13 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
         let folderId = fetchedData.id;
         let folderName = fetchedData.name;
         
-        if (dataSetID === "new" || !tableId) {
+        if (dataSetID === "new" || !folderId) {
             // Create the dropdown HTML with the fetched tables
             const optionsHtml = folders.map(folder => `<option value="${folder.FolderName}">${folder.FolderName}</option>`).join('');
 
             rowHtml = `
             <tr>
-                <td>Table Name <input type="text" hidden="true"></td>
+                <td>Folder Name <input type="text" hidden="true"></td>
                 <td width="70%">
                     <select id="tableNameSelector" class="form-control selectpicker bg-white">
                         <option value="-1">Select a Folder</option>
@@ -337,7 +337,7 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
 
             rowHtml = `
                 <tr>
-                    <td>Table Name <input type="text" hidden="true"></td>
+                    <td>Folder Name <input type="text" hidden="true"></td>
                     <td width="70%">
                         <select id="tableNameSelector" class="form-control selectpicker" style="background-color: #E9ECEF" disabled>
                             <option value="${folderName}" title="${folderName}" selected>${folderName}</option>
@@ -953,29 +953,46 @@ async function loadColumnsData(dataSourceTypeId, currentDataSourceID) {
     } else if (dataSourceTypeId === 3) { // Folder Type
         newColumnsData = [];
 
+        const mapFolderData = (item) => {
+            return {
+                ...item, // Copy all original properties
+
+                // Explicitly provide defaults for properties that might be null
+                // or missing. This ensures the structure is consistent.
+                FileDescription: item.FileDescription || '',
+                Redact: item.Redact || 0,
+                Tokenise: item.Tokenise || 0
+            };
+        };
         if (dataSetId === 'new') {
+                const tableNameSelector = document.getElementById('tableNameSelector');
+                if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
+                    const subFolderName = tableNameSelector.value;
+                    
+                    // Fetch data for NEW set
+                    const originalData = await fetchSubFoldersWithFiles(subFolderName, currentDataSourceID);
+                    
+                    // Apply the consistent mapping
+                    newColumnsData = originalData.map(mapFolderData);
+                    
+                    console.log("Mapped NEW Folder Columns Data: ", newColumnsData);
+                }
+            } else if (dataSetId && dataSetId !== 'new') {
+                try {
+                    console.log(`FETCHING SAVED columns for existing Data Set ID: ${dataSetId}...`);
+                    
+                    // 1. Fetch data for EXISTING set (SAVED data from DB)
+                    const fetchedData = await fetchSQLDataSetColumns(dataSetId);
 
-            const tableNameSelector = document.getElementById('tableNameSelector');
-            if (tableNameSelector && tableNameSelector.value && tableNameSelector.value !== '-1') {
-                const subFolderName = tableNameSelector.value;
+                    // 2. Apply the SAME consistent mapping
+                    newColumnsData = fetchedData.map(mapFolderData);
 
-                // This now calls your dedicated helper function
-                const originalData = await fetchSubFoldersWithFiles(subFolderName, currentDataSourceID);
-                newColumnsData = originalData.map(item => {
-                    // For each item, create a new object...
-                    return {
-                        ...item, // ...copy all of the original item's properties...
+                    console.log("Fetched and Mapped EXISTING (saved) folder columns:", newColumnsData);
 
-                        // ...and then add your new default properties.
-                        FileDescription: '', // Default to an empty string
-                        Redact: 0,           // Default to 0
-                        Tokenise: 0          // Default to 0
-                    };
-                });
-                console.log("Folder Columns Data: ", newColumnsData)
+                } catch (error) {
+                    console.error(`Error fetching columns for Data Set ID ${dataSetId}:`, error);
+                }
             }
-
-        }
     }
     
 
