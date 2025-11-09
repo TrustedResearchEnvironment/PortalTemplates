@@ -12,6 +12,8 @@ const API_CREATE_DATASET = 'CreateDataSet';
 const API_UPDATE_DATASET = 'UpdateDataSet';
 const API_GET_DATASOURCE_SUBFOLDERS = 'GetLoomeDataSourceFirstSubFolders';
 const API_GET_DATASOURCE_SUBFOLDERS_WITH_FILES = 'GetLoomeDataSourceSubFoldersWithFiles';
+const API_GET_DATASET_FOLDERFILE = 'GetDataSetFolderFileByDataSetID';
+
 
 const pageSize = 10;
 let currentPage = 1;
@@ -151,7 +153,8 @@ function displayColumnsTable(data, dataSetTypeId) {
                 // --- THIS IS THE FIX ---
                 // Use the correct property name: `col.FileExtensions`
                 // Also, add default values for Redact and Tokenise if they don't exist.
-                const fileExtension = col.FileExtensions || '';
+                // const fileExtension = col.FileExtensions || '';
+                const fileExtension = col.FileType || '';
                 const fileDescription = col.FileDescription || '';
                 const isRedacted = col.Redact || false;
                 const isTokenised = col.Tokenise || false;
@@ -160,9 +163,9 @@ function displayColumnsTable(data, dataSetTypeId) {
                 if (index === 0) {
                     // --- First Row of the Group ---
                     rowsHtml += `
-                        <tr data-id="${col.Id}-${col.FileExtensions}" data-folder-name="${folderName}">
+                        <tr data-id="${col.DataSetFolderFileID}-${col.FileType}" data-folder-name="${folderName}">
                             <td rowspan="${rowspan}">${folderName}</td>
-                            <td data-field="FileExtensions">${fileExtension}</td>
+                            <td data-field="FileType">${fileExtension}</td>
                             <td class="editable-cell" data-field="FileDescription">${fileDescription}</td>
                             <td class="checkbox-cell">
                                 <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${isRedacted ? 'checked' : ''}>
@@ -175,8 +178,8 @@ function displayColumnsTable(data, dataSetTypeId) {
                 } else {
                     // --- Subsequent Rows of the Group ---
                     rowsHtml += `
-                        <tr data-id="${col.Id}-${col.FileExtensions}" data-folder-name="${folderName}">
-                            <td data-field="FileExtensions">${fileExtension}</td>
+                        <tr data-id="${col.DataSetFolderFileID}-${col.FileType}" data-folder-name="${folderName}">
+                            <td data-field="FileType">${fileExtension}</td>
                             <td class="editable-cell" data-field="FileDescription">${fileDescription}</td>
                             <td class="checkbox-cell">
                                 <input class="form-check-input editable-checkbox" type="checkbox" data-field="Redact" ${isRedacted ? 'checked' : ''}>
@@ -287,6 +290,39 @@ function handlePageChange(newPage) {
     }
 }
 
+/////////////////////////
+/**
+ * Fetches the simple field value for a Folder data set.
+ * @param {string|number} data_set_id - The ID of the data set.
+ * @returns {Promise<Object>} A promise that resolves to an object { id: null, name: 'folder_name' }.
+ */
+async function fetchDataSetFolderValue(data_set_id) {
+    if (data_set_id === "new") {
+        return {
+            id: null,
+            name: null
+        };
+    }
+
+    const initialParams = { "data_set_id": data_set_id }; 
+   
+    const resultsArray = await getFromAPI(API_GET_DATASET_FIELD_VALUE, initialParams);
+    if (!resultsArray || resultsArray.length === 0) {
+        console.warn("API returned no data for data_set_id:", data_set_id);
+        return { id: null, name: null }; // Return a default value
+    }
+
+    // Just get the first result and return its value directly.
+    const result = resultsArray[0];
+    console.log("Fetched Folder Value:", result.Value);
+    
+    return {
+        id: null, // Folders don't have a separate ID, just the name
+        name: result.Value
+    };
+}
+/////////////////////////
+
 
 // Data Set Field Table Rendering Functions
 
@@ -304,7 +340,7 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
         console.log("Fetched folders:", folders);
 
         // Await the result from your function
-        const fetchedData = await fetchDataSetFieldValue(dataSetID);
+        const fetchedData = await fetchDataSetFolderValue(dataSetID);
         console.log("Fetched DataSet Field Value 2:", fetchedData);
         let folderId = fetchedData.id;
         let folderName = fetchedData.name;
@@ -980,7 +1016,7 @@ async function loadColumnsData(dataSourceTypeId, currentDataSourceID) {
                 try {
                     
                     // 1. Fetch data for EXISTING set (SAVED data from DB)
-                    const fetchedData = await _______(dataSetId); //NEED TO CHANGE THIS
+                    const fetchedData = await getFromAPI(API_GET_DATASET_FOLDERFILE, { "data_set_id": dataSetId });
 
                     // 2. Apply the SAME consistent mapping
                     newColumnsData = fetchedData.map(mapFolderData);
@@ -1280,10 +1316,16 @@ async function renderManageDataSourcePage() {
             // 1. Populate the main form fields
             populateForm(selectedDataSet, dataSource);
 
+            // set GLOBALS so loadColumnsData() knows the type/id
+            currentDataSourceTypeID = dataSource.DataSourceTypeID;
+            currentDataSourceID    = dataSource.DataSourceID;
+
             // 2. Update the dynamic metadata tables on the left
             updateDataSetFieldsTable(dataSource, selectedId); 
             updateMetaDataTable(dataSource, selectedId);
             
+            // refresh header immediately
+            updateTableHeader(currentDataSourceTypeID);
         }
     }
    
@@ -1562,7 +1604,7 @@ async function renderManageDataSourcePage() {
                     // Check for Database type
                     if (col.DataSetColumnID && col.DataSetColumnID == uniqueId) return true;
                     // Check for Folder type
-                    if (col.Id && col.FileExtensions && `${col.Id}-${col.FileExtensions}` === uniqueId) return true;
+                    if (col.DataSetFolderFileID && col.FileType && `${col.DataSetFolderFileID}-${col.FileType}` === uniqueId) return true;
                     return false;
                 });
 
