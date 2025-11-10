@@ -2661,7 +2661,6 @@ async function renderManageDataSourcePage() {
             nameInput.disabled = false;
             descriptionInput.disabled = false;
             dataSourceDrpDwn.disabled = true;
-            dataSetFieldsTable.querySelectorAll("input, select, textarea").forEach(el => el.disabled = true);
 
             const selectedDataSet = allDataSets.find(ds => ds.DataSetID == selectedId);
             if (!selectedDataSet) return;
