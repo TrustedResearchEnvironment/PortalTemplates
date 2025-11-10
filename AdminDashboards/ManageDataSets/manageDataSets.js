@@ -2476,8 +2476,10 @@ async function renderManageDataSourcePage() {
             displayColumnsTable(null); 
         } else {
             // Don't let name and description be edited for existing sets
-            nameInput.readOnly = true;
-            descriptionInput.disabled = true;
+            // nameInput.readOnly = true;
+            // descriptionInput.disabled = true;
+            nameInput.disabled = false;
+            descriptionInput.disabled = false;
             dataSourceDrpDwn.disabled = true;
 
             const selectedDataSet = allDataSets.find(ds => ds.DataSetID == selectedId);
@@ -3111,8 +3113,10 @@ async function renderManageDataSourcePage() {
             displayColumnsTable(null); 
         } else {
             // Don't let name and description be edited for existing sets
-            nameInput.disabled = true;
-            descriptionInput.disabled = true;
+            // nameInput.disabled = true;
+            // descriptionInput.disabled = true;
+            nameInput.disabled = false;
+            descriptionInput.disabled = false;
             dataSourceDrpDwn.disabled = true;
 
             const selectedDataSet = allDataSets.find(ds => ds.DataSetID == selectedId);
