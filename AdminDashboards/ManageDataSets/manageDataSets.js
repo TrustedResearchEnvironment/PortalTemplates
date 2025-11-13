@@ -345,9 +345,9 @@ async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
         let folderId = fetchedData.id;
         let folderName = fetchedData.name;
         
-        if (dataSetID === "new" || !folderId) {
+        if (dataSetID === "new" || !folderName) {
             // Create the dropdown HTML with the fetched tables
-            const optionsHtml = folders.map(folder => `<option value="${folder.FolderName}">${folder.FolderName}</option>`).join('');
+            const optionsHtml = folders.map(folder => `<option value="${folder.folderId}">${folder.FolderName}</option>`).join('');
 
             rowHtml = `
             <tr>
@@ -1432,70 +1432,7 @@ async function fetchDataSetFolderValue(data_set_id) {
 
 // Data Set Field Table Rendering Functions
 
-/**
- * Renders the row for selecting a Folder.
- * @param {HTMLElement} tbody The table body to append the row to.
- * @param {object} dataSource The data source object.
- */
-async function renderFolderSelectorDataSetFields(tbody, dataSource, dataSetID) {
-    tbody.innerHTML = `<tr><td>Folder Name</td><td>Loading folders...</td></tr>`;
 
-    try {
-        console.log("DataSource in Folder Selector:", dataSource);
-        const folders = await fetchSubFolders(dataSource.DataSourceID);
-        console.log("Fetched folders:", folders);
-
-        // Await the result from your function
-        const fetchedData = await fetchDataSetFolderValue(dataSetID);
-        console.log("Fetched DataSet Field Value 2:", fetchedData);
-        let folderId = fetchedData.id;
-        let folderName = fetchedData.name;
-        
-        if (dataSetID === "new" || !folderId) {
-            // Create the dropdown HTML with the fetched tables
-            const optionsHtml = folders.map(folder => `<option value="${folder.FolderName}">${folder.FolderName}</option>`).join('');
-
-            rowHtml = `
-            <tr>
-                <td>Folder Name <input type="text" hidden="true"></td>
-                <td width="70%">
-                    <select id="tableNameSelector" class="form-control selectpicker bg-white">
-                        <option value="-1">Select a Folder</option>
-                        ${optionsHtml}
-                    </select>
-                    <div class="validation-message"></div>
-                </td>
-            </tr>`;
-
-        } else {
-
-            const filteredFolders = folders.filter(folder => folder.Id != folderId);
-
-            // Now, create the options HTML from the *filtered* array.
-            const optionsHtml = filteredFolders
-                .map(folder => `<option value="${folder.Id}" title="${folder.FolderName}">${folder.FolderName}</option>`)
-                .join('');
-
-            rowHtml = `
-                <tr>
-                    <td>Folder Name <input type="text" hidden="true"></td>
-                    <td width="70%">
-                        <select id="tableNameSelector" class="form-control selectpicker" style="background-color: #E9ECEF" disabled>
-                            <option value="${folderName}" title="${folderName}" selected>${folderName}</option>
-                            ${optionsHtml}
-                        </select>
-                        <div class="validation-message"></div>
-                    </td>
-                </tr>`;
-        }
-        
-        tbody.innerHTML = rowHtml;
-
-    } catch (error) {
-        console.error("Failed to fetch folders:", error);
-        tbody.innerHTML = `<tr><td>Folder Name</td><td class="text-danger">Error loading folders.</td></tr>`;
-    }
-}
 
 
 async function fetchSubFolders(data_source_id) {
